@@ -24,6 +24,7 @@ namespace WpfApp1
             else if (rb == NavJsonTool) MainFrame.Navigate(new JsonToolPage());
             else if (rb == NavJsonDiff) MainFrame.Navigate(new JsonDiffPage());
             else if (rb == NavDrawBoard) MainFrame.Navigate(new DrawBoardPage());
+            else if (rb == NavInvoice) MainFrame.Navigate(new InvoicePrintPage());
             else if (rb == NavSettings) MainFrame.Navigate(new SettingsPage());
         }
     }

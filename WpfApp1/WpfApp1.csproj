@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
     <AssemblyName>CCToolbox</AssemblyName>
-    <RootNamespace>CCToolbox</RootNamespace>
+    <RootNamespace>WpfApp1</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

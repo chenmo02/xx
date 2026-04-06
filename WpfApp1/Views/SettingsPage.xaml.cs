@@ -24,7 +24,6 @@ namespace WpfApp1.Views
         private const uint CF_UNICODETEXT = 13;
 
         private readonly string _configPath;
-        private DispatcherTimer? _timestampTimer;
 
         public SettingsPage()
         {
@@ -35,7 +34,6 @@ namespace WpfApp1.Views
             _configPath = Path.Combine(exeDir, "settings.json");
 
             LoadSettings();
-            StartTimestampTimer();
             LoadAboutInfo();
         }
 
@@ -102,115 +100,49 @@ namespace WpfApp1.Views
         }
 
         // ═══════════════════════════════════════
-        // 时间戳转换
+        // 身份信息生成
         // ═══════════════════════════════════════
 
-        private void StartTimestampTimer()
+        private void BtnGenerateIdentity_Click(object sender, RoutedEventArgs e)
         {
-            UpdateCurrentTimestamp();
-            _timestampTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _timestampTimer.Tick += (_, _) => UpdateCurrentTimestamp();
-            _timestampTimer.Start();
+            if (!int.TryParse(TxtIdentityCount.Text.Trim(), out var count) || count < 1)
+                count = 1;
+            if (count > 50) count = 50;
+
+            var sb = new StringBuilder();
+            var random = new Random();
+
+            string[] names = { "张伟", "王芳", "李娜", "刘洋", "陈静", "杨勇", "赵强", "黄敏", "周军", "吴丽" };
+            string[] companies = { "腾讯", "阿里巴巴", "百度", "字节跳动", "美团", "京东", "网易", "华为", "小米", "滴滴" };
+            string[] cities = { "北京", "上海", "广州", "深圳", "杭州", "成都", "武汉", "西安", "南京", "苏州" };
+            string[] prefixes = { "130", "131", "132", "133", "135", "136", "137", "138", "139", "150", "158", "159", "186", "188", "189" };
+
+            for (int i = 0; i < count; i++)
+            {
+                var name = names[random.Next(names.Length)];
+                var id = $"110101{DateTime.Now.Year - random.Next(20, 50):D4}{random.Next(1, 13):D2}{random.Next(1, 29):D2}{random.Next(1000, 9999)}";
+                var city = cities[random.Next(cities.Length)];
+                var company = companies[random.Next(companies.Length)];
+                var phone = $"{prefixes[random.Next(prefixes.Length)]}{random.Next(10000000, 99999999)}";
+                
+                sb.AppendLine($"姓名: {name}");
+                sb.AppendLine($"手机号: {phone}");
+                sb.AppendLine($"身份证: {id}");
+                sb.AppendLine($"地址: {city}市某某区某某路{random.Next(1, 999)}号");
+                sb.AppendLine($"单位: {company}有限公司");
+                sb.AppendLine($"邮编: {random.Next(100000, 999999)}");
+                sb.AppendLine("-----------------------------------");
+            }
+
+            TxtIdentityResult.Text = sb.ToString().TrimEnd();
         }
 
-        private void UpdateCurrentTimestamp()
+        private void BtnCopyIdentity_Click(object sender, RoutedEventArgs e)
         {
-            var now = DateTimeOffset.Now;
-            TxtCurrentTimestamp.Text = $"{now.ToUnixTimeSeconds()}  （{now:yyyy-MM-dd HH:mm:ss}）";
-        }
-
-        private void BtnCopyCurrentTimestamp_Click(object sender, RoutedEventArgs e)
-        {
-            var ts = DateTimeOffset.Now.ToUnixTimeSeconds().ToString();
-            SafeCopyToClipboard(ts);
-            ShowToast("✅ 已复制当前时间戳");
-        }
-
-        private void BtnTimestampToDate_Click(object sender, RoutedEventArgs e)
-        {
-            var input = TxtTimestampInput.Text.Trim();
-            if (string.IsNullOrEmpty(input))
+            if (!string.IsNullOrEmpty(TxtIdentityResult.Text))
             {
-                TxtTimestampResult.Text = "请输入时间戳";
-                TxtTimestampResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E53E3E"));
-                return;
-            }
-
-            if (!long.TryParse(input, out var ts))
-            {
-                TxtTimestampResult.Text = "❌ 无效的时间戳";
-                TxtTimestampResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E53E3E"));
-                return;
-            }
-
-            try
-            {
-                DateTimeOffset dto;
-                string unit;
-
-                // 自动识别秒/毫秒：大于 1e12 认为是毫秒
-                if (ts > 9_999_999_999L)
-                {
-                    dto = DateTimeOffset.FromUnixTimeMilliseconds(ts).ToLocalTime();
-                    unit = "毫秒";
-                }
-                else
-                {
-                    dto = DateTimeOffset.FromUnixTimeSeconds(ts).ToLocalTime();
-                    unit = "秒";
-                }
-
-                TxtTimestampResult.Text = $"{dto:yyyy-MM-dd HH:mm:ss.fff}  （{unit}级）";
-                TxtTimestampResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#333"));
-            }
-            catch
-            {
-                TxtTimestampResult.Text = "❌ 转换失败，时间戳超出范围";
-                TxtTimestampResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E53E3E"));
-            }
-        }
-
-        private void BtnDateToTimestamp_Click(object sender, RoutedEventArgs e)
-        {
-            var input = TxtDateInput.Text.Trim();
-            if (string.IsNullOrEmpty(input))
-            {
-                TxtDateResult.Text = "请输入日期时间";
-                TxtDateResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E53E3E"));
-                return;
-            }
-
-            // 支持多种常见格式
-            string[] formats = [
-                "yyyy-MM-dd HH:mm:ss",
-                "yyyy-MM-dd HH:mm",
-                "yyyy-MM-dd",
-                "yyyy/MM/dd HH:mm:ss",
-                "yyyy/MM/dd HH:mm",
-                "yyyy/MM/dd",
-                "yyyyMMdd HHmmss",
-                "yyyyMMdd",
-                "MM/dd/yyyy HH:mm:ss",
-                "MM/dd/yyyy"
-            ];
-
-            if (DateTimeOffset.TryParseExact(input, formats, CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeLocal, out var dto))
-            {
-                TxtDateResult.Text = $"秒: {dto.ToUnixTimeSeconds()}    毫秒: {dto.ToUnixTimeMilliseconds()}";
-                TxtDateResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#333"));
-            }
-            else
-            {
-                TxtDateResult.Text = "❌ 无法识别的日期格式";
-                TxtDateResult.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E53E3E"));
+                SafeCopyToClipboard(TxtIdentityResult.Text);
+                ShowToast("✅ 已复制");
             }
         }
 

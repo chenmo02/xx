@@ -71,8 +71,15 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 占位 -->
-                <Border Margin="8,0,0,0"/>
+                <!-- 占位 → 发票打印 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToInvoice_Click">
+                    <StackPanel>
+                        <TextBlock Text="🖨️" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="发票打印工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="PDF/OFD 排版打印" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
             </UniformGrid>
 
             <!-- 系统信息 -->
@@ -89,7 +96,7 @@
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                         <TextBlock Text="版本" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtVersion" Text="v1.0.0" FontSize="18" FontWeight="Bold"
+                        <TextBlock x:Name="TxtVersion" Text="v1.1.0" FontSize="18" FontWeight="Bold"
                                    Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 

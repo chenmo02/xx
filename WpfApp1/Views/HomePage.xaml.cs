@@ -43,5 +43,11 @@ namespace WpfApp1.Views
             if (Application.Current.MainWindow is MainWindow mw)
             { mw.MainFrame.Navigate(new DrawBoardPage()); mw.NavDrawBoard.IsChecked = true; }
         }
+
+        private void GoToInvoice_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mw)
+            { mw.MainFrame.Navigate(new InvoicePrintPage()); mw.NavInvoice.IsChecked = true; }
+        }
     }
 }

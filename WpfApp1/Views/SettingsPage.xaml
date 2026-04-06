@@ -244,66 +244,35 @@
             <TextBlock Text="常用的开发与运维辅助工具" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
 
             <!-- ═══════════════════════════════════════ -->
-            <!-- 3. 时间戳转换 -->
+            <!-- 3. 身份信息生成 -->
             <!-- ═══════════════════════════════════════ -->
             <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
-                    <TextBlock Text="🕐 时间戳转换" Style="{StaticResource CardTitle}"/>
-                    <TextBlock Text="Unix 时间戳 ↔ 可读日期时间互转（支持秒/毫秒自动识别）" Style="{StaticResource CardDesc}"/>
-
-                    <!-- 当前时间戳 -->
-                    <Border Background="#F0F4FF" CornerRadius="6" Padding="14,10" Margin="0,0,0,14">
-                        <DockPanel>
-                            <TextBlock Text="⏱ 当前时间戳：" FontSize="13" Foreground="#555" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="TxtCurrentTimestamp" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="#4E6EF2" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                            <Button Content="📋 复制" Style="{StaticResource CopyButton}"
-                                    DockPanel.Dock="Right" HorizontalAlignment="Right"
-                                    Click="BtnCopyCurrentTimestamp_Click"/>
-                        </DockPanel>
-                    </Border>
+                    <TextBlock Text="👤 身份信息生成" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="生成测试用的随机姓名、身份证、地址等信息" Style="{StaticResource CardDesc}"/>
 
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="10"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-
-                        <!-- 时间戳 → 日期 -->
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="时间戳 → 日期时间" Style="{StaticResource LabelText}"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TxtTimestampInput" Style="{StaticResource InputBox}"
-                                         ToolTip="输入 Unix 时间戳（秒或毫秒）"/>
-                                <Button Grid.Column="1" Content="转换 →" Style="{StaticResource ToolMiniButton}"
-                                        Margin="6,0,0,0" Click="BtnTimestampToDate_Click"/>
-                            </Grid>
-                            <TextBox x:Name="TxtTimestampResult" Style="{StaticResource ResultBox}" Margin="0,6,0,0"
-                                     Text="等待输入..." Foreground="#999"/>
+                            <TextBlock Text="生成数量" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtIdentityCount" Style="{StaticResource InputBox}" Text="1" Width="70"/>
                         </StackPanel>
-
-                        <!-- 日期 → 时间戳 -->
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="日期时间 → 时间戳" Style="{StaticResource LabelText}"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TxtDateInput" Style="{StaticResource InputBox}"
-                                         ToolTip="输入日期时间，如 2026-04-06 12:00:00"/>
-                                <Button Grid.Column="1" Content="转换 →" Style="{StaticResource ToolMiniButton}"
-                                        Margin="6,0,0,0" Click="BtnDateToTimestamp_Click"/>
-                            </Grid>
-                            <TextBox x:Name="TxtDateResult" Style="{StaticResource ResultBox}" Margin="0,6,0,0"
-                                     Text="等待输入..." Foreground="#999"/>
-                        </StackPanel>
+                        <Button Grid.Column="2" Content="🎲 生成身份信息" Style="{StaticResource ToolMiniButton}"
+                                VerticalAlignment="Bottom" Click="BtnGenerateIdentity_Click"/>
                     </Grid>
+
+                    <TextBox x:Name="TxtIdentityResult" Style="{StaticResource ResultBox}" Margin="0,10,0,0"
+                             Height="120" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+
+                    <DockPanel Margin="0,6,0,0">
+                        <Button Content="📋 全部复制" Style="{StaticResource CopyButton}"
+                                DockPanel.Dock="Right" Click="BtnCopyIdentity_Click"/>
+                        <TextBlock/>
+                    </DockPanel>
                 </StackPanel>
             </Border>
 
@@ -598,46 +567,24 @@
             <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
                     <TextBlock Text="ℹ️ 关于" Style="{StaticResource CardTitle}"/>
-                    <TextBlock Text="应用程序信息" Style="{StaticResource CardDesc}"/>
-
-                    <Grid>
+                    <Grid Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                            <TextBlock Text="版本" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                            <TextBlock Text="v1.0.0" FontSize="16" FontWeight="Bold"
-                                       Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                            <TextBlock Text="运行时：" FontSize="13" Foreground="#555" Margin="0,0,0,4"/>
+                            <TextBlock Text="操作系统：" FontSize="13" Foreground="#555" Margin="0,0,0,4"/>
+                            <TextBlock Text="构建日期：" FontSize="13" Foreground="#555"/>
                         </StackPanel>
-
-                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                            <TextBlock Text="运行环境" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="TxtAboutRuntime" Text=".NET 10" FontSize="16" FontWeight="Bold"
-                                       Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                            <TextBlock Text="操作系统" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="TxtAboutOS" FontSize="16" FontWeight="Bold"
-                                       Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                            <TextBlock Text="今日日期" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="TxtAboutDate" FontSize="16" FontWeight="Bold"
-                                       Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock x:Name="TxtAboutRuntime" FontSize="13" Foreground="#333" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="TxtAboutOS" FontSize="13" Foreground="#333" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="TxtAboutDate" FontSize="13" Foreground="#333" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
             </Border>
-
-            <!-- 底部留白 -->
-            <Border Height="20"/>
-
         </StackPanel>
     </ScrollViewer>
 </Page>
