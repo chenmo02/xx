@@ -1,0 +1,131 @@
+<Page x:Class="WpfApp1.Views.CsvViewerPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="#F5F6F8">
+
+    <Page.Resources>
+        <Style x:Key="RBtn" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+
+    <Grid Margin="20,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="📋 CSV 预览工具" FontSize="20" FontWeight="Bold" Foreground="#222"
+                       VerticalAlignment="Center" DockPanel.Dock="Left"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="BtnOpen" Content="📂 打开文件" Padding="14,7" FontSize="12"
+                        Background="#4E6EF2" Foreground="White" Style="{StaticResource RBtn}" Click="BtnOpen_Click"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- 文件信息栏 -->
+        <Border Grid.Row="1" Background="White" CornerRadius="6" Padding="14,10" Margin="0,0,0,10"
+                BorderBrush="#E5E5E5" BorderThickness="1">
+            <DockPanel>
+                <TextBlock x:Name="TxtFileInfo" Text="请打开一个 CSV 文件" FontSize="12.5" Foreground="#666"
+                           VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                <TextBlock x:Name="TxtEncoding" Text="" FontSize="12" Foreground="#999"
+                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+            </DockPanel>
+        </Border>
+
+        <!-- 搜索栏 -->
+        <Border Grid.Row="2" Background="White" CornerRadius="6" Padding="10,8" Margin="0,0,0,10"
+                BorderBrush="#E5E5E5" BorderThickness="1">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <TextBlock Text="🔍" FontSize="14" VerticalAlignment="Center" Margin="4,0,6,0"/>
+                    <TextBox x:Name="TxtSearch" Width="280" Padding="8,5" FontSize="13"
+                             Background="#F5F6F8" BorderBrush="#E5E5E5" BorderThickness="1"
+                             KeyDown="TxtSearch_KeyDown"/>
+                    <Button Content="查找" Padding="12,5" FontSize="12" Margin="6,0,0,0"
+                            Background="#4E6EF2" Foreground="White" Style="{StaticResource RBtn}" Click="BtnSearch_Click"/>
+                    <Button Content="下一个" Padding="10,5" FontSize="12" Margin="4,0,0,0"
+                            Background="#6B7280" Foreground="White" Style="{StaticResource RBtn}" Click="BtnNextMatch_Click"/>
+                    <Button Content="清除" Padding="10,5" FontSize="12" Margin="4,0,0,0"
+                            Background="#E5E5E5" Foreground="#666" Style="{StaticResource RBtn}" Click="BtnClearSearch_Click"/>
+                </StackPanel>
+                <TextBlock x:Name="TxtMatchInfo" Text="" FontSize="12" Foreground="#999"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0"/>
+            </DockPanel>
+        </Border>
+
+        <!-- 数据表格 -->
+        <Border Grid.Row="3" Background="White" CornerRadius="6" BorderBrush="#E5E5E5" BorderThickness="1">
+            <DataGrid x:Name="DgCsv" AutoGenerateColumns="True" IsReadOnly="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      Background="White" BorderThickness="0"
+                      GridLinesVisibility="All"
+                      HorizontalGridLinesBrush="#F0F0F0" VerticalGridLinesBrush="#F0F0F0"
+                      FontSize="12.5" HeadersVisibility="Column"
+                      RowHeaderWidth="0"
+                      SelectionUnit="FullRow"
+                      AlternatingRowBackground="#FAFBFC"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                      EnableRowVirtualization="True" EnableColumnVirtualization="True">
+                <DataGrid.ColumnHeaderStyle>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#F5F6F8"/>
+                        <Setter Property="Padding" Value="10,7"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Foreground" Value="#333"/>
+                        <Setter Property="BorderBrush" Value="#E5E5E5"/>
+                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                        <Setter Property="FontSize" Value="12.5"/>
+                    </Style>
+                </DataGrid.ColumnHeaderStyle>
+                <DataGrid.CellStyle>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="8,5"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#EDF0FF"/>
+                                <Setter Property="Foreground" Value="#222"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.CellStyle>
+            </DataGrid>
+        </Border>
+
+        <!-- 底部状态栏 -->
+        <Border Grid.Row="4" Margin="0,8,0,0">
+            <DockPanel>
+                <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#999"
+                           VerticalAlignment="Center" DockPanel.Dock="Left"/>
+                <TextBlock x:Name="TxtRowCol" Text="" FontSize="11" Foreground="#999"
+                           VerticalAlignment="Center" HorizontalAlignment="Right"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Page>
