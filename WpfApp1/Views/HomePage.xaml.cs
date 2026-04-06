@@ -1,5 +1,7 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
+using WpfApp1;
 
 namespace WpfApp1.Views
 {
@@ -34,6 +36,12 @@ namespace WpfApp1.Views
         {
             if (Application.Current.MainWindow is MainWindow mw)
             { mw.MainFrame.Navigate(new JsonDiffPage()); mw.NavJsonDiff.IsChecked = true; }
+        }
+
+        private void GoToDrawBoard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mw)
+            { mw.MainFrame.Navigate(new DrawBoardPage()); mw.NavDrawBoard.IsChecked = true; }
         }
     }
 }

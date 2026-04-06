@@ -18,7 +18,7 @@
             <!-- 功能卡片 -->
             <TextBlock Text="快捷功能" FontSize="15" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,10"/>
 
-            <UniformGrid Columns="4" Margin="0,0,0,18">
+            <UniformGrid Columns="3" Margin="0,0,0,8">
                 <!-- 数据导入 -->
                 <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
                         BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToImport_Click">
@@ -40,7 +40,7 @@
                 </Border>
 
                 <!-- JSON 工具 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
                         BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonTool_Click">
                     <StackPanel>
                         <TextBlock Text="📄" FontSize="28" Margin="0,0,0,10"/>
@@ -48,9 +48,11 @@
                         <TextBlock Text="格式化、校验、嵌套网格" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
+            </UniformGrid>
 
+            <UniformGrid Columns="3" Margin="0,0,0,18">
                 <!-- JSON 对比 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
                         BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonDiff_Click">
                     <StackPanel>
                         <TextBlock Text="🔀" FontSize="28" Margin="0,0,0,10"/>
@@ -58,6 +60,19 @@
                         <TextBlock Text="深度对比结构与值差异" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
+
+                <!-- Excalidraw 画板 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToDrawBoard_Click">
+                    <StackPanel>
+                        <TextBlock Text="🎨" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="Excalidraw 画板" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="手绘风格白板，流程图绘制" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 占位 -->
+                <Border Margin="8,0,0,0"/>
             </UniformGrid>
 
             <!-- 系统信息 -->

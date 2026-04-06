@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using WpfApp1.Views;
 
 namespace WpfApp1
 {
@@ -8,7 +9,7 @@ namespace WpfApp1
         public MainWindow()
         {
             InitializeComponent();
-            MainFrame.Navigate(new Views.HomePage());
+            MainFrame.Navigate(new HomePage());
         }
 
         private void NavButton_Checked(object sender, RoutedEventArgs e)
@@ -17,12 +18,13 @@ namespace WpfApp1
             var rb = sender as RadioButton;
             if (rb == null) return;
 
-            if (rb == NavHome) MainFrame.Navigate(new Views.HomePage());
-            else if (rb == NavImport) MainFrame.Navigate(new Views.DataImportPage());
-            else if (rb == NavCsvViewer) MainFrame.Navigate(new Views.CsvViewerPage());
-            else if (rb == NavJsonTool) MainFrame.Navigate(new Views.JsonToolPage());
-            else if (rb == NavJsonDiff) MainFrame.Navigate(new Views.JsonDiffPage());
-            else if (rb == NavSettings) MainFrame.Navigate(new Views.SettingsPage());
+            if (rb == NavHome) MainFrame.Navigate(new HomePage());
+            else if (rb == NavImport) MainFrame.Navigate(new DataImportPage());
+            else if (rb == NavCsvViewer) MainFrame.Navigate(new CsvViewerPage());
+            else if (rb == NavJsonTool) MainFrame.Navigate(new JsonToolPage());
+            else if (rb == NavJsonDiff) MainFrame.Navigate(new JsonDiffPage());
+            else if (rb == NavDrawBoard) MainFrame.Navigate(new DrawBoardPage());
+            else if (rb == NavSettings) MainFrame.Navigate(new SettingsPage());
         }
     }
 }
