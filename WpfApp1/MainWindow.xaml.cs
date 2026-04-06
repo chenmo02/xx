@@ -21,6 +21,7 @@ namespace WpfApp1
             else if (rb == NavImport) MainFrame.Navigate(new Views.DataImportPage());
             else if (rb == NavCsvViewer) MainFrame.Navigate(new Views.CsvViewerPage());
             else if (rb == NavJsonTool) MainFrame.Navigate(new Views.JsonToolPage());
+            else if (rb == NavJsonDiff) MainFrame.Navigate(new Views.JsonDiffPage());
             else if (rb == NavSettings) MainFrame.Navigate(new Views.SettingsPage());
         }
     }

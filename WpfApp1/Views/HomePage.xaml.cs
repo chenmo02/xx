@@ -29,5 +29,11 @@ namespace WpfApp1.Views
             if (Application.Current.MainWindow is MainWindow mw)
             { mw.MainFrame.Navigate(new JsonToolPage()); mw.NavJsonTool.IsChecked = true; }
         }
+
+        private void GoToJsonDiff_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mw)
+            { mw.MainFrame.Navigate(new JsonDiffPage()); mw.NavJsonDiff.IsChecked = true; }
+        }
     }
 }

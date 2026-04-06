@@ -18,14 +18,14 @@
             <!-- 功能卡片 -->
             <TextBlock Text="快捷功能" FontSize="15" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,10"/>
 
-            <UniformGrid Columns="3" Margin="0,0,0,18">
+            <UniformGrid Columns="4" Margin="0,0,0,18">
                 <!-- 数据导入 -->
                 <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
                         BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToImport_Click">
                     <StackPanel>
                         <TextBlock Text="📊" FontSize="28" Margin="0,0,0,10"/>
                         <TextBlock Text="数据导入临时表" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="Excel / CSV → PG / SQL Server 临时表 SQL" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="Excel / CSV → 临时表 SQL" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
@@ -35,17 +35,27 @@
                     <StackPanel>
                         <TextBlock Text="📋" FontSize="28" Margin="0,0,0,10"/>
                         <TextBlock Text="CSV 预览工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="无损打开 CSV，支持搜索查找数据" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="无损打开，支持搜索查找" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
                 <!-- JSON 工具 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
                         BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonTool_Click">
                     <StackPanel>
                         <TextBlock Text="📄" FontSize="28" Margin="0,0,0,10"/>
                         <TextBlock Text="JSON 处理工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="编辑、校验、格式化、嵌套网格查看" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="格式化、校验、嵌套网格" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- JSON 对比 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonDiff_Click">
+                    <StackPanel>
+                        <TextBlock Text="🔀" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="JSON 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="深度对比结构与值差异" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
             </UniformGrid>

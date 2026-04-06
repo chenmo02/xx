@@ -92,6 +92,9 @@
                         <RadioButton x:Name="NavJsonTool" Content="JSON 处理工具" Tag="📄"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
+                        <RadioButton x:Name="NavJsonDiff" Content="JSON 对比工具" Tag="🔀"
+                                     Style="{StaticResource NavButtonStyle}" GroupName="Nav"
+                                     Checked="NavButton_Checked"/>
 
                         <Border Height="1" Background="#EBEBEB" Margin="14,8"/>
 
