@@ -96,7 +96,7 @@
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                         <TextBlock Text="版本" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtVersion" Text="v1.1.0" FontSize="18" FontWeight="Bold"
+                        <TextBlock x:Name="TxtVersion" Text="v1.5.0" FontSize="18" FontWeight="Bold"
                                    Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 

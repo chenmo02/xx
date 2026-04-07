@@ -1,1 +1,1 @@
-taskkill /f /im CCToolbox.exe 2>nul & cd /d D:\桌面\DM\WpfApp1\WpfApp1 && dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o ..\publish 2>&1
+dotnet publish C:\Users\xx\Desktop\DDAMX\xx-main\xx-main\WpfApp1\WpfApp1.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o C:\Users\xx\Desktop\DDAMX\xx-main\xx-main\publish

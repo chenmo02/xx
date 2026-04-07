@@ -91,15 +91,15 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition/>
-                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="36"/>
                 </Grid.ColumnDefinitions>
-                <Border x:Name="Border" Grid.ColumnSpan="2" CornerRadius="6"
+                <Border x:Name="Border" Grid.ColumnSpan="2" CornerRadius="8"
                         Background="{TemplateBinding Background}"
                         BorderBrush="#D1D5DB" BorderThickness="1"/>
-                <Border Grid.Column="0" CornerRadius="6,0,0,6" Background="Transparent"/>
+                <Border Grid.Column="0" CornerRadius="8,0,0,8" Background="Transparent"/>
                 <!-- 箭头 -->
                 <Path x:Name="Arrow" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Data="M 0 0 L 5 5 L 10 0" Stroke="#666" StrokeThickness="1.5" Fill="Transparent"/>
+                      Data="M 0 0 L 5 5 L 10 0" Stroke="#888" StrokeThickness="1.5" Fill="Transparent"/>
             </Grid>
             <ControlTemplate.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
@@ -118,11 +118,12 @@
         <!-- ComboBox 主样式 -->
         <Style TargetType="ComboBox">
             <Setter Property="Foreground" Value="#333"/>
-            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Background" Value="#F7F8FA"/>
             <Setter Property="BorderBrush" Value="#D1D5DB"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="MinHeight" Value="36"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Template">
@@ -140,7 +141,7 @@
                                               Content="{TemplateBinding SelectionBoxItem}"
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                               ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                              Margin="10,0,32,0"
+                                              Margin="12,0,36,0"
                                               VerticalAlignment="Center"
                                               HorizontalAlignment="Left"/>
                             <Popup x:Name="Popup" Placement="Bottom"
@@ -151,14 +152,14 @@
                                       MinWidth="{TemplateBinding ActualWidth}"
                                       MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                     <Border x:Name="DropDownBorder"
-                                            Background="White" CornerRadius="6"
+                                            Background="White" CornerRadius="8"
                                             BorderBrush="#E0E0E0" BorderThickness="1"
                                             Margin="0,2,0,0">
                                         <Border.Effect>
-                                            <DropShadowEffect ShadowDepth="2" BlurRadius="8" Opacity="0.12" Color="#000"/>
+                                            <DropShadowEffect ShadowDepth="2" BlurRadius="10" Opacity="0.12" Color="#000"/>
                                         </Border.Effect>
                                     </Border>
-                                    <ScrollViewer Margin="0,4,0,4" SnapsToDevicePixels="True">
+                                    <ScrollViewer Margin="0,6,0,6" SnapsToDevicePixels="True">
                                         <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
                                     </ScrollViewer>
                                 </Grid>
@@ -172,14 +173,14 @@
         <!-- ComboBoxItem 选项样式 -->
         <Style TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="#333"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,8"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBoxItem">
                         <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
-                                Margin="4,1" CornerRadius="4">
+                                Margin="4,1" CornerRadius="6">
                             <ContentPresenter VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -450,8 +451,7 @@
 
                     <!-- 打印质量 -->
                     <TextBlock Text="打印质量" Style="{StaticResource LabelText}"/>
-                    <ComboBox x:Name="CmbQuality" Padding="8,6" FontSize="12.5" Margin="0,0,0,16"
-                              Background="#F7F8FA" BorderBrush="#D1D5DB" SelectedIndex="1">
+                    <ComboBox x:Name="CmbQuality" Margin="0,0,0,16" SelectedIndex="1">
                         <ComboBoxItem Content="草稿 (150 DPI)"/>
                         <ComboBoxItem Content="标准 (300 DPI)"/>
                         <ComboBoxItem Content="高画质 (600 DPI)"/>

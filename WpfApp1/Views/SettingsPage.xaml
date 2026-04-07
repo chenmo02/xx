@@ -162,6 +162,116 @@
             <Setter Property="Foreground" Value="#333"/>
             <Setter Property="IsReadOnly" Value="True"/>
         </Style>
+
+        <!-- ═══ 美化 ComboBox 下拉框 ═══ -->
+        <ControlTemplate x:Key="ComboBoxToggleButton" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="36"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" CornerRadius="8"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="#D1D5DB" BorderThickness="1"/>
+                <Border Grid.Column="0" CornerRadius="8,0,0,8" Background="Transparent"/>
+                <Path x:Name="Arrow" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 5 5 L 10 0" Stroke="#888" StrokeThickness="1.5" Fill="Transparent"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Border" Property="BorderBrush" Value="#4E6EF2"/>
+                    <Setter TargetName="Arrow" Property="Stroke" Value="#4E6EF2"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter TargetName="Border" Property="BorderBrush" Value="#4E6EF2"/>
+                    <Setter TargetName="Border" Property="Background" Value="#F8F9FF"/>
+                    <Setter TargetName="Arrow" Property="Data" Value="M 0 5 L 5 0 L 10 5"/>
+                    <Setter TargetName="Arrow" Property="Stroke" Value="#4E6EF2"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#333"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="#F7F8FA"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Template="{StaticResource ComboBoxToggleButton}"
+                                          Background="{TemplateBinding Background}"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              Margin="12,0,36,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border x:Name="DropDownBorder"
+                                            Background="White" CornerRadius="8"
+                                            BorderBrush="#E0E0E0" BorderThickness="1"
+                                            Margin="0,2,0,0">
+                                        <Border.Effect>
+                                            <DropShadowEffect ShadowDepth="2" BlurRadius="10" Opacity="0.12" Color="#000"/>
+                                        </Border.Effect>
+                                    </Border>
+                                    <ScrollViewer Margin="0,6,0,6" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="#333"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                Margin="4,1" CornerRadius="6">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EDF0FF"/>
+                                <Setter Property="Foreground" Value="#4E6EF2"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E0E7FF"/>
+                                <Setter Property="Foreground" Value="#3B5BDB"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32,24">
@@ -190,8 +300,7 @@
 
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="默认数据库类型" Style="{StaticResource LabelText}"/>
-                            <ComboBox x:Name="CmbDefaultDbType" Padding="10,8" FontSize="13"
-                                      Background="#F7F8FA" BorderBrush="#D1D5DB" SelectedIndex="0">
+                            <ComboBox x:Name="CmbDefaultDbType" SelectedIndex="0">
                                 <ComboBoxItem Content="PostgreSQL"/>
                                 <ComboBoxItem Content="SQL Server"/>
                             </ComboBox>
