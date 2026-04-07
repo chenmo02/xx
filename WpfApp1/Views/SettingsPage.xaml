@@ -1,0 +1,590 @@
+﻿<Page x:Class="WpfApp1.Views.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="#F5F6F8">
+
+    <Page.Resources>
+        <!-- 卡片样式 -->
+        <Style x:Key="CardBorder" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="24,20"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="BorderBrush" Value="#E5E5E5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <!-- 卡片标题 -->
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#222"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
+        <!-- 卡片描述 -->
+        <Style x:Key="CardDesc" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="#999"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+
+        <!-- 标签文字 -->
+        <Style x:Key="LabelText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
+        <!-- 输入框 -->
+        <Style x:Key="InputBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="#F7F8FA"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#333"/>
+        </Style>
+
+        <!-- 主按钮 -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#4E6EF2"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#3B5BDB"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#B0BEC5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 次要按钮 -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="Background" Value="#F0F1F5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2E4EA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 工具按钮（小型） -->
+        <Style x:Key="ToolMiniButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#4E6EF2"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#3B5BDB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 复制按钮 -->
+        <Style x:Key="CopyButton" TargetType="Button">
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Foreground" Value="#4E6EF2"/>
+            <Setter Property="Background" Value="#EDF0FF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#D6DEFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 结果文本框（只读） -->
+        <Style x:Key="ResultBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontFamily" Value="Consolas, Courier New"/>
+            <Setter Property="Background" Value="#F7F8FA"/>
+            <Setter Property="BorderBrush" Value="#E5E5E5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#333"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32,24">
+        <StackPanel MaxWidth="880">
+
+            <!-- 页面标题 -->
+            <TextBlock Text="⚙️ 系统设置" FontSize="22" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
+            <TextBlock Text="全局配置与实用小工具" FontSize="13" Foreground="#999" Margin="0,0,0,22"/>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 1. SQL 生成偏好 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="🗄️ SQL 生成偏好" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="数据导入页面的默认设置" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="默认数据库类型" Style="{StaticResource LabelText}"/>
+                            <ComboBox x:Name="CmbDefaultDbType" Padding="10,8" FontSize="13"
+                                      Background="#F7F8FA" BorderBrush="#D1D5DB" SelectedIndex="0">
+                                <ComboBoxItem Content="PostgreSQL"/>
+                                <ComboBoxItem Content="SQL Server"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="临时表前缀" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtTempTablePrefix" Style="{StaticResource InputBox}" Text="tmp_import_"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="每批 INSERT 行数" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtBatchSize" Style="{StaticResource InputBox}" Text="500"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 2. 默认路径 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="📁 默认导出路径" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="SQL 文件、CSV 导出的默认保存位置" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtDefaultExportPath" Grid.Column="0" Style="{StaticResource InputBox}"/>
+                        <Button Grid.Column="1" Content="📁 浏览" Style="{StaticResource SecondaryButton}"
+                                Margin="10,0,0,0" Click="BtnSelectExportPath_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 保存设置按钮 -->
+            <Button Content="💾 保存设置" Style="{StaticResource PrimaryButton}"
+                    Padding="28,10" FontSize="14" FontWeight="SemiBold"
+                    HorizontalAlignment="Left" Margin="0,0,0,28"
+                    Click="BtnSaveSettings_Click"/>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 分隔线 — 实用小工具区域 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Height="1" Background="#E5E5E5" Margin="0,0,0,20"/>
+            <TextBlock Text="🔧 实用小工具" FontSize="18" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
+            <TextBlock Text="常用的开发与运维辅助工具" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 3. 身份信息生成 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="👤 身份信息生成" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="生成测试用的随机姓名、身份证、地址等信息" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="生成数量" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtIdentityCount" Style="{StaticResource InputBox}" Text="1" Width="70"/>
+                        </StackPanel>
+                        <Button Grid.Column="2" Content="🎲 生成身份信息" Style="{StaticResource ToolMiniButton}"
+                                VerticalAlignment="Bottom" Click="BtnGenerateIdentity_Click"/>
+                    </Grid>
+
+                    <TextBox x:Name="TxtIdentityResult" Style="{StaticResource ResultBox}" Margin="0,10,0,0"
+                             Height="120" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+
+                    <DockPanel Margin="0,6,0,0">
+                        <Button Content="📋 全部复制" Style="{StaticResource CopyButton}"
+                                DockPanel.Dock="Right" Click="BtnCopyIdentity_Click"/>
+                        <TextBlock/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 4. Base64 编解码 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="🔐 Base64 编解码" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="文本与 Base64 互转" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="原始文本" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtBase64Input" Style="{StaticResource InputBox}"
+                                     Height="80" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,14,10,0">
+                            <Button Content="编码 →" Style="{StaticResource ToolMiniButton}"
+                                    Margin="0,0,0,6" Click="BtnBase64Encode_Click"/>
+                            <Button Content="← 解码" Style="{StaticResource ToolMiniButton}"
+                                    Click="BtnBase64Decode_Click"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <DockPanel>
+                                <TextBlock Text="Base64" Style="{StaticResource LabelText}"/>
+                                <Button Content="📋 复制" Style="{StaticResource CopyButton}"
+                                        DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                        Margin="0,0,0,4" Click="BtnCopyBase64Result_Click"/>
+                            </DockPanel>
+                            <TextBox x:Name="TxtBase64Output" Style="{StaticResource ResultBox}"
+                                     Height="80" TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 5. UUID / GUID 生成 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="🆔 UUID / GUID 生成器" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="一键生成随机 UUID，支持批量" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="生成数量" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtUuidCount" Style="{StaticResource InputBox}" Text="1" Width="70"/>
+                        </StackPanel>
+
+                        <CheckBox x:Name="ChkUuidUppercase" Grid.Column="2" Content="大写"
+                                  VerticalAlignment="Bottom" Margin="0,0,0,8" FontSize="13"/>
+
+                        <CheckBox x:Name="ChkUuidNoDash" Grid.Column="4" Content="无连字符"
+                                  VerticalAlignment="Bottom" Margin="0,0,0,8" FontSize="13"/>
+
+                        <Button Grid.Column="6" Content="🎲 生成" Style="{StaticResource ToolMiniButton}"
+                                VerticalAlignment="Bottom" Click="BtnGenerateUuid_Click"/>
+                    </Grid>
+
+                    <TextBox x:Name="TxtUuidResult" Style="{StaticResource ResultBox}" Margin="0,10,0,0"
+                             Height="60" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+
+                    <DockPanel Margin="0,6,0,0">
+                        <Button Content="📋 全部复制" Style="{StaticResource CopyButton}"
+                                DockPanel.Dock="Right" Click="BtnCopyUuid_Click"/>
+                        <TextBlock/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 6. 文本哈希计算 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="🔒 文本哈希计算" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="计算文本的 MD5 / SHA1 / SHA256 哈希值" Style="{StaticResource CardDesc}"/>
+
+                    <TextBlock Text="输入文本" Style="{StaticResource LabelText}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtHashInput" Style="{StaticResource InputBox}"
+                                 Height="60" TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"/>
+                        <Button Grid.Column="1" Content="计算" Style="{StaticResource ToolMiniButton}"
+                                Margin="8,0,0,0" VerticalAlignment="Bottom" Click="BtnCalcHash_Click"/>
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="MD5" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#4E6EF2" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtHashMd5" Grid.Row="0" Grid.Column="1" Style="{StaticResource ResultBox}"/>
+                        <Button Grid.Row="0" Grid.Column="2" Content="📋" Style="{StaticResource CopyButton}"
+                                Margin="6,0,0,0" Click="BtnCopyHashMd5_Click"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="SHA1" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#4E6EF2" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtHashSha1" Grid.Row="2" Grid.Column="1" Style="{StaticResource ResultBox}"/>
+                        <Button Grid.Row="2" Grid.Column="2" Content="📋" Style="{StaticResource CopyButton}"
+                                Margin="6,0,0,0" Click="BtnCopyHashSha1_Click"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="SHA256" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#4E6EF2" VerticalAlignment="Center"/>
+                        <TextBox x:Name="TxtHashSha256" Grid.Row="4" Grid.Column="1" Style="{StaticResource ResultBox}"/>
+                        <Button Grid.Row="4" Grid.Column="2" Content="📋" Style="{StaticResource CopyButton}"
+                                Margin="6,0,0,0" Click="BtnCopyHashSha256_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 7. URL 编解码 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="🔗 URL 编解码" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="URL 编码（Percent-Encoding）与解码" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="原始文本 / URL" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtUrlInput" Style="{StaticResource InputBox}"
+                                     Height="60" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,14,10,0">
+                            <Button Content="编码 →" Style="{StaticResource ToolMiniButton}"
+                                    Margin="0,0,0,6" Click="BtnUrlEncode_Click"/>
+                            <Button Content="← 解码" Style="{StaticResource ToolMiniButton}"
+                                    Click="BtnUrlDecode_Click"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <DockPanel>
+                                <TextBlock Text="结果" Style="{StaticResource LabelText}"/>
+                                <Button Content="📋 复制" Style="{StaticResource CopyButton}"
+                                        DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                        Margin="0,0,0,4" Click="BtnCopyUrlResult_Click"/>
+                            </DockPanel>
+                            <TextBox x:Name="TxtUrlOutput" Style="{StaticResource ResultBox}"
+                                     Height="60" TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 8. 正则表达式测试 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="🔍 正则表达式测试" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="实时测试正则表达式匹配，高亮显示匹配结果" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="正则表达式" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtRegexPattern" Style="{StaticResource InputBox}"
+                                     FontFamily="Consolas, Courier New"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                            <CheckBox x:Name="ChkRegexIgnoreCase" Content="忽略大小写" FontSize="12" Margin="0,0,0,6"/>
+                            <Button Content="🔍 测试" Style="{StaticResource ToolMiniButton}" Click="BtnRegexTest_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="测试文本" Style="{StaticResource LabelText}" Margin="0,10,0,4"/>
+                    <TextBox x:Name="TxtRegexInput" Style="{StaticResource InputBox}"
+                             Height="70" TextWrapping="Wrap" AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"/>
+
+                    <DockPanel Margin="0,10,0,4">
+                        <TextBlock Text="匹配结果" Style="{StaticResource LabelText}"/>
+                        <TextBlock x:Name="TxtRegexMatchCount" FontSize="12" Foreground="#4E6EF2"
+                                   DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <TextBox x:Name="TxtRegexResult" Style="{StaticResource ResultBox}"
+                             Height="80" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 9. 文本对比（简单 Diff） -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="📝 文本对比" Style="{StaticResource CardTitle}"/>
+                    <TextBlock Text="逐行对比两段文本的差异" Style="{StaticResource CardDesc}"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="文本 A（原始）" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtDiffA" Style="{StaticResource InputBox}"
+                                     Height="100" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas, Courier New"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="文本 B（修改后）" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtDiffB" Style="{StaticResource InputBox}"
+                                     Height="100" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas, Courier New"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Content="🔍 对比差异" Style="{StaticResource ToolMiniButton}"
+                            Margin="0,10,0,0" HorizontalAlignment="Left" Click="BtnDiffCompare_Click"/>
+
+                    <Border x:Name="DiffResultPanel" Background="#F7F8FA" CornerRadius="6"
+                            Padding="14,10" Margin="0,10,0,0" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock x:Name="TxtDiffSummary" FontSize="12.5" Foreground="#555" Margin="0,0,0,8"/>
+                            <ItemsControl x:Name="DiffResultList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontFamily="Consolas, Courier New"
+                                                   FontSize="12.5" Foreground="{Binding Path=Tag, RelativeSource={RelativeSource Self}}"
+                                                   Margin="0,1"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- 10. 关于 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="ℹ️ 关于" Style="{StaticResource CardTitle}"/>
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                            <TextBlock Text="运行时：" FontSize="13" Foreground="#555" Margin="0,0,0,4"/>
+                            <TextBlock Text="操作系统：" FontSize="13" Foreground="#555" Margin="0,0,0,4"/>
+                            <TextBlock Text="构建日期：" FontSize="13" Foreground="#555"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock x:Name="TxtAboutRuntime" FontSize="13" Foreground="#333" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="TxtAboutOS" FontSize="13" Foreground="#333" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                            <TextBlock x:Name="TxtAboutDate" FontSize="13" Foreground="#333" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

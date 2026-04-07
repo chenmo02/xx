@@ -1,0 +1,11 @@
+# Visual Studio 缓存文件
+.vs/
+*.suo
+*.user
+
+# 项目编译文件
+bin/
+obj/
+
+# 其他无需上传的文件
+packages/

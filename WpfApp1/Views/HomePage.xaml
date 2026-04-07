@@ -1,0 +1,121 @@
+<Page x:Class="WpfApp1.Views.HomePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="#F5F6F8">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,22">
+        <StackPanel MaxWidth="920">
+
+            <!-- 欢迎 -->
+            <Border Background="White" CornerRadius="8" Padding="24,20" Margin="0,0,0,18"
+                    BorderBrush="#E5E5E5" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="👋 欢迎使用 CC 实施工具箱" FontSize="22" FontWeight="Bold" Foreground="#222"/>
+                    <TextBlock Text="高效、安全的数据实施辅助工具" FontSize="13" Foreground="#999" Margin="0,6,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- 功能卡片 -->
+            <TextBlock Text="快捷功能" FontSize="15" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,10"/>
+
+            <UniformGrid Columns="3" Margin="0,0,0,8">
+                <!-- 数据导入 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToImport_Click">
+                    <StackPanel>
+                        <TextBlock Text="📊" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="数据导入临时表" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="Excel / CSV → 临时表 SQL" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- CSV 预览 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToCsvViewer_Click">
+                    <StackPanel>
+                        <TextBlock Text="📋" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="CSV 预览工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="无损打开，支持搜索查找" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- JSON 工具 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonTool_Click">
+                    <StackPanel>
+                        <TextBlock Text="📄" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="JSON 处理工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="格式化、校验、嵌套网格" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <UniformGrid Columns="3" Margin="0,0,0,18">
+                <!-- JSON 对比 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonDiff_Click">
+                    <StackPanel>
+                        <TextBlock Text="🔀" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="JSON 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="深度对比结构与值差异" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Excalidraw 画板 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToDrawBoard_Click">
+                    <StackPanel>
+                        <TextBlock Text="🎨" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="Excalidraw 画板" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="手绘风格白板，流程图绘制" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 占位 → 发票打印 -->
+                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
+                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToInvoice_Click">
+                    <StackPanel>
+                        <TextBlock Text="🖨️" FontSize="28" Margin="0,0,0,10"/>
+                        <TextBlock Text="发票打印工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
+                        <TextBlock Text="PDF/OFD 排版打印" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- 系统信息 -->
+            <TextBlock Text="系统信息" FontSize="15" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,10"/>
+
+            <Border Background="White" CornerRadius="8" Padding="24,16"
+                    BorderBrush="#E5E5E5" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                        <TextBlock Text="版本" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="TxtVersion" Text="v1.1.0" FontSize="18" FontWeight="Bold"
+                                   Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" BorderBrush="#EBEBEB" BorderThickness="1,0" Padding="16,0">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="运行环境" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="TxtRuntime" Text=".NET 10" FontSize="18" FontWeight="Bold"
+                                       Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                        <TextBlock Text="今日日期" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="TxtDate" Text="2026-01-01" FontSize="18" FontWeight="Bold"
+                                   Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
