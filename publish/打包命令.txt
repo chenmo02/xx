@@ -1,1 +1,9 @@
-dotnet publish C:\Users\xx\Desktop\DDAMX\xx-main\xx-main\WpfApp1\WpfApp1.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o C:\Users\xx\Desktop\DDAMX\xx-main\xx-main\publish
+dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
+
+Output:
+artifacts\publish\win-x64-single\
+
+Notes:
+1. The main deliverable is a single CCToolbox.exe
+2. The target machine does not need a separate .NET Desktop Runtime
+3. The draw board still requires Microsoft Edge WebView2 Runtime

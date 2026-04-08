@@ -58,10 +58,24 @@ namespace WpfApp1.Views
         // 搜索结果限制（防止大 JSON 卡死）
         private const int MaxGridSearchMatches = 500;
         private const int MaxJsonHighlights = 200;
+        private const int MaxGridAutoExpand = 50;
         // 每批展开的最大节点数
         private const int ExpandBatchSize = 8;
         // GRID 搜索取消令牌（用于中断上一次搜索）
         private CancellationTokenSource? _gridSearchCts;
+
+        private sealed class EditorTextSegment
+        {
+            public required int Start { get; init; }
+            public required int Length { get; init; }
+            public required TextPointer Pointer { get; init; }
+        }
+
+        private sealed class EditorTextSnapshot
+        {
+            public required string Text { get; init; }
+            public required List<EditorTextSegment> Segments { get; init; }
+        }
 
         public JsonToolPage()
         {
@@ -163,6 +177,9 @@ namespace WpfApp1.Views
         private void TxtSearchKeyword_TextChanged(object sender, TextChangedEventArgs e)
             => PerformSearch();
 
+        private void SearchOptionChanged(object sender, RoutedEventArgs e)
+            => PerformSearch();
+
         private void TxtSearchKeyword_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -192,16 +209,13 @@ namespace WpfApp1.Views
 
                 string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
                 if (string.IsNullOrEmpty(keyword)) { TxtSearchCount.Text = ""; return; }
+                StringComparison comparison = GetLeftSearchComparison();
 
-                var startPos = TxtJsonEditor.Document.ContentStart;
-                while (startPos != null && _searchMatches.Count < MaxJsonHighlights)
+                foreach (var range in FindEditorMatches(keyword, comparison, MaxJsonHighlights))
                 {
-                    var range = FindTextInRange(startPos, TxtJsonEditor.Document.ContentEnd, keyword);
-                    if (range == null) break;
                     _searchMatches.Add(range);
                     range.ApplyPropertyValue(TextElement.BackgroundProperty, HighlightBg);
                     range.ApplyPropertyValue(TextElement.ForegroundProperty, HighlightFg);
-                    startPos = range.End;
                 }
 
                 if (_searchMatches.Count > 0)
@@ -210,7 +224,7 @@ namespace WpfApp1.Views
                     HighlightCurrentMatch();
                     string suffix = _searchMatches.Count >= MaxJsonHighlights ? "+" : "";
                     TxtSearchCount.Text = $"1/{_searchMatches.Count}{suffix}";
-                    HighlightGridMatches(keyword);
+                    HighlightGridMatches(keyword, comparison);
                 }
                 else
                 {
@@ -220,26 +234,122 @@ namespace WpfApp1.Views
             finally { _isUpdatingText = false; }
         }
 
-        private TextRange? FindTextInRange(TextPointer start, TextPointer end, string keyword)
+        private StringComparison GetLeftSearchComparison()
+            => ChkSearchCaseSensitive?.IsChecked == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        private List<TextRange> FindEditorMatches(string keyword, StringComparison comparison, int maxMatches)
         {
-            var current = start;
-            while (current != null && current.CompareTo(end) < 0)
+            var matches = new List<TextRange>();
+            if (string.IsNullOrEmpty(keyword) || maxMatches <= 0)
+            {
+                return matches;
+            }
+
+            var snapshot = CaptureEditorTextSnapshot();
+            if (string.IsNullOrEmpty(snapshot.Text))
+            {
+                return matches;
+            }
+
+            int startIndex = 0;
+            while (matches.Count < maxMatches)
+            {
+                int matchIndex = snapshot.Text.IndexOf(keyword, startIndex, comparison);
+                if (matchIndex < 0)
+                {
+                    break;
+                }
+
+                var range = CreateEditorTextRange(snapshot, matchIndex, keyword.Length);
+                if (range != null)
+                {
+                    matches.Add(range);
+                }
+
+                startIndex = matchIndex + Math.Max(keyword.Length, 1);
+            }
+
+            return matches;
+        }
+
+        private EditorTextSnapshot CaptureEditorTextSnapshot()
+        {
+            var segments = new List<EditorTextSegment>();
+            var textBuilder = new StringBuilder();
+            var current = TxtJsonEditor.Document.ContentStart;
+            var contentEnd = TxtJsonEditor.Document.ContentEnd;
+
+            while (current != null && current.CompareTo(contentEnd) < 0)
             {
                 if (current.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
                 {
                     string textRun = current.GetTextInRun(LogicalDirection.Forward);
-                    int index = textRun.IndexOf(keyword, StringComparison.OrdinalIgnoreCase);
-                    if (index >= 0)
+                    if (!string.IsNullOrEmpty(textRun))
                     {
-                        var matchStart = current.GetPositionAtOffset(index);
-                        var matchEnd = current.GetPositionAtOffset(index + keyword.Length);
-                        if (matchStart != null && matchEnd != null)
-                            return new TextRange(matchStart, matchEnd);
+                        segments.Add(new EditorTextSegment
+                        {
+                            Start = textBuilder.Length,
+                            Length = textRun.Length,
+                            Pointer = current
+                        });
+                        textBuilder.Append(textRun);
                     }
                 }
+
                 current = current.GetNextContextPosition(LogicalDirection.Forward);
             }
-            return null;
+
+            return new EditorTextSnapshot
+            {
+                Text = textBuilder.ToString(),
+                Segments = segments
+            };
+        }
+
+        private TextRange? CreateEditorTextRange(EditorTextSnapshot snapshot, int startOffset, int length)
+        {
+            if (startOffset < 0 || length <= 0)
+            {
+                return null;
+            }
+
+            var start = GetEditorTextPointerAtOffset(snapshot, startOffset);
+            var end = GetEditorTextPointerAtOffset(snapshot, startOffset + length);
+            if (start == null || end == null)
+            {
+                return null;
+            }
+
+            return new TextRange(start, end);
+        }
+
+        private TextPointer? GetEditorTextPointerAtOffset(EditorTextSnapshot snapshot, int offset)
+        {
+            if (offset < 0)
+            {
+                return null;
+            }
+
+            foreach (var segment in snapshot.Segments)
+            {
+                if (offset < segment.Start || offset > segment.Start + segment.Length)
+                {
+                    continue;
+                }
+
+                return segment.Pointer.GetPositionAtOffset(offset - segment.Start);
+            }
+
+            if (offset == snapshot.Text.Length)
+            {
+                var lastSegment = snapshot.Segments.LastOrDefault();
+                if (lastSegment != null)
+                {
+                    return lastSegment.Pointer.GetPositionAtOffset(lastSegment.Length);
+                }
+            }
+
+            return offset == 0 ? TxtJsonEditor.Document.ContentStart : null;
         }
 
         private void HighlightCurrentMatch()
@@ -289,67 +399,140 @@ namespace WpfApp1.Views
 
         // ==================== 左侧搜索 → 右侧 GRID 联动（只高亮已渲染的，不强制展开） ====================
 
-        private void HighlightGridMatches(string keyword)
+        private void HighlightGridMatches(string keyword, StringComparison comparison)
         {
             if (_currentNodes == null) return;
+            ExpandMatchingGridSections(keyword, comparison, MaxGridAutoExpand);
             // 只高亮已展开的节点标题，不强制展开
             foreach (var kvp in _gridSections.ToList())
             {
                 var (header, content, node) = kvp.Value;
-                if (NodeContainsKeyword(node, keyword))
+                if (NodeContainsKeyword(node, keyword, comparison))
                 {
                     header.Background = NodeHighlightBg;
                     header.FontWeight = FontWeights.Bold;
                 }
             }
             // 只高亮已渲染的单元格
-            HighlightGridCells(GridContainer, keyword);
+            HighlightGridCells(GridContainer, keyword, comparison);
         }
 
-        private bool NodeContainsKeyword(JsonGridNode node, string keyword)
+        private bool NodeContainsKeyword(JsonGridNode node, string keyword, StringComparison comparison = StringComparison.OrdinalIgnoreCase)
         {
-            if (node.Key.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                node.Value.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+            if (ContainsKeyword(node.Key, keyword, comparison) ||
+                ContainsKeyword(node.Value, keyword, comparison))
                 return true;
             foreach (var child in node.Children)
-                if (NodeContainsKeyword(child, keyword)) return true;
+                if (NodeContainsKeyword(child, keyword, comparison)) return true;
             foreach (var row in node.TableRows)
                 foreach (var cell in row.Cells)
-                    if (cell.Value.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                        cell.ColumnName.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    if (CellContainsKeyword(cell, keyword, comparison))
                         return true;
             return false;
         }
 
-        private void HighlightGridCells(Panel container, string keyword)
+        private bool CellContainsKeyword(JsonGridCell cell, string keyword, StringComparison comparison = StringComparison.OrdinalIgnoreCase)
         {
-            foreach (var child in container.Children)
+            if (ContainsKeyword(cell.ColumnName, keyword, comparison) ||
+                ContainsKeyword(cell.Value, keyword, comparison) ||
+                ContainsKeyword(cell.NestedSummary, keyword, comparison))
             {
-                if (child is Border border) HighlightInElement(border, keyword);
-                else if (child is Grid grid)
-                    foreach (var gc in grid.Children)
-                        if (gc is Border b) HighlightInElement(b, keyword);
-                else if (child is StackPanel sp) HighlightGridCells(sp, keyword);
+                return true;
+            }
+
+            foreach (var nested in cell.NestedChildren)
+            {
+                if (NodeContainsKeyword(nested, keyword, comparison))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsKeyword(string? text, string keyword, StringComparison comparison)
+            => !string.IsNullOrEmpty(text) && text.Contains(keyword, comparison);
+
+        private void ExpandMatchingGridSections(string keyword, StringComparison comparison, int maxTotalExpand)
+        {
+            int totalExpanded = 0;
+            bool expandedInPass;
+
+            do
+            {
+                expandedInPass = false;
+                foreach (var kvp in _gridSections.ToList())
+                {
+                    if (totalExpanded >= maxTotalExpand)
+                    {
+                        return;
+                    }
+
+                    var (header, content, node) = kvp.Value;
+                    if (content.Visibility != Visibility.Collapsed || !NodeContainsKeyword(node, keyword, comparison))
+                    {
+                        continue;
+                    }
+
+                    ExpandGridSection(header, content, node);
+                    totalExpanded++;
+                    expandedInPass = true;
+                }
+            }
+            while (expandedInPass && totalExpanded < maxTotalExpand);
+        }
+
+        private void ExpandGridSection(TextBlock header, FrameworkElement content, JsonGridNode node)
+        {
+            content.Visibility = Visibility.Visible;
+            header.Text = header.Text.Replace("[+]", "[-]");
+
+            if (content is StackPanel stackPanel && stackPanel.Children.Count == 0)
+            {
+                if (node.HasTable)
+                {
+                    RenderTable(node, stackPanel, 0);
+                }
+                else if (node.IsContainer)
+                {
+                    foreach (var child in node.Children)
+                    {
+                        RenderNode(child, stackPanel, 1);
+                    }
+                }
             }
         }
 
-        private void HighlightInElement(Border border, string keyword)
+        private void HighlightGridCells(Panel container, string keyword, StringComparison comparison)
+        {
+            foreach (var child in container.Children)
+            {
+                if (child is Border border) HighlightInElement(border, keyword, comparison);
+                else if (child is Grid grid)
+                    foreach (var gc in grid.Children)
+                        if (gc is Border b) HighlightInElement(b, keyword, comparison);
+                else if (child is StackPanel sp) HighlightGridCells(sp, keyword, comparison);
+            }
+        }
+
+        private void HighlightInElement(Border border, string keyword, StringComparison comparison)
         {
             if (border.Child is TextBlock tb)
             {
-                if (tb.Text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                if (ContainsKeyword(tb.Text, keyword, comparison))
                     tb.Background = NodeHighlightBg;
             }
             else if (border.Child is StackPanel sp)
             {
                 foreach (var c in sp.Children)
-                    if (c is TextBlock stb && stb.Text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    if (c is TextBlock stb && ContainsKeyword(stb.Text, keyword, comparison))
                         stb.Background = NodeHighlightBg;
             }
             else if (border.Child is Grid g)
             {
                 foreach (var gc in g.Children)
-                    if (gc is Border gb) HighlightInElement(gb, keyword);
+                    if (gc is Border gb) HighlightInElement(gb, keyword, comparison);
             }
         }
 
@@ -419,6 +602,13 @@ namespace WpfApp1.Views
             _gridSearchDebounceTimer.Start();
         }
 
+        private void GridSearchOptionChanged(object sender, RoutedEventArgs e)
+        {
+            CancelGridSearch();
+            _gridSearchDebounceTimer.Stop();
+            _gridSearchDebounceTimer.Start();
+        }
+
         private void TxtGridSearchKeyword_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -461,6 +651,7 @@ namespace WpfApp1.Views
 
             string keyword = TxtGridSearchKeyword.Text?.Trim() ?? "";
             if (string.IsNullOrEmpty(keyword)) { TxtGridSearchCount.Text = ""; return; }
+            StringComparison comparison = GetGridSearchComparison();
 
             TxtGridSearchCount.Text = "搜索中...";
 
@@ -468,14 +659,17 @@ namespace WpfApp1.Views
             var token = _gridSearchCts.Token;
 
             // 启动分批展开搜索
-            _ = ExpandAndSearchAsync(keyword, token);
+            _ = ExpandAndSearchAsync(keyword, comparison, token);
         }
 
         /// <summary>
         /// 分批展开包含关键字的折叠节点，每批展开后搜索新渲染的 TextBlock。
         /// 使用 Dispatcher 让出 UI 线程，避免卡死。
         /// </summary>
-        private async Task ExpandAndSearchAsync(string keyword, CancellationToken token)
+        private StringComparison GetGridSearchComparison()
+            => ChkGridSearchCaseSensitive?.IsChecked == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        private async Task ExpandAndSearchAsync(string keyword, StringComparison comparison, CancellationToken token)
         {
             try
             {
@@ -493,7 +687,7 @@ namespace WpfApp1.Views
                     {
                         if (token.IsCancellationRequested) return;
                         var (header, content, node) = kvp.Value;
-                        if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword))
+                        if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword, comparison))
                             toExpand.Add((header, content, node));
                     }
 
@@ -511,15 +705,7 @@ namespace WpfApp1.Views
                             batchCount = 0;
                         }
 
-                        content.Visibility = Visibility.Visible;
-                        header.Text = header.Text.Replace("[+]", "[-]");
-
-                        if (content is StackPanel sp && sp.Children.Count == 0)
-                        {
-                            if (node.HasTable) RenderTable(node, sp, 0);
-                            else if (node.IsContainer)
-                                foreach (var child in node.Children) RenderNode(child, sp, 1);
-                        }
+                        ExpandGridSection(header, content, node);
 
                         totalExpanded++;
                         batchCount++;
@@ -534,27 +720,27 @@ namespace WpfApp1.Views
                 if (token.IsCancellationRequested) return;
 
                 // 展开完成后，搜索所有可见的 TextBlock
-                CollectGridSearchMatches(keyword, token);
+                CollectGridSearchMatches(keyword, comparison, token);
 
                 if (token.IsCancellationRequested) return;
 
                 // 联动左侧 JSON
                 if (_gridSearchMatches.Count > 0)
-                    HighlightJsonForKeyword(keyword);
+                    HighlightJsonForKeyword(keyword, comparison);
             }
             catch (OperationCanceledException) { }
         }
 
         /// <summary>在所有已渲染且可见的 TextBlock 中收集匹配项并高亮</summary>
-        private void CollectGridSearchMatches(string keyword, CancellationToken token)
+        private void CollectGridSearchMatches(string keyword, StringComparison comparison, CancellationToken token)
         {
             int matchCount = 0;
-            foreach (var tb in _allGridValueTextBlocks)
+            foreach (var tb in EnumerateSearchableGridTextBlocks(GridContainer))
             {
                 if (token.IsCancellationRequested) return;
                 if (matchCount >= MaxGridSearchMatches) break;
                 if (string.IsNullOrEmpty(tb.Text)) continue;
-                if (!tb.Text.Contains(keyword, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!ContainsKeyword(tb.Text, keyword, comparison)) continue;
                 if (!IsTextBlockVisible(tb)) continue;
 
                 _gridSearchMatches.Add(tb);
@@ -569,7 +755,7 @@ namespace WpfApp1.Views
             {
                 if (token.IsCancellationRequested) return;
                 var (header, content, node) = kvp.Value;
-                if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword))
+                if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword, comparison))
                 {
                     header.Background = NodeHighlightBg;
                     header.FontWeight = FontWeights.Bold;
@@ -596,6 +782,27 @@ namespace WpfApp1.Views
         }
 
         /// <summary>检查 TextBlock 是否在可见的父容器链中</summary>
+        private static IEnumerable<TextBlock> EnumerateSearchableGridTextBlocks(DependencyObject root)
+        {
+            var queue = new Queue<DependencyObject>();
+            queue.Enqueue(root);
+
+            while (queue.Count > 0)
+            {
+                DependencyObject current = queue.Dequeue();
+                if (current is TextBlock textBlock)
+                {
+                    yield return textBlock;
+                }
+
+                int childCount = VisualTreeHelper.GetChildrenCount(current);
+                for (int i = 0; i < childCount; i++)
+                {
+                    queue.Enqueue(VisualTreeHelper.GetChild(current, i));
+                }
+            }
+        }
+
         private static bool IsTextBlockVisible(TextBlock tb)
         {
             DependencyObject? current = tb;
@@ -661,23 +868,17 @@ namespace WpfApp1.Views
         }
 
         /// <summary>GRID 搜索联动左侧 JSON（限量高亮，防止大文档卡死）</summary>
-        private void HighlightJsonForKeyword(string keyword)
+        private void HighlightJsonForKeyword(string keyword, StringComparison comparison)
         {
             _isUpdatingText = true;
             try
             {
                 ClearClickHighlights();
-                var startPos = TxtJsonEditor.Document.ContentStart;
-                int count = 0;
-                while (startPos != null && count < MaxJsonHighlights)
+                foreach (var range in FindEditorMatches(keyword, comparison, MaxJsonHighlights))
                 {
-                    var range = FindTextInRange(startPos, TxtJsonEditor.Document.ContentEnd, keyword);
-                    if (range == null) break;
                     _clickHighlights.Add(range);
                     range.ApplyPropertyValue(TextElement.BackgroundProperty, HighlightBg);
                     range.ApplyPropertyValue(TextElement.ForegroundProperty, HighlightFg);
-                    startPos = range.End;
-                    count++;
                 }
                 if (_clickHighlights.Count > 0)
                 {
@@ -699,24 +900,18 @@ namespace WpfApp1.Views
             {
                 ClearClickHighlights();
 
-                var startPos = TxtJsonEditor.Document.ContentStart;
-                int count = 0;
-                while (startPos != null && count < MaxJsonHighlights)
+                foreach (var range in FindEditorMatches(clickedValue, StringComparison.Ordinal, MaxJsonHighlights))
                 {
-                    var range = FindTextInRange(startPos, TxtJsonEditor.Document.ContentEnd, clickedValue);
-                    if (range == null) break;
                     _clickHighlights.Add(range);
                     range.ApplyPropertyValue(TextElement.BackgroundProperty, ClickHighlightBg);
                     range.ApplyPropertyValue(TextElement.ForegroundProperty, HighlightFg);
-                    startPos = range.End;
-                    count++;
                 }
 
                 if (_clickHighlights.Count > 0)
                 {
                     var rect = _clickHighlights[0].Start.GetCharacterRect(LogicalDirection.Forward);
                     TxtJsonEditor.ScrollToVerticalOffset(TxtJsonEditor.VerticalOffset + rect.Top - TxtJsonEditor.ActualHeight / 3);
-                    string suffix = count >= MaxJsonHighlights ? "+" : "";
+                    string suffix = _clickHighlights.Count >= MaxJsonHighlights ? "+" : "";
                     SetStatus($"🔗 已定位: \"{clickedValue}\" ({_clickHighlights.Count}{suffix} 处)");
                 }
                 else

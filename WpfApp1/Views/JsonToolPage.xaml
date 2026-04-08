@@ -140,13 +140,21 @@
                                 <Button Content="✕" Padding="6,2" FontSize="10" ToolTip="关闭 (Esc)"
                                         Background="#EF4444" Foreground="White" Style="{StaticResource RBtn}" Click="BtnCloseSearch_Click"/>
                             </StackPanel>
-                            <TextBlock Text="🔍" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBox x:Name="TxtSearchKeyword" FontSize="12" Padding="4,3" VerticalAlignment="Center"
-                                     Background="White" BorderBrush="#D97706" BorderThickness="1" MinWidth="150"
-                                     TextChanged="TxtSearchKeyword_TextChanged"
-                                     KeyDown="TxtSearchKeyword_KeyDown"/>
-                        </DockPanel>
-                    </Border>
+                             <TextBlock Text="🔍" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                             <TextBox x:Name="TxtSearchKeyword" FontSize="12" Padding="4,3" VerticalAlignment="Center"
+                                      Background="White" BorderBrush="#D97706" BorderThickness="1" MinWidth="150"
+                                      TextChanged="TxtSearchKeyword_TextChanged"
+                                      KeyDown="TxtSearchKeyword_KeyDown"/>
+                             <CheckBox x:Name="ChkSearchCaseSensitive"
+                                       Content="Aa"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="#92400E"
+                                       ToolTip="区分大小写"
+                                       Checked="SearchOptionChanged"
+                                       Unchecked="SearchOptionChanged"/>
+                         </DockPanel>
+                     </Border>
 
                     <!-- JSON 编辑器 -->
                     <RichTextBox x:Name="TxtJsonEditor"
@@ -213,6 +221,14 @@
                                      Background="White" BorderBrush="#7C3AED" BorderThickness="1" MinWidth="150"
                                      TextChanged="TxtGridSearchKeyword_TextChanged"
                                      KeyDown="TxtGridSearchKeyword_KeyDown"/>
+                            <CheckBox x:Name="ChkGridSearchCaseSensitive"
+                                      Content="Aa"
+                                      Margin="8,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Foreground="#5B21B6"
+                                      ToolTip="区分大小写"
+                                      Checked="GridSearchOptionChanged"
+                                      Unchecked="GridSearchOptionChanged"/>
                         </DockPanel>
                     </Border>
 

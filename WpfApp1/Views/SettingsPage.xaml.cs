@@ -75,7 +75,9 @@ namespace WpfApp1.Views
                     DefaultExportPath = exportPath
                 };
 
+                settings = ImportSettingsService.Normalize(settings);
                 ImportSettingsService.Save(settings);
+                TxtDefaultTableName.Text = settings.DefaultTableName;
 
                 ShowToast("✅ 设置已保存");
             }

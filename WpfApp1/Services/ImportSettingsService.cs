@@ -70,7 +70,7 @@ namespace WpfApp1.Services
         public static ImportSettings Normalize(ImportSettings settings)
         {
             settings.DefaultDbType = NormalizeDbType(settings.DefaultDbType);
-            settings.DefaultTableName = NormalizeTableName(settings.DefaultTableName, settings.TempTablePrefix);
+            settings.DefaultTableName = NormalizeTableName(settings.DefaultDbType, settings.DefaultTableName, settings.TempTablePrefix);
             settings.BatchSize = settings.BatchSize <= 0 ? 1000 : settings.BatchSize;
             settings.DefaultExportPath = settings.DefaultExportPath?.Trim() ?? string.Empty;
             return settings;
@@ -101,10 +101,21 @@ namespace WpfApp1.Services
             DefaultExportPath = settings.DefaultExportPath
         };
 
-        private static string NormalizeTableName(string? defaultTableName, string? legacyPrefix)
+        private static string NormalizeTableName(string normalizedDbType, string? defaultTableName, string? legacyPrefix)
         {
-            string candidate = string.IsNullOrWhiteSpace(defaultTableName) ? legacyPrefix?.Trim() ?? string.Empty : defaultTableName.Trim();
-            return string.IsNullOrWhiteSpace(candidate) ? "TempTable" : candidate;
+            SqlGeneratorService.DbType dbType = normalizedDbType switch
+            {
+                "SQL Server" => SqlGeneratorService.DbType.SqlServer,
+                "MySQL" => SqlGeneratorService.DbType.MySQL,
+                "Oracle" => SqlGeneratorService.DbType.Oracle,
+                _ => SqlGeneratorService.DbType.PostgreSQL
+            };
+
+            string candidate = string.IsNullOrWhiteSpace(defaultTableName)
+                ? legacyPrefix?.Trim() ?? string.Empty
+                : defaultTableName.Trim();
+
+            return SqlGeneratorService.NormalizeTableName(dbType, candidate, legacyPrefix);
         }
     }
 }

@@ -64,6 +64,41 @@ namespace WpfApp1.Services
             };
         }
 
+        public static string NormalizeTableName(DbType dbType, string? tableName, string? prefix = null)
+        {
+            string candidate = string.IsNullOrWhiteSpace(tableName)
+                ? GetDefaultTableName(dbType, prefix)
+                : tableName.Trim();
+
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return GetDefaultTableName(dbType, prefix);
+            }
+
+            if (dbType == DbType.SqlServer && candidate.StartsWith("#", StringComparison.Ordinal))
+            {
+                return candidate;
+            }
+
+            if (TryGetTemporaryTableLogicalName(candidate, out string logicalName))
+            {
+                return dbType switch
+                {
+                    DbType.SqlServer => $"#{logicalName}",
+                    DbType.Oracle => logicalName.ToUpperInvariant(),
+                    DbType.MySQL => logicalName,
+                    _ => logicalName
+                };
+            }
+
+            if (dbType == DbType.SqlServer && TryGetSqlServerSimpleTableName(candidate, out string sqlServerTableName))
+            {
+                return $"#{sqlServerTableName}";
+            }
+
+            return candidate;
+        }
+
         public static string GenerateFullSql(
             DbType dbType,
             string tableName,
@@ -256,7 +291,8 @@ namespace WpfApp1.Services
                 DataColumn column = data.Columns[index];
                 string safeName = MakeUniqueColumnName(SanitizeColumnName(column.ColumnName), usedNames);
                 ColumnKind kind = ColumnKind.String;
-                string sqlType = "VARCHAR(1000)";
+                int maxLength = GetMaxStringLength(data, index);
+                string sqlType = GetSqlType(dbType, kind, maxLength, limitStringLength);
 
                 columns.Add(new ColumnDefinition
                 {
@@ -421,8 +457,9 @@ namespace WpfApp1.Services
 
         private static string GetStringSqlType(DbType dbType, int maxLength, bool limitStringLength)
         {
-            int defaultLength = limitStringLength ? 1000 : 4000;
-            int effectiveLength = Math.Max(1, Math.Min(Math.Max(maxLength, 1), defaultLength));
+            int effectiveLength = limitStringLength
+                ? 1000
+                : Math.Max(1, Math.Min(Math.Max(maxLength, 1), 4000));
 
             if (!limitStringLength && maxLength > 4000)
             {
@@ -620,6 +657,66 @@ namespace WpfApp1.Services
             }
 
             return uniqueName;
+        }
+
+        private static bool TryGetTemporaryTableLogicalName(string tableName, out string logicalName)
+        {
+            logicalName = tableName.Trim();
+            if (string.IsNullOrWhiteSpace(logicalName))
+            {
+                logicalName = string.Empty;
+                return false;
+            }
+
+            logicalName = StripIdentifierDelimiters(logicalName);
+            logicalName = logicalName.TrimStart('#');
+
+            if (string.IsNullOrWhiteSpace(logicalName) || logicalName.Contains('.'))
+            {
+                logicalName = string.Empty;
+                return false;
+            }
+
+            string normalized = logicalName.Replace("_", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
+            return normalized is "temptable" or "tmp";
+        }
+
+        private static bool TryGetSqlServerSimpleTableName(string tableName, out string logicalName)
+        {
+            logicalName = StripIdentifierDelimiters(tableName.Trim());
+            if (string.IsNullOrWhiteSpace(logicalName) || logicalName.Contains('.'))
+            {
+                logicalName = string.Empty;
+                return false;
+            }
+
+            foreach (char c in logicalName)
+            {
+                if (!(char.IsLetterOrDigit(c) || c == '_' || c > 127))
+                {
+                    logicalName = string.Empty;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static string StripIdentifierDelimiters(string value)
+        {
+            if (value.Length >= 2)
+            {
+                char first = value[0];
+                char last = value[^1];
+                if ((first == '[' && last == ']') ||
+                    (first == '"' && last == '"') ||
+                    (first == '`' && last == '`'))
+                {
+                    return value[1..^1].Trim();
+                }
+            }
+
+            return value;
         }
 
         private static string NormalizeTablePrefix(string prefix)

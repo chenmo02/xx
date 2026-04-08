@@ -278,7 +278,7 @@ namespace WpfApp1.Views
             }
 
             SqlGeneratorService.DbType dbType = GetSelectedDbType();
-            string tableName = TxtTableName.Text.Trim();
+            string tableName = SqlGeneratorService.NormalizeTableName(dbType, TxtTableName.Text);
             bool dropIfExists = ChkDropIfExists.IsChecked == true;
             bool batchInsert = ChkBatchInsert.IsChecked == true;
             bool limitFieldLength = ChkLimitFieldLength.IsChecked == true;
@@ -286,6 +286,7 @@ namespace WpfApp1.Views
             try
             {
                 SetBusyState(true, "正在生成 SQL...");
+                TxtTableName.Text = tableName;
                 ShowProgress(15);
                 TxtSqlOutput.Text = "正在生成 SQL，请稍候...";
 
@@ -608,14 +609,16 @@ namespace WpfApp1.Views
 
             string suggestedName = string.IsNullOrWhiteSpace(_importSettings.DefaultTableName)
                 ? SqlGeneratorService.GetDefaultTableName(dbType)
-                : _importSettings.DefaultTableName.Trim();
+                : SqlGeneratorService.NormalizeTableName(dbType, _importSettings.DefaultTableName, _importSettings.TempTablePrefix);
             string current = TxtTableName.Text.Trim();
             var defaultNames = Enum.GetValues<SqlGeneratorService.DbType>()
                 .SelectMany(type => new[]
                 {
                     SqlGeneratorService.GetDefaultTableName(type),
+                    SqlGeneratorService.NormalizeTableName(type, _importSettings.DefaultTableName, _importSettings.TempTablePrefix),
                     _importSettings.DefaultTableName
                 })
+                .Where(name => !string.IsNullOrWhiteSpace(name))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             if (forceTableName || string.IsNullOrWhiteSpace(current) || defaultNames.Contains(current) || string.Equals(current, _lastSuggestedTableName, StringComparison.OrdinalIgnoreCase))
