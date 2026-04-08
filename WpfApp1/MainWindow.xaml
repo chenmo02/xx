@@ -84,6 +84,9 @@
                         <RadioButton x:Name="NavCsvViewer" Content="CSV 预览工具" Tag="📋"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
+                        <RadioButton x:Name="NavCsvCompare" Content="CSV 对比工具" Tag="🧮"
+                                     Style="{StaticResource NavButtonStyle}" GroupName="Nav"
+                                     Checked="NavButton_Checked"/>
 
                         <Border Height="1" Background="#EBEBEB" Margin="14,8"/>
 

@@ -12,6 +12,7 @@ namespace WpfApp1.Views
             InitializeComponent();
             TxtDate.Text = DateTime.Now.ToString("yyyy-MM-dd");
             TxtRuntime.Text = $".NET {Environment.Version.Major}";
+            TxtVersionBadge.Text = TxtVersion.Text;
         }
 
         private void GoToImport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -24,6 +25,12 @@ namespace WpfApp1.Views
         {
             if (Application.Current.MainWindow is MainWindow mw)
             { mw.MainFrame.Navigate(new CsvViewerPage()); mw.NavCsvViewer.IsChecked = true; }
+        }
+
+        private void GoToCsvCompare_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mw)
+            { mw.MainFrame.Navigate(new CsvComparePage()); mw.NavCsvCompare.IsChecked = true; }
         }
 
         private void GoToJsonTool_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -48,6 +55,12 @@ namespace WpfApp1.Views
         {
             if (Application.Current.MainWindow is MainWindow mw)
             { mw.MainFrame.Navigate(new InvoicePrintPage()); mw.NavInvoice.IsChecked = true; }
+        }
+
+        private void GoToSettings_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mw)
+            { mw.MainFrame.Navigate(new SettingsPage()); mw.NavSettings.IsChecked = true; }
         }
     }
 }

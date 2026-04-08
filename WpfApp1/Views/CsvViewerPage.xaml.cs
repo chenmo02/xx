@@ -1,16 +1,12 @@
-using CsvHelper;
-using CsvHelper.Configuration;
 using Microsoft.Win32;
 using System.Data;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using WpfApp1.Services;
 
 namespace WpfApp1.Views
 {
@@ -48,16 +44,12 @@ namespace WpfApp1.Views
 
             try
             {
-                string filePath = dialog.FileName;
-                var fileInfo = new FileInfo(filePath);
-                var encoding = DetectEncoding(filePath);
-                string delimiter = DetectDelimiter(filePath, encoding);
-
-                _data = await Task.Run(() => ParseCsv(filePath, encoding, delimiter));
+                DelimitedTextLoadResult result = await Task.Run(() => DelimitedTextFileService.LoadFile(dialog.FileName));
+                _data = result.Table;
 
                 DgCsv.ItemsSource = _data.DefaultView;
-                TxtFileInfo.Text = $"{Path.GetFileName(filePath)}  |  {FormatFileSize(fileInfo.Length)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  分隔符: {GetDelimiterName(delimiter)}";
-                TxtEncoding.Text = $"编码: {encoding.EncodingName}";
+                TxtFileInfo.Text = $"{result.FileName}  |  {FormatFileSize(result.FileSize)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  分隔符: {DelimitedTextFileService.GetDelimiterName(result.Delimiter)}";
+                TxtEncoding.Text = $"编码: {result.Encoding.EncodingName}";
                 TxtStatus.Text = $"已加载 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
 
                 ClearSearch(clearKeyword: true);
@@ -281,143 +273,6 @@ namespace WpfApp1.Views
             return null;
         }
 
-        private static DataTable ParseCsv(string filePath, Encoding encoding, string delimiter)
-        {
-            var dataTable = new DataTable();
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
-            {
-                Delimiter = delimiter,
-                HasHeaderRecord = true,
-                MissingFieldFound = null,
-                BadDataFound = null,
-                TrimOptions = TrimOptions.Trim
-            };
-
-            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var reader = new StreamReader(stream, encoding);
-            using var csv = new CsvReader(reader, config);
-
-            csv.Read();
-            csv.ReadHeader();
-
-            if (csv.HeaderRecord != null)
-            {
-                for (int index = 0; index < csv.HeaderRecord.Length; index++)
-                {
-                    string columnName = csv.HeaderRecord[index]?.Trim() ?? $"列{index + 1}";
-                    if (string.IsNullOrWhiteSpace(columnName))
-                    {
-                        columnName = $"列{index + 1}";
-                    }
-
-                    if (dataTable.Columns.Contains(columnName))
-                    {
-                        columnName = $"{columnName}_{index + 1}";
-                    }
-
-                    dataTable.Columns.Add(columnName, typeof(string));
-                }
-            }
-
-            while (csv.Read())
-            {
-                var row = dataTable.NewRow();
-                for (int index = 0; index < dataTable.Columns.Count; index++)
-                {
-                    try
-                    {
-                        row[index] = csv.GetField(index) ?? string.Empty;
-                    }
-                    catch
-                    {
-                        row[index] = string.Empty;
-                    }
-                }
-
-                dataTable.Rows.Add(row);
-            }
-
-            return dataTable;
-        }
-
-        private static Encoding DetectEncoding(string filePath)
-        {
-            var bom = new byte[4];
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            {
-                _ = stream.ReadAtLeast(bom, 4, throwOnEndOfStream: false);
-            }
-
-            if (bom[0] == 0xEF && bom[1] == 0xBB && bom[2] == 0xBF)
-            {
-                return Encoding.UTF8;
-            }
-
-            if (bom[0] == 0xFF && bom[1] == 0xFE)
-            {
-                return Encoding.Unicode;
-            }
-
-            if (bom[0] == 0xFE && bom[1] == 0xFF)
-            {
-                return Encoding.BigEndianUnicode;
-            }
-
-            try
-            {
-                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-                var utf8 = new UTF8Encoding(false, true);
-
-                using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var reader = new StreamReader(stream, utf8, true);
-                _ = reader.ReadToEnd();
-                return Encoding.UTF8;
-            }
-            catch
-            {
-                return Encoding.GetEncoding("GBK");
-            }
-        }
-
-        private static string DetectDelimiter(string filePath, Encoding encoding)
-        {
-            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var reader = new StreamReader(stream, encoding);
-            string? firstLine = reader.ReadLine();
-            if (string.IsNullOrEmpty(firstLine))
-            {
-                return ",";
-            }
-
-            int commaCount = firstLine.Count(character => character == ',');
-            int tabCount = firstLine.Count(character => character == '\t');
-            int semicolonCount = firstLine.Count(character => character == ';');
-            int pipeCount = firstLine.Count(character => character == '|');
-
-            int maxCount = Math.Max(Math.Max(commaCount, tabCount), Math.Max(semicolonCount, pipeCount));
-            if (maxCount == 0)
-            {
-                return ",";
-            }
-
-            if (maxCount == tabCount)
-            {
-                return "\t";
-            }
-
-            if (maxCount == semicolonCount)
-            {
-                return ";";
-            }
-
-            if (maxCount == pipeCount)
-            {
-                return "|";
-            }
-
-            return ",";
-        }
-
         private static string FormatFileSize(long fileSize)
         {
             if (fileSize >= 1024 * 1024)
@@ -427,14 +282,5 @@ namespace WpfApp1.Views
 
             return $"{fileSize / 1024.0:F1} KB";
         }
-
-        private static string GetDelimiterName(string delimiter) => delimiter switch
-        {
-            "," => "逗号",
-            "\t" => "Tab",
-            ";" => "分号",
-            "|" => "竖线",
-            _ => delimiter
-        };
     }
 }

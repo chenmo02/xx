@@ -109,19 +109,8 @@ namespace WpfApp1.Services
 
         private static (long fileSize, int totalRows, int totalCols) GetCsvFileInfo(string filePath, long fileSize)
         {
-            Encoding encoding = DetectEncoding(filePath);
-            int lineCount = 0;
-
-            using (var sr = new StreamReader(filePath, encoding))
-            {
-                while (sr.ReadLine() != null)
-                {
-                    lineCount++;
-                }
-            }
-
-            DataTable headerTable = ParseCsv(filePath, previewRows: 1);
-            return (fileSize, Math.Max(0, lineCount - 1), headerTable.Columns.Count);
+            DelimitedTextFileInfo info = DelimitedTextFileService.GetFileInfo(filePath);
+            return (fileSize, info.TotalRows, info.TotalColumns);
         }
 
         private static (long fileSize, int totalRows, int totalCols) GetDbfFileInfo(string filePath, long fileSize, string? dbfEncoding)
@@ -210,66 +199,7 @@ namespace WpfApp1.Services
 
         private static DataTable ParseCsv(string filePath, int previewRows)
         {
-            var dt = new DataTable();
-            Encoding encoding = DetectEncoding(filePath);
-            string delimiter = DetectDelimiter(filePath, encoding);
-
-            var config = new CsvConfiguration(CultureInfo.InvariantCulture)
-            {
-                Delimiter = delimiter,
-                HasHeaderRecord = true,
-                MissingFieldFound = null,
-                BadDataFound = null,
-                TrimOptions = TrimOptions.Trim
-            };
-
-            using var reader = new StreamReader(filePath, encoding);
-            using var csv = new CsvReader(reader, config);
-
-            if (!csv.Read())
-            {
-                return dt;
-            }
-
-            csv.ReadHeader();
-            string[] headers = csv.HeaderRecord ?? [];
-
-            for (int i = 0; i < headers.Length; i++)
-            {
-                dt.Columns.Add(GetUniqueColumnName(dt, headers[i], i + 1), typeof(string));
-            }
-
-            if (dt.Columns.Count == 0)
-            {
-                return dt;
-            }
-
-            int rowCount = 0;
-            while (csv.Read())
-            {
-                if (previewRows > 0 && rowCount >= previewRows)
-                {
-                    break;
-                }
-
-                var row = dt.NewRow();
-                for (int i = 0; i < dt.Columns.Count; i++)
-                {
-                    try
-                    {
-                        row[i] = csv.GetField(i) ?? "";
-                    }
-                    catch
-                    {
-                        row[i] = "";
-                    }
-                }
-
-                dt.Rows.Add(row);
-                rowCount++;
-            }
-
-            return dt;
+            return DelimitedTextFileService.LoadFile(filePath, previewRows).Table;
         }
 
         private static DataTable ParseDbf(

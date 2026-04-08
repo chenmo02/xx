@@ -3,90 +3,313 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Background="#F5F6F8">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,22">
-        <StackPanel MaxWidth="920">
+    <Page.Resources>
+        <Style x:Key="QuickCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="22,20"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="MinHeight" Value="158"/>
+        </Style>
 
-            <!-- 欢迎 -->
-            <Border Background="White" CornerRadius="8" Padding="24,20" Margin="0,0,0,18"
-                    BorderBrush="#E5E5E5" BorderThickness="1">
-                <StackPanel>
-                    <TextBlock Text="👋 欢迎使用 CC 实施工具箱" FontSize="22" FontWeight="Bold" Foreground="#222"/>
-                    <TextBlock Text="高效、安全的数据实施辅助工具" FontSize="13" Foreground="#999" Margin="0,6,0,0"/>
-                </StackPanel>
+        <Style x:Key="QuickCardIconStyle" TargetType="Border">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Background" Value="#EEF2FF"/>
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,22">
+        <StackPanel MaxWidth="980">
+            <Border Background="White"
+                    CornerRadius="12"
+                    Padding="28,24"
+                    Margin="0,0,0,20"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="欢迎使用 CC 实施工具箱"
+                                   FontSize="24"
+                                   FontWeight="Bold"
+                                   Foreground="#111827"/>
+                        <TextBlock Text="高效、安全的数据实施与办公辅助工具"
+                                   FontSize="13"
+                                   Foreground="#6B7280"
+                                   Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1"
+                            Padding="14,10"
+                            Background="#EEF2FF"
+                            CornerRadius="10"
+                            VerticalAlignment="Center">
+                        <StackPanel>
+                            <TextBlock Text="当前版本"
+                                       FontSize="11"
+                                       Foreground="#6366F1"/>
+                            <TextBlock x:Name="TxtVersionBadge"
+                                       Text="v1.5.1"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="#4338CA"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Border>
 
-            <!-- 功能卡片 -->
-            <TextBlock Text="快捷功能" FontSize="15" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,10"/>
+            <TextBlock Text="快捷功能"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#1F2937"
+                       Margin="0,0,0,10"/>
 
-            <UniformGrid Columns="3" Margin="0,0,0,8">
-                <!-- 数据导入 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
-                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToImport_Click">
-                    <StackPanel>
-                        <TextBlock Text="📊" FontSize="28" Margin="0,0,0,10"/>
-                        <TextBlock Text="数据导入临时表" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="Excel / CSV → 临时表 SQL" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
+            <UniformGrid Columns="2" Margin="-8,0,-8,12">
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToImport_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}">
+                            <TextBlock Text="数"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#4F46E5"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="数据导入临时表" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="Excel、CSV、DBF 一键转换为 SQL 临时表脚本"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#4F46E5" Margin="0,14,0,0"/>
+                    </Grid>
                 </Border>
 
-                <!-- CSV 预览 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
-                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToCsvViewer_Click">
-                    <StackPanel>
-                        <TextBlock Text="📋" FontSize="28" Margin="0,0,0,10"/>
-                        <TextBlock Text="CSV 预览工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="无损打开，支持搜索查找" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToCsvViewer_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#ECFDF5">
+                            <TextBlock Text="CSV"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="#059669"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="CSV 预览工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="稳定打开分隔文本，支持搜索、定位与编码识别"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#059669" Margin="0,14,0,0"/>
+                    </Grid>
                 </Border>
 
-                <!-- JSON 工具 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
-                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonTool_Click">
-                    <StackPanel>
-                        <TextBlock Text="📄" FontSize="28" Margin="0,0,0,10"/>
-                        <TextBlock Text="JSON 处理工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="格式化、校验、嵌套网格" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToCsvCompare_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FEF3C7">
+                            <TextBlock Text="比"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#D97706"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="CSV 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="支持按行号或复合主键比较差异，结果可筛选导出"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#D97706" Margin="0,14,0,0"/>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToJsonTool_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#E0F2FE">
+                            <TextBlock Text="{}{ }"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#0284C7"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="JSON 处理工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="格式化、校验、搜索与嵌套 GRID 浏览一体完成"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#0284C7" Margin="0,14,0,0"/>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToJsonDiff_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#F3E8FF">
+                            <TextBlock Text="JS"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#7C3AED"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="JSON 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="深度比较结构和值差异，快速定位新增、删除和变更"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#7C3AED" Margin="0,14,0,0"/>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToDrawBoard_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FCE7F3">
+                            <TextBlock Text="画"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#DB2777"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="Excalidraw 画板" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="流程图、草图和示意图快速绘制，适合沟通方案"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#DB2777" Margin="0,14,0,0"/>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToInvoice_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#ECFCCB">
+                            <TextBlock Text="票"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#65A30D"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="发票打印工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="PDF、OFD 排版打印与模板管理，适合办公场景"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#65A30D" Margin="0,14,0,0"/>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToSettings_Click">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#F3F4F6">
+                            <TextBlock Text="设"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#4B5563"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0">
+                            <TextBlock Text="系统设置" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="管理默认配置、导出路径与常用开关，便于统一维护"
+                                       FontSize="12"
+                                       Foreground="#6B7280"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18"/>
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#4B5563" Margin="0,14,0,0"/>
+                    </Grid>
                 </Border>
             </UniformGrid>
 
-            <UniformGrid Columns="3" Margin="0,0,0,18">
-                <!-- JSON 对比 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="0,0,8,0" Cursor="Hand"
-                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToJsonDiff_Click">
-                    <StackPanel>
-                        <TextBlock Text="🔀" FontSize="28" Margin="0,0,0,10"/>
-                        <TextBlock Text="JSON 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="深度对比结构与值差异" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
+            <TextBlock Text="系统信息"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Foreground="#1F2937"
+                       Margin="0,4,0,10"/>
 
-                <!-- Excalidraw 画板 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="4,0,4,0" Cursor="Hand"
-                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToDrawBoard_Click">
-                    <StackPanel>
-                        <TextBlock Text="🎨" FontSize="28" Margin="0,0,0,10"/>
-                        <TextBlock Text="Excalidraw 画板" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="手绘风格白板，流程图绘制" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
-
-                <!-- 占位 → 发票打印 -->
-                <Border Background="White" CornerRadius="8" Padding="20,16" Margin="8,0,0,0" Cursor="Hand"
-                        BorderBrush="#E5E5E5" BorderThickness="1" MouseLeftButtonUp="GoToInvoice_Click">
-                    <StackPanel>
-                        <TextBlock Text="🖨️" FontSize="28" Margin="0,0,0,10"/>
-                        <TextBlock Text="发票打印工具" FontSize="14" FontWeight="SemiBold" Foreground="#222"/>
-                        <TextBlock Text="PDF/OFD 排版打印" FontSize="12" Foreground="#999" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
-            </UniformGrid>
-
-            <!-- 系统信息 -->
-            <TextBlock Text="系统信息" FontSize="15" FontWeight="SemiBold" Foreground="#333" Margin="0,0,0,10"/>
-
-            <Border Background="White" CornerRadius="8" Padding="24,16"
-                    BorderBrush="#E5E5E5" BorderThickness="1">
+            <Border Background="White"
+                    CornerRadius="12"
+                    Padding="24,18"
+                    BorderBrush="#E5E7EB"
+                    BorderThickness="1">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -95,27 +318,26 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                        <TextBlock Text="版本" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtVersion" Text="v1.5.0" FontSize="18" FontWeight="Bold"
+                        <TextBlock Text="版本" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="TxtVersion" Text="v1.5.1" FontSize="18" FontWeight="Bold"
                                    Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <Border Grid.Column="1" BorderBrush="#EBEBEB" BorderThickness="1,0" Padding="16,0">
+                    <Border Grid.Column="1" BorderBrush="#E5E7EB" BorderThickness="1,0" Padding="16,0">
                         <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="运行环境" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
+                            <TextBlock Text="运行环境" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
                             <TextBlock x:Name="TxtRuntime" Text=".NET 10" FontSize="18" FontWeight="Bold"
-                                       Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                       Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
 
                     <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                        <TextBlock Text="今日日期" FontSize="12" Foreground="#999" HorizontalAlignment="Center"/>
+                        <TextBlock Text="今日日期" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
                         <TextBlock x:Name="TxtDate" Text="2026-01-01" FontSize="18" FontWeight="Bold"
-                                   Foreground="#222" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
                 </Grid>
             </Border>
-
         </StackPanel>
     </ScrollViewer>
 </Page>

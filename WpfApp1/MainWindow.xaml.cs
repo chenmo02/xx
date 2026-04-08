@@ -21,6 +21,7 @@ namespace WpfApp1
             if (rb == NavHome) MainFrame.Navigate(new HomePage());
             else if (rb == NavImport) MainFrame.Navigate(new DataImportPage());
             else if (rb == NavCsvViewer) MainFrame.Navigate(new CsvViewerPage());
+            else if (rb == NavCsvCompare) MainFrame.Navigate(new CsvComparePage());
             else if (rb == NavJsonTool) MainFrame.Navigate(new JsonToolPage());
             else if (rb == NavJsonDiff) MainFrame.Navigate(new JsonDiffPage());
             else if (rb == NavDrawBoard) MainFrame.Navigate(new DrawBoardPage());
