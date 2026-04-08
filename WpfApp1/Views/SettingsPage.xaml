@@ -287,9 +287,9 @@
             <Border Style="{StaticResource CardBorder}">
                 <StackPanel>
                     <TextBlock Text="🗄️ SQL 生成偏好" Style="{StaticResource CardTitle}"/>
-                    <TextBlock Text="数据导入页面的默认设置" Style="{StaticResource CardDesc}"/>
+                    <TextBlock Text="保存后会自动应用到数据导入页和导出对话框" Style="{StaticResource CardDesc}"/>
 
-                    <Grid>
+                    <Grid Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="16"/>
@@ -303,19 +303,49 @@
                             <ComboBox x:Name="CmbDefaultDbType" SelectedIndex="0">
                                 <ComboBoxItem Content="PostgreSQL"/>
                                 <ComboBoxItem Content="SQL Server"/>
+                                <ComboBoxItem Content="MySQL"/>
+                                <ComboBoxItem Content="Oracle"/>
                             </ComboBox>
                         </StackPanel>
 
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="临时表前缀" Style="{StaticResource LabelText}"/>
-                            <TextBox x:Name="TxtTempTablePrefix" Style="{StaticResource InputBox}" Text="tmp_import_"/>
+                            <TextBlock Text="默认表名" Style="{StaticResource LabelText}"/>
+                            <TextBox x:Name="TxtDefaultTableName" Style="{StaticResource InputBox}" Text="TempTable"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="4">
                             <TextBlock Text="每批 INSERT 行数" Style="{StaticResource LabelText}"/>
-                            <TextBox x:Name="TxtBatchSize" Style="{StaticResource InputBox}" Text="500"/>
+                            <TextBox x:Name="TxtDefaultBatchSize" Style="{StaticResource InputBox}" Text="1000"/>
                         </StackPanel>
                     </Grid>
+
+                    <WrapPanel Margin="0,0,0,14">
+                        <CheckBox x:Name="ChkDefaultDropIfExists"
+                                  Content="默认生成 DROP TABLE"
+                                  FontSize="13"
+                                  IsChecked="True"
+                                  Margin="0,0,24,0"/>
+                        <CheckBox x:Name="ChkDefaultBatchInsert"
+                                  Content="默认启用批量 INSERT"
+                                  FontSize="13"
+                                  IsChecked="True"
+                                  Margin="0,0,24,0"/>
+                        <CheckBox x:Name="ChkDefaultLimitFieldLength"
+                                  Content="默认限制文本长度为 1000"
+                                  FontSize="13"
+                                  IsChecked="True"/>
+                    </WrapPanel>
+
+                    <Border Background="#F8FAFC"
+                            BorderBrush="#E5E7EB"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,10">
+                        <TextBlock Text="说明：这里填写的是默认表名本身。若你在数据导入页手动改过表名，系统不会强行覆盖。"
+                                   FontSize="12"
+                                   Foreground="#64748B"
+                                   TextWrapping="Wrap"/>
+                    </Border>
                 </StackPanel>
             </Border>
 

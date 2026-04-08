@@ -1,301 +1,645 @@
-﻿using System.Data;
+using System.Data;
+using System.Globalization;
 using System.Text;
 
 namespace WpfApp1.Services
 {
-    /// <summary>
-    /// SQL 语句生成服务：根据 DataTable 生成建表和插入语句
-    /// </summary>
     public static class SqlGeneratorService
     {
+        private enum ColumnKind
+        {
+            String,
+            Integer,
+            Decimal,
+            Boolean,
+            DateTime
+        }
+
+        private sealed class ColumnDefinition
+        {
+            public required string OriginalName { get; init; }
+
+            public required string SafeName { get; init; }
+
+            public required ColumnKind Kind { get; init; }
+
+            public required string SqlType { get; init; }
+        }
+
         public enum DbType
         {
             PostgreSQL,
-            SqlServer
+            SqlServer,
+            MySQL,
+            Oracle
         }
 
-        /// <summary>
-        /// 生成完整 SQL（建表 + 插入）
-        /// </summary>
-        public static string GenerateFullSql(
-            DbType dbType, string tableName, DataTable data,
-            bool dropIfExists = true, bool batchInsert = true, int batchSize = 100)
+        public static string GetDefaultTableName(DbType dbType) => dbType switch
         {
+            DbType.PostgreSQL => "TempTable",
+            DbType.MySQL => "temp_table",
+            DbType.Oracle => "TEMP_TABLE",
+            _ => "#TMP"
+        };
+
+        public static string GetDefaultTableName(DbType dbType, string? prefix)
+        {
+            if (string.IsNullOrWhiteSpace(prefix))
+            {
+                return GetDefaultTableName(dbType);
+            }
+
+            string normalizedPrefix = NormalizeTablePrefix(prefix);
+            if (string.IsNullOrWhiteSpace(normalizedPrefix))
+            {
+                return GetDefaultTableName(dbType);
+            }
+
+            string logicalName = $"{normalizedPrefix}_data";
+            return dbType switch
+            {
+                DbType.SqlServer => $"#{logicalName}",
+                DbType.Oracle => logicalName.ToUpperInvariant(),
+                _ => logicalName
+            };
+        }
+
+        public static string GenerateFullSql(
+            DbType dbType,
+            string tableName,
+            DataTable data,
+            bool dropIfExists = true,
+            bool batchInsert = true,
+            int batchSize = 1000,
+            bool limitStringLength = true)
+        {
+            var columns = BuildColumnDefinitions(dbType, data, limitStringLength);
             var sb = new StringBuilder();
 
-            // 头部注释
-            sb.AppendLine($"-- ============================================");
-            sb.AppendLine($"-- 自动生成的临时表 SQL");
+            sb.AppendLine("-- ============================================");
+            sb.AppendLine("-- 自动生成的数据导入 SQL");
             sb.AppendLine($"-- 数据库类型: {dbType}");
             sb.AppendLine($"-- 表名: {tableName}");
             sb.AppendLine($"-- 列数: {data.Columns.Count}");
             sb.AppendLine($"-- 数据行数: {data.Rows.Count}");
             sb.AppendLine($"-- 生成时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            sb.AppendLine($"-- ============================================");
+            sb.AppendLine("-- ============================================");
             sb.AppendLine();
 
-            // 建表语句
-            sb.Append(GenerateCreateTableSql(dbType, tableName, data, dropIfExists));
+            sb.Append(GenerateCreateTableSql(dbType, tableName, columns, dropIfExists));
             sb.AppendLine();
 
-            // 插入语句
             if (data.Rows.Count > 0)
             {
-                sb.Append(GenerateInsertSql(dbType, tableName, data, batchInsert, batchSize));
+                sb.Append(GenerateInsertSql(dbType, tableName, data, columns, batchInsert, batchSize));
                 sb.AppendLine();
-
-                // 查询验证
-                sb.AppendLine($"-- 验证导入结果");
-                if (dbType == DbType.PostgreSQL)
-                    sb.AppendLine($"SELECT COUNT(*) AS total_rows FROM \"{tableName}\";");
-                else
-                    sb.AppendLine($"SELECT COUNT(*) AS total_rows FROM [{tableName}];");
-
-                sb.AppendLine($"-- SELECT * FROM {WrapName(dbType, tableName)} LIMIT 10;");
             }
+
+            sb.AppendLine("-- 验证导入结果");
+            sb.AppendLine($"SELECT COUNT(*) AS total_rows FROM {WrapName(dbType, tableName)};");
+            sb.AppendLine($"-- SELECT * FROM {WrapName(dbType, tableName)}{GetPreviewSuffix(dbType)};");
 
             return sb.ToString();
         }
 
-        /// <summary>
-        /// 生成 CREATE TABLE 语句
-        /// </summary>
-        public static string GenerateCreateTableSql(DbType dbType, string tableName, DataTable data, bool dropIfExists)
+        public static string GenerateCreateTableSql(
+            DbType dbType,
+            string tableName,
+            DataTable data,
+            bool dropIfExists,
+            bool limitStringLength = true)
+        {
+            var columns = BuildColumnDefinitions(dbType, data, limitStringLength);
+            return GenerateCreateTableSql(dbType, tableName, columns, dropIfExists);
+        }
+
+        public static string GenerateInsertSql(
+            DbType dbType,
+            string tableName,
+            DataTable data,
+            bool batchInsert,
+            int batchSize,
+            bool limitStringLength = true)
+        {
+            var columns = BuildColumnDefinitions(dbType, data, limitStringLength);
+            return GenerateInsertSql(dbType, tableName, data, columns, batchInsert, batchSize);
+        }
+
+        private static string GenerateCreateTableSql(
+            DbType dbType,
+            string tableName,
+            IReadOnlyList<ColumnDefinition> columns,
+            bool dropIfExists)
         {
             var sb = new StringBuilder();
             string wrappedName = WrapName(dbType, tableName);
 
-            // DROP IF EXISTS
             if (dropIfExists)
             {
-                if (dbType == DbType.PostgreSQL)
+                switch (dbType)
                 {
-                    sb.AppendLine($"DROP TABLE IF EXISTS {wrappedName};");
+                    case DbType.PostgreSQL:
+                    case DbType.MySQL:
+                        sb.AppendLine($"DROP TABLE IF EXISTS {wrappedName};");
+                        break;
+                    case DbType.Oracle:
+                        sb.AppendLine("BEGIN");
+                        sb.AppendLine($"    EXECUTE IMMEDIATE 'DROP TABLE {tableName}';");
+                        sb.AppendLine("EXCEPTION");
+                        sb.AppendLine("    WHEN OTHERS THEN");
+                        sb.AppendLine("        IF SQLCODE != -942 THEN RAISE; END IF;");
+                        sb.AppendLine("END;");
+                        sb.AppendLine("/");
+                        break;
+                    case DbType.SqlServer:
+                        if (tableName.StartsWith("#", StringComparison.Ordinal))
+                        {
+                            sb.AppendLine($"IF OBJECT_ID('tempdb..{tableName}') IS NOT NULL DROP TABLE {tableName};");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"IF OBJECT_ID('{tableName}', 'U') IS NOT NULL DROP TABLE {wrappedName};");
+                        }
+                        break;
                 }
-                else
-                {
-                    // SQL Server 临时表在 tempdb 中
-                    if (tableName.StartsWith("#"))
-                        sb.AppendLine($"IF OBJECT_ID('tempdb..{tableName}') IS NOT NULL DROP TABLE {tableName};");
-                    else
-                        sb.AppendLine($"IF OBJECT_ID('{tableName}', 'U') IS NOT NULL DROP TABLE {wrappedName};");
-                }
+
                 sb.AppendLine();
             }
 
-            // CREATE TABLE
-            if (dbType == DbType.PostgreSQL)
+            sb.AppendLine(GetCreateTablePrefix(dbType, wrappedName));
+            for (int i = 0; i < columns.Count; i++)
             {
-                sb.AppendLine($"CREATE TEMP TABLE {wrappedName} (");
-            }
-            else
-            {
-                sb.AppendLine($"CREATE TABLE {wrappedName} (");
-            }
-
-            for (int i = 0; i < data.Columns.Count; i++)
-            {
-                string colName = SanitizeColumnName(data.Columns[i].ColumnName);
-                string colType = InferColumnType(dbType, data, i);
-                string wrappedCol = WrapName(dbType, colName);
-
-                sb.Append($"    {wrappedCol} {colType}");
-                if (i < data.Columns.Count - 1)
-                    sb.AppendLine(",");
-                else
-                    sb.AppendLine();
+                ColumnDefinition column = columns[i];
+                string wrappedColumn = WrapName(dbType, column.SafeName);
+                sb.Append($"    {wrappedColumn} {column.SqlType} NULL");
+                sb.AppendLine(i < columns.Count - 1 ? "," : string.Empty);
             }
 
-            sb.AppendLine(");");
+            sb.AppendLine(GetCreateTableSuffix(dbType));
             return sb.ToString();
         }
 
-        /// <summary>
-        /// 生成 INSERT 语句
-        /// </summary>
-        public static string GenerateInsertSql(DbType dbType, string tableName, DataTable data, bool batchInsert, int batchSize)
+        private static string GenerateInsertSql(
+            DbType dbType,
+            string tableName,
+            DataTable data,
+            IReadOnlyList<ColumnDefinition> columns,
+            bool batchInsert,
+            int batchSize)
         {
             var sb = new StringBuilder();
-            string wrappedName = WrapName(dbType, tableName);
-
-            // 构建列名列表
-            var colNames = new List<string>();
-            for (int i = 0; i < data.Columns.Count; i++)
-            {
-                string colName = SanitizeColumnName(data.Columns[i].ColumnName);
-                colNames.Add(WrapName(dbType, colName));
-            }
-            string colList = string.Join(", ", colNames);
+            string wrappedTable = WrapName(dbType, tableName);
+            string columnList = string.Join(", ", columns.Select(column => WrapName(dbType, column.SafeName)));
 
             sb.AppendLine($"-- 插入数据 ({data.Rows.Count} 行)");
 
-            if (batchInsert)
+            if (!batchInsert)
             {
-                // 批量 INSERT（多行 VALUES）
-                int effectiveBatch = batchSize;
-
-                for (int i = 0; i < data.Rows.Count; i += effectiveBatch)
-                {
-                    int end = Math.Min(i + effectiveBatch, data.Rows.Count);
-
-                    sb.AppendLine($"INSERT INTO {wrappedName} ({colList}) VALUES");
-
-                    for (int r = i; r < end; r++)
-                    {
-                        sb.Append("    (");
-                        for (int c = 0; c < data.Columns.Count; c++)
-                        {
-                            sb.Append(EscapeValue(data.Rows[r][c]?.ToString()));
-                            if (c < data.Columns.Count - 1)
-                                sb.Append(", ");
-                        }
-                        sb.Append(')');
-
-                        if (r < end - 1)
-                            sb.AppendLine(",");
-                        else
-                            sb.AppendLine(";");
-                    }
-                    sb.AppendLine();
-                }
-            }
-            else
-            {
-                // 逐行 INSERT
                 foreach (DataRow row in data.Rows)
                 {
-                    sb.Append($"INSERT INTO {wrappedName} ({colList}) VALUES (");
-                    for (int c = 0; c < data.Columns.Count; c++)
-                    {
-                        sb.Append(EscapeValue(row[c]?.ToString()));
-                        if (c < data.Columns.Count - 1)
-                            sb.Append(", ");
-                    }
+                    sb.Append($"INSERT INTO {wrappedTable} ({columnList}) VALUES (");
+                    sb.Append(string.Join(", ", columns.Select((column, index) => FormatValue(row[index], column.Kind, dbType))));
                     sb.AppendLine(");");
                 }
+
+                return sb.ToString();
+            }
+
+            int effectiveBatchSize = dbType == DbType.SqlServer ? Math.Min(Math.Max(batchSize, 1), 1000) : Math.Max(batchSize, 1);
+
+            if (dbType == DbType.Oracle)
+            {
+                for (int start = 0; start < data.Rows.Count; start += effectiveBatchSize)
+                {
+                    int end = Math.Min(start + effectiveBatchSize, data.Rows.Count);
+                    sb.AppendLine("INSERT ALL");
+                    for (int rowIndex = start; rowIndex < end; rowIndex++)
+                    {
+                        DataRow row = data.Rows[rowIndex];
+                        string values = string.Join(", ", columns.Select((column, index) => FormatValue(row[index], column.Kind, dbType)));
+                        sb.AppendLine($"    INTO {wrappedTable} ({columnList}) VALUES ({values})");
+                    }
+
+                    sb.AppendLine("SELECT 1 FROM DUAL;");
+                    sb.AppendLine();
+                }
+
+                return sb.ToString();
+            }
+
+            for (int start = 0; start < data.Rows.Count; start += effectiveBatchSize)
+            {
+                int end = Math.Min(start + effectiveBatchSize, data.Rows.Count);
+                sb.AppendLine($"INSERT INTO {wrappedTable} ({columnList}) VALUES");
+
+                for (int rowIndex = start; rowIndex < end; rowIndex++)
+                {
+                    DataRow row = data.Rows[rowIndex];
+                    string values = string.Join(", ", columns.Select((column, index) => FormatValue(row[index], column.Kind, dbType)));
+                    sb.Append($"    ({values})");
+                    sb.AppendLine(rowIndex < end - 1 ? "," : ";");
+                }
+
                 sb.AppendLine();
             }
 
             return sb.ToString();
         }
 
-        /// <summary>
-        /// 根据数据内容推断列类型
-        /// </summary>
-        private static string InferColumnType(DbType dbType, DataTable data, int colIndex)
+        private static List<ColumnDefinition> BuildColumnDefinitions(DbType dbType, DataTable data, bool limitStringLength)
         {
-            // 采样前200行来推断类型
-            int sampleCount = Math.Min(200, data.Rows.Count);
-            bool allEmpty = true;
+            var columns = new List<ColumnDefinition>(data.Columns.Count);
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (int index = 0; index < data.Columns.Count; index++)
+            {
+                DataColumn column = data.Columns[index];
+                string safeName = MakeUniqueColumnName(SanitizeColumnName(column.ColumnName), usedNames);
+                ColumnKind kind = ColumnKind.String;
+                string sqlType = "VARCHAR(1000)";
+
+                columns.Add(new ColumnDefinition
+                {
+                    OriginalName = column.ColumnName,
+                    SafeName = safeName,
+                    Kind = kind,
+                    SqlType = sqlType
+                });
+            }
+
+            return columns;
+        }
+
+        private static ColumnKind InferColumnKind(DataColumn column, DataTable data, int columnIndex)
+        {
+            Type dataType = Nullable.GetUnderlyingType(column.DataType) ?? column.DataType;
+            if (dataType == typeof(bool))
+            {
+                return ColumnKind.Boolean;
+            }
+
+            if (dataType == typeof(DateTime))
+            {
+                return ColumnKind.DateTime;
+            }
+
+            if (dataType == typeof(short) || dataType == typeof(int) || dataType == typeof(long))
+            {
+                return ColumnKind.Integer;
+            }
+
+            if (dataType == typeof(decimal) || dataType == typeof(double) || dataType == typeof(float))
+            {
+                return ColumnKind.Decimal;
+            }
+
+            bool hasValue = false;
+            bool allBool = true;
             bool allInt = true;
             bool allDecimal = true;
             bool allDate = true;
-            int maxLen = 0;
 
-            for (int r = 0; r < sampleCount; r++)
+            int sampleCount = Math.Min(200, data.Rows.Count);
+            for (int rowIndex = 0; rowIndex < sampleCount; rowIndex++)
             {
-                string val = data.Rows[r][colIndex]?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrEmpty(val)) continue;
+                object raw = data.Rows[rowIndex][columnIndex];
+                if (raw == DBNull.Value)
+                {
+                    continue;
+                }
 
-                allEmpty = false;
-                maxLen = Math.Max(maxLen, val.Length);
+                string value = raw.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(value))
+                {
+                    continue;
+                }
 
-                if (allInt && !long.TryParse(val, out _))
+                hasValue = true;
+                if (allBool && !TryParseBoolean(value, out _))
+                {
+                    allBool = false;
+                }
+
+                if (allInt && !long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _) &&
+                    !long.TryParse(value, NumberStyles.Integer, CultureInfo.CurrentCulture, out _))
+                {
                     allInt = false;
+                }
 
-                if (allDecimal && !decimal.TryParse(val, out _))
+                if (allDecimal && !TryParseDecimal(value, out _))
+                {
                     allDecimal = false;
+                }
 
-                if (allDate && !DateTime.TryParse(val, out _))
+                if (allDate && !DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.None, out _) &&
+                    !DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+                {
                     allDate = false;
+                }
             }
 
-            // 如果全部为空或数据量为 0，默认 TEXT
-            if (allEmpty || data.Rows.Count == 0)
+            if (!hasValue)
             {
-                return dbType == DbType.PostgreSQL ? "TEXT" : "NVARCHAR(MAX)";
+                return ColumnKind.String;
             }
 
-            // 推断类型
+            if (allBool)
+            {
+                return ColumnKind.Boolean;
+            }
+
             if (allInt)
             {
-                return dbType == DbType.PostgreSQL ? "BIGINT" : "BIGINT";
+                return ColumnKind.Integer;
             }
 
             if (allDecimal)
             {
-                return dbType == DbType.PostgreSQL ? "NUMERIC" : "DECIMAL(18,6)";
+                return ColumnKind.Decimal;
             }
 
             if (allDate)
             {
-                return dbType == DbType.PostgreSQL ? "TIMESTAMP" : "DATETIME";
+                return ColumnKind.DateTime;
             }
 
-            // 默认文本
-            if (dbType == DbType.PostgreSQL)
-            {
-                return "TEXT";
-            }
-            else
-            {
-                if (maxLen <= 50) return "NVARCHAR(100)";
-                if (maxLen <= 200) return "NVARCHAR(500)";
-                if (maxLen <= 2000) return "NVARCHAR(4000)";
-                return "NVARCHAR(MAX)";
-            }
+            return ColumnKind.String;
         }
 
-        /// <summary>
-        /// 转义 SQL 值
-        /// </summary>
-        private static string EscapeValue(string? value)
+        private static int GetMaxStringLength(DataTable data, int columnIndex)
         {
-            if (string.IsNullOrEmpty(value))
+            int maxLength = 0;
+            foreach (DataRow row in data.Rows)
+            {
+                object raw = row[columnIndex];
+                if (raw == DBNull.Value)
+                {
+                    continue;
+                }
+
+                maxLength = Math.Max(maxLength, raw.ToString()?.Length ?? 0);
+            }
+
+            return maxLength;
+        }
+
+        private static string GetSqlType(DbType dbType, ColumnKind kind, int maxLength, bool limitStringLength)
+        {
+            return kind switch
+            {
+                ColumnKind.Boolean => dbType switch
+                {
+                    DbType.PostgreSQL => "BOOLEAN",
+                    DbType.MySQL => "TINYINT(1)",
+                    DbType.Oracle => "NUMBER(1)",
+                    _ => "BIT"
+                },
+                ColumnKind.Integer => dbType switch
+                {
+                    DbType.PostgreSQL => "BIGINT",
+                    DbType.MySQL => "BIGINT",
+                    DbType.Oracle => "NUMBER(19)",
+                    _ => "BIGINT"
+                },
+                ColumnKind.Decimal => dbType switch
+                {
+                    DbType.PostgreSQL => "NUMERIC(18,6)",
+                    DbType.MySQL => "DECIMAL(18,6)",
+                    DbType.Oracle => "NUMBER(18,6)",
+                    _ => "DECIMAL(18,6)"
+                },
+                ColumnKind.DateTime => dbType switch
+                {
+                    DbType.PostgreSQL => "TIMESTAMP",
+                    DbType.MySQL => "DATETIME",
+                    DbType.Oracle => "DATE",
+                    _ => "DATETIME"
+                },
+                _ => GetStringSqlType(dbType, maxLength, limitStringLength)
+            };
+        }
+
+        private static string GetStringSqlType(DbType dbType, int maxLength, bool limitStringLength)
+        {
+            int defaultLength = limitStringLength ? 1000 : 4000;
+            int effectiveLength = Math.Max(1, Math.Min(Math.Max(maxLength, 1), defaultLength));
+
+            if (!limitStringLength && maxLength > 4000)
+            {
+                return dbType switch
+                {
+                    DbType.PostgreSQL => "TEXT",
+                    DbType.MySQL => "LONGTEXT",
+                    DbType.Oracle => "CLOB",
+                    _ => "NVARCHAR(MAX)"
+                };
+            }
+
+            return dbType switch
+            {
+                DbType.PostgreSQL => $"VARCHAR({effectiveLength})",
+                DbType.MySQL => $"VARCHAR({effectiveLength})",
+                DbType.Oracle => $"VARCHAR2({effectiveLength})",
+                _ => $"NVARCHAR({effectiveLength})"
+            };
+        }
+
+        private static string FormatValue(object value, ColumnKind kind, DbType dbType)
+        {
+            if (value == DBNull.Value)
+            {
                 return "NULL";
+            }
 
-            // 转义单引号
-            string escaped = value.Replace("'", "''");
-            return $"'{escaped}'";
+            string text = value.ToString()?.Trim() ?? "";
+            if (string.IsNullOrEmpty(text))
+            {
+                return "NULL";
+            }
+
+            return kind switch
+            {
+                ColumnKind.Boolean => FormatBooleanValue(text, dbType),
+                ColumnKind.Integer => FormatIntegerValue(text),
+                ColumnKind.Decimal => FormatDecimalValue(text),
+                ColumnKind.DateTime => FormatDateTimeValue(value, text, dbType),
+                _ => $"'{EscapeString(text)}'"
+            };
         }
 
-        /// <summary>
-        /// 包裹标识符名称
-        /// </summary>
-        private static string WrapName(DbType dbType, string name)
+        private static string FormatBooleanValue(string value, DbType dbType)
         {
-            if (dbType == DbType.PostgreSQL)
-                return $"\"{name}\"";
-            else
+            bool parsed = TryParseBoolean(value, out bool boolValue) && boolValue;
+            return dbType switch
             {
-                // SQL Server 临时表 # 开头不加方括号
-                if (name.StartsWith("#"))
-                    return name;
-                return $"[{name}]";
+                DbType.PostgreSQL => parsed ? "TRUE" : "FALSE",
+                _ => parsed ? "1" : "0"
+            };
+        }
+
+        private static string FormatIntegerValue(string value)
+        {
+            if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long number) ||
+                long.TryParse(value, NumberStyles.Integer, CultureInfo.CurrentCulture, out number))
+            {
+                return number.ToString(CultureInfo.InvariantCulture);
+            }
+
+            return "NULL";
+        }
+
+        private static string FormatDecimalValue(string value)
+        {
+            if (TryParseDecimal(value, out decimal number))
+            {
+                return number.ToString(CultureInfo.InvariantCulture);
+            }
+
+            return "NULL";
+        }
+
+        private static string FormatDateTimeValue(object rawValue, string value, DbType dbType)
+        {
+            DateTime dateTime;
+            if (rawValue is DateTime exactDate)
+            {
+                dateTime = exactDate;
+            }
+            else if (!DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.None, out dateTime) &&
+                     !DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out dateTime))
+            {
+                return "NULL";
+            }
+
+            return dbType switch
+            {
+                DbType.Oracle => $"TO_DATE('{dateTime:yyyy-MM-dd HH:mm:ss}', 'YYYY-MM-DD HH24:MI:SS')",
+                _ => $"'{dateTime:yyyy-MM-dd HH:mm:ss}'"
+            };
+        }
+
+        private static bool TryParseBoolean(string value, out bool result)
+        {
+            string normalized = value.Trim().ToLowerInvariant();
+            switch (normalized)
+            {
+                case "true":
+                case "t":
+                case "yes":
+                case "y":
+                    result = true;
+                    return true;
+                case "false":
+                case "f":
+                case "no":
+                case "n":
+                    result = false;
+                    return true;
+                default:
+                    return bool.TryParse(value, out result);
             }
         }
 
-        /// <summary>
-        /// 清理列名
-        /// </summary>
+        private static bool TryParseDecimal(string value, out decimal result)
+        {
+            return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out result) ||
+                   decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out result);
+        }
+
+        private static string GetCreateTablePrefix(DbType dbType, string wrappedName) => dbType switch
+        {
+            DbType.PostgreSQL => $"CREATE TEMPORARY TABLE {wrappedName} (",
+            DbType.MySQL => $"CREATE TEMPORARY TABLE {wrappedName} (",
+            DbType.Oracle => $"CREATE GLOBAL TEMPORARY TABLE {wrappedName} (",
+            _ => $"CREATE TABLE {wrappedName} ("
+        };
+
+        private static string GetCreateTableSuffix(DbType dbType) => dbType switch
+        {
+            DbType.Oracle => ") ON COMMIT PRESERVE ROWS;",
+            _ => ");"
+        };
+
+        private static string GetPreviewSuffix(DbType dbType) => dbType switch
+        {
+            DbType.SqlServer => "",
+            DbType.Oracle => " FETCH FIRST 10 ROWS ONLY",
+            _ => " LIMIT 10"
+        };
+
+        private static string WrapName(DbType dbType, string name) => dbType switch
+        {
+            DbType.PostgreSQL => $"\"{name}\"",
+            DbType.MySQL => $"`{name}`",
+            DbType.Oracle => $"\"{name}\"",
+            _ => name.StartsWith("#", StringComparison.Ordinal) ? name : $"[{name}]"
+        };
+
         private static string SanitizeColumnName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
-                return "unnamed";
+            {
+                return "col";
+            }
 
             var sb = new StringBuilder();
             foreach (char c in name.Trim())
             {
                 if (char.IsLetterOrDigit(c) || c == '_' || c > 127)
+                {
                     sb.Append(c);
+                }
                 else
+                {
                     sb.Append('_');
+                }
             }
 
             string result = sb.ToString().Trim('_');
-            if (string.IsNullOrEmpty(result)) result = "col";
-            if (char.IsDigit(result[0])) result = $"c_{result}";
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                result = "col";
+            }
+
+            if (char.IsDigit(result[0]))
+            {
+                result = $"c_{result}";
+            }
+
             return result;
         }
+
+        private static string MakeUniqueColumnName(string name, ISet<string> usedNames)
+        {
+            string uniqueName = name;
+            int suffix = 1;
+            while (!usedNames.Add(uniqueName))
+            {
+                suffix++;
+                uniqueName = $"{name}_{suffix}";
+            }
+
+            return uniqueName;
+        }
+
+        private static string NormalizeTablePrefix(string prefix)
+        {
+            var sb = new StringBuilder();
+            foreach (char c in prefix.Trim())
+            {
+                if (char.IsLetterOrDigit(c) || c == '_')
+                {
+                    sb.Append(c);
+                }
+                else
+                {
+                    sb.Append('_');
+                }
+            }
+
+            return sb.ToString().Trim('_');
+        }
+
+        private static string EscapeString(string value) => value.Replace("'", "''");
     }
 }

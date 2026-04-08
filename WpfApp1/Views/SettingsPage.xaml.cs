@@ -6,11 +6,11 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using WpfApp1.Services;
 
 namespace WpfApp1.Views
 {
@@ -23,15 +23,9 @@ namespace WpfApp1.Views
         [DllImport("user32.dll")] private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
         private const uint CF_UNICODETEXT = 13;
 
-        private readonly string _configPath;
-
         public SettingsPage()
         {
             InitializeComponent();
-
-            // 配置文件路径：exe 同目录
-            var exeDir = AppDomain.CurrentDomain.BaseDirectory;
-            _configPath = Path.Combine(exeDir, "settings.json");
 
             LoadSettings();
             LoadAboutInfo();
@@ -43,46 +37,45 @@ namespace WpfApp1.Views
 
         private void LoadSettings()
         {
-            try
-            {
-                if (!File.Exists(_configPath)) return;
-
-                var json = File.ReadAllText(_configPath, Encoding.UTF8);
-                var cfg = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-                if (cfg == null) return;
-
-                if (cfg.TryGetValue("DefaultDbType", out var dbType))
-                    CmbDefaultDbType.SelectedIndex = dbType == "SQLServer" ? 1 : 0;
-
-                if (cfg.TryGetValue("TempTablePrefix", out var prefix))
-                    TxtTempTablePrefix.Text = prefix;
-
-                if (cfg.TryGetValue("BatchSize", out var batch))
-                    TxtBatchSize.Text = batch;
-
-                if (cfg.TryGetValue("DefaultExportPath", out var exportPath))
-                    TxtDefaultExportPath.Text = exportPath;
-            }
-            catch
-            {
-                // 配置文件损坏时忽略
-            }
+            ImportSettings settings = ImportSettingsService.Load();
+            SelectDbType(settings.DefaultDbType);
+            TxtDefaultTableName.Text = settings.DefaultTableName;
+            TxtDefaultBatchSize.Text = settings.BatchSize.ToString(CultureInfo.InvariantCulture);
+            ChkDefaultDropIfExists.IsChecked = settings.DropIfExists;
+            ChkDefaultBatchInsert.IsChecked = settings.BatchInsert;
+            ChkDefaultLimitFieldLength.IsChecked = settings.LimitFieldLength;
+            TxtDefaultExportPath.Text = settings.DefaultExportPath;
         }
 
         private void BtnSaveSettings_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                var cfg = new Dictionary<string, string>
+                if (!int.TryParse(TxtDefaultBatchSize.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int batchSize) || batchSize <= 0)
                 {
-                    ["DefaultDbType"] = CmbDefaultDbType.SelectedIndex == 1 ? "SQLServer" : "PostgreSQL",
-                    ["TempTablePrefix"] = TxtTempTablePrefix.Text.Trim(),
-                    ["BatchSize"] = TxtBatchSize.Text.Trim(),
-                    ["DefaultExportPath"] = TxtDefaultExportPath.Text.Trim()
+                    MessageBox.Show("每批 INSERT 行数必须是大于 0 的整数。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    TxtDefaultBatchSize.Focus();
+                    return;
+                }
+
+                string exportPath = TxtDefaultExportPath.Text.Trim();
+                if (!string.IsNullOrWhiteSpace(exportPath))
+                {
+                    Directory.CreateDirectory(exportPath);
+                }
+
+                var settings = new ImportSettings
+                {
+                    DefaultDbType = GetSelectedDbType(),
+                    DefaultTableName = TxtDefaultTableName.Text.Trim(),
+                    BatchSize = batchSize,
+                    DropIfExists = ChkDefaultDropIfExists.IsChecked == true,
+                    BatchInsert = ChkDefaultBatchInsert.IsChecked == true,
+                    LimitFieldLength = ChkDefaultLimitFieldLength.IsChecked == true,
+                    DefaultExportPath = exportPath
                 };
 
-                var json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_configPath, json, Encoding.UTF8);
+                ImportSettingsService.Save(settings);
 
                 ShowToast("✅ 设置已保存");
             }
@@ -98,6 +91,23 @@ namespace WpfApp1.Views
             if (dialog.ShowDialog() == true)
                 TxtDefaultExportPath.Text = dialog.FolderName;
         }
+
+        private void SelectDbType(string dbType)
+        {
+            foreach (ComboBoxItem item in CmbDefaultDbType.Items)
+            {
+                string content = item.Content?.ToString() ?? string.Empty;
+                if (string.Equals(content, dbType, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbDefaultDbType.SelectedItem = item;
+                    return;
+                }
+            }
+
+            CmbDefaultDbType.SelectedIndex = 0;
+        }
+
+        private string GetSelectedDbType() => (CmbDefaultDbType.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "PostgreSQL";
 
         // ═══════════════════════════════════════
         // 身份信息生成

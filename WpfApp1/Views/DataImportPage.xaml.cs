@@ -1,218 +1,709 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using System.Data;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using WpfApp1.Services;
 
 namespace WpfApp1.Views
 {
     public partial class DataImportPage : Page
     {
+        private static readonly Brush SuccessBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
+        private static readonly Brush ErrorBrush = Brushes.Red;
+        private static readonly Brush MutedBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9CA3AF"));
+
         private string? _currentFilePath;
         private string? _currentSheetName;
+        private string? _currentDbfEncoding;
         private DataTable? _currentData;
+        private ImportSettings _importSettings = new();
+        private string? _lastSuggestedTableName;
+        private bool _isBusy;
+        private bool _settingsSubscribed;
+        private bool _suppressDbfEncodingReload;
 
         public DataImportPage()
         {
             InitializeComponent();
+            Unloaded += Page_Unloaded;
         }
 
-        // ==================== Step 1: 选择文件 ====================
+        private void Page_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (!_settingsSubscribed)
+            {
+                ImportSettingsService.SettingsSaved += ImportSettingsService_SettingsSaved;
+                _settingsSubscribed = true;
+            }
+
+            LoadImportSettings(forceTableName: true);
+
+            if (CbDbfEncoding.Items.Count == 0)
+            {
+                _suppressDbfEncodingReload = true;
+                CbDbfEncoding.ItemsSource = FileParserService.GetDbfEncodings();
+                CbDbfEncoding.SelectedItem = "UTF-8";
+                _suppressDbfEncodingReload = false;
+            }
+
+            ApplyDatabaseHint(forceTableName: true);
+            UpdateStatus("就绪");
+            Keyboard.Focus(this);
+        }
+
+        private void Page_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (_settingsSubscribed)
+            {
+                ImportSettingsService.SettingsSaved -= ImportSettingsService_SettingsSaved;
+                _settingsSubscribed = false;
+            }
+        }
+
+        private void ImportSettingsService_SettingsSaved(object? sender, ImportSettings settings)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _importSettings = ImportSettingsService.Normalize(settings);
+                ApplyImportSettingsToUi(forceTableName: false);
+            });
+        }
 
         private async void BtnSelectFile_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "数据文件|*.xlsx;*.xls;*.csv|Excel 文件|*.xlsx;*.xls|CSV 文件|*.csv",
+                Filter = "数据文件|*.xlsx;*.xls;*.csv;*.dbf|Excel 文件|*.xlsx;*.xls|CSV 文件|*.csv|DBF 文件|*.dbf",
                 Title = "选择数据文件"
             };
 
-            if (dialog.ShowDialog() != true) return;
+            ApplyDefaultExportPath(dialog);
 
-            _currentFilePath = dialog.FileName;
-            TxtFilePath.Text = dialog.FileName;
+            if (dialog.ShowDialog() == true)
+            {
+                await LoadSelectedFileAsync(dialog.FileName);
+            }
+        }
+
+        private async Task LoadSelectedFileAsync(string filePath)
+        {
+            if (_isBusy)
+            {
+                return;
+            }
+
+            ResetCurrentData();
+
+            _currentFilePath = filePath;
+            _currentSheetName = null;
+            TxtFilePath.Text = filePath;
             TxtFilePath.Foreground = Brushes.Black;
 
-            // 清空旧数据
-            _currentData = null;
-            _currentSheetName = null;
-            DgPreview.ItemsSource = null;
-            TxtSqlOutput.Text = "";
-            TxtSqlStats.Text = "";
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            PanelDbfEncoding.Visibility = ext == ".dbf" ? Visibility.Visible : Visibility.Collapsed;
+            PanelSheetSelect.Visibility = ext is ".xlsx" or ".xls" ? Visibility.Visible : Visibility.Collapsed;
 
-            string ext = Path.GetExtension(dialog.FileName).ToLower();
+            if (ext == ".dbf")
+            {
+                _currentDbfEncoding = CbDbfEncoding.SelectedItem?.ToString() ?? "UTF-8";
+            }
+            else
+            {
+                _currentDbfEncoding = null;
+            }
 
             if (ext is ".xlsx" or ".xls")
             {
-                // Excel：加载 Sheet 列表
-                BtnSelectFile.IsEnabled = false;
+                List<string> sheets = [];
                 try
                 {
-                    var sheets = await Task.Run(() => FileParserService.GetSheetNames(dialog.FileName));
-
+                    SetBusyState(true, "正在读取工作表列表...");
+                    sheets = await Task.Run(() => FileParserService.GetSheetNames(filePath));
                     CbSheetList.ItemsSource = sheets;
-                    CbSheetList.SelectedIndex = 0;
-                    PanelSheetSelect.Visibility = Visibility.Visible;
+                    if (sheets.Count > 0)
+                    {
+                        _currentSheetName = sheets[0];
+                        CbSheetList.SelectedIndex = 0;
+                    }
+                    else
+                    {
+                        _currentSheetName = null;
+                        CbSheetList.SelectedIndex = -1;
+                    }
 
-                    TxtFileInfo.Text = $"📄 Excel 文件，共 {sheets.Count} 个工作表";
+                    TxtFileInfo.Text = $"文件: {Path.GetFileName(filePath)}  |  工作表: {sheets.Count}";
                 }
                 catch (Exception ex)
                 {
-                    TxtFileInfo.Text = $"❌ 读取失败: {ex.Message}";
-                    MessageBox.Show($"读取 Excel 失败：\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    HandleLoadError(ex, "读取 Excel 工作表失败");
                 }
                 finally
                 {
-                    BtnSelectFile.IsEnabled = true;
+                    SetBusyState(false, "就绪");
+                }
+
+                if (sheets.Count > 0 && !string.IsNullOrWhiteSpace(_currentSheetName))
+                {
+                    await LoadDataAsync(filePath, _currentSheetName);
                 }
             }
             else
             {
-                // CSV：直接加载
                 PanelSheetSelect.Visibility = Visibility.Collapsed;
-                await LoadDataAsync(dialog.FileName, null);
+                await LoadDataAsync(filePath, sheetName: null);
             }
         }
 
-        // ==================== Sheet 切换 ====================
-
         private async void CbSheetList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (CbSheetList.SelectedItem == null || string.IsNullOrEmpty(_currentFilePath)) return;
+            if (_isBusy || CbSheetList.SelectedItem == null || string.IsNullOrWhiteSpace(_currentFilePath))
+            {
+                return;
+            }
 
             _currentSheetName = CbSheetList.SelectedItem.ToString();
             await LoadDataAsync(_currentFilePath, _currentSheetName);
         }
 
-        // ==================== 加载数据并预览 ====================
+        private async void CbDbfEncoding_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressDbfEncodingReload || _isBusy || string.IsNullOrWhiteSpace(_currentFilePath))
+            {
+                return;
+            }
+
+            if (!string.Equals(Path.GetExtension(_currentFilePath), ".dbf", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            _currentDbfEncoding = CbDbfEncoding.SelectedItem?.ToString() ?? "UTF-8";
+            await LoadDataAsync(_currentFilePath, sheetName: null);
+        }
 
         private async Task LoadDataAsync(string filePath, string? sheetName)
         {
-            BtnSelectFile.IsEnabled = false;
-            BtnGenerateSql.IsEnabled = false;
-            TxtPreviewInfo.Text = "⏳ 正在解析数据...";
-
             try
             {
-                // 获取文件信息
-                var info = await Task.Run(() => FileParserService.GetFileInfo(filePath, sheetName));
-                string sizeStr = info.fileSize > 1024 * 1024
-                    ? $"{info.fileSize / 1024.0 / 1024.0:F1} MB"
-                    : $"{info.fileSize / 1024.0:F1} KB";
+                SetBusyState(true, "正在读取文件...");
+                ShowProgress(0);
 
-                string sheetLabel = string.IsNullOrEmpty(sheetName) ? "" : $"  |  Sheet: {sheetName}";
-                TxtFileInfo.Text = $"📄 {Path.GetFileName(filePath)}  |  {sizeStr}  |  {info.totalRows} 行 × {info.totalCols} 列{sheetLabel}";
+                var progress = new Progress<ImportProgressInfo>(info =>
+                {
+                    UpdateStatus(info.Stage);
+                    ShowProgress(info.Percentage);
+                });
 
-                // 加载预览（前50行）
-                var previewData = await Task.Run(() => FileParserService.ParseFile(filePath, sheetName, 50));
-                DgPreview.ItemsSource = previewData.DefaultView;
-                TxtPreviewInfo.Text = $"显示前 {previewData.Rows.Count} 行（共 {info.totalRows} 行），选择 Sheet 后可切换";
+                _currentData = await Task.Run(() => FileParserService.ParseFile(filePath, sheetName, 0, _currentDbfEncoding, progress));
+                DgPreview.ItemsSource = _currentData.DefaultView;
 
-                // 全量加载
-                _currentData = await Task.Run(() => FileParserService.ParseFile(filePath, sheetName));
-                TxtPreviewInfo.Text = $"✅ 已加载 {_currentData.Rows.Count} 行 × {_currentData.Columns.Count} 列，可以生成 SQL";
-                TxtPreviewInfo.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#10B981"));
+                long fileSize = new FileInfo(filePath).Length;
+                UpdateFileInfo(filePath, sheetName, fileSize, _currentData.Rows.Count, _currentData.Columns.Count);
+                ShowLoadHints(_currentData.Rows.Count);
+
+                TxtPreviewInfo.Text = $"已加载 {_currentData.Rows.Count:N0} 行 × {_currentData.Columns.Count:N0} 列，可直接编辑并重新生成 SQL。";
+                TxtPreviewInfo.Foreground = SuccessBrush;
+                UpdateStatus("文件加载完成");
+                UpdateExportButtons();
             }
             catch (Exception ex)
             {
-                TxtPreviewInfo.Text = $"❌ 解析失败: {ex.Message}";
-                TxtPreviewInfo.Foreground = Brushes.Red;
-                _currentData = null;
+                HandleLoadError(ex, "加载数据失败");
             }
             finally
             {
-                BtnSelectFile.IsEnabled = true;
-                BtnGenerateSql.IsEnabled = _currentData != null;
+                HideProgress();
+                SetBusyState(false, "就绪");
             }
         }
 
-        // ==================== 数据库类型切换 ====================
-
-        private void DbType_Changed(object sender, RoutedEventArgs e)
+        private void DbType_Changed(object sender, SelectionChangedEventArgs e)
         {
-            if (TxtTableName == null || TxtTableHint == null) return;
-
-            if (RbPostgres.IsChecked == true)
+            if (TxtTableHint is null || TxtTableName is null || TxtSqlOutput is null || TxtSqlStats is null)
             {
-                if (TxtTableName.Text.StartsWith("#"))
-                    TxtTableName.Text = "temp_import";
-                TxtTableHint.Text = "提示：PostgreSQL 使用 CREATE TEMP TABLE 创建会话级临时表";
-            }
-            else
-            {
-                if (TxtTableName.Text.StartsWith("temp_"))
-                    TxtTableName.Text = "#temp_import";
-                TxtTableHint.Text = "提示：SQL Server 使用 # 前缀创建临时表，## 为全局临时表";
+                return;
             }
 
-            // 如果已有数据，清空旧 SQL
-            TxtSqlOutput.Text = "";
+            ApplyDatabaseHint(forceTableName: false);
+            TxtSqlOutput.Clear();
             TxtSqlStats.Text = "";
         }
 
-        // ==================== 生成 SQL ====================
-
         private async void BtnGenerateSql_Click(object sender, RoutedEventArgs e)
         {
+            if (_isBusy)
+            {
+                return;
+            }
+
             if (_currentData == null || _currentData.Rows.Count == 0)
             {
-                MessageBox.Show("请先选择数据文件并确保有数据！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("请先导入数据文件，并确保表格中存在数据。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(TxtTableName.Text))
             {
-                MessageBox.Show("请填写临时表名称！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("表名不能为空。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (!int.TryParse(TxtBatchSize.Text, out int batchSize) || batchSize <= 0)
             {
-                MessageBox.Show("每批行数必须为正整数！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("每批行数必须是正整数。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            var dbType = RbPostgres.IsChecked == true
-                ? SqlGeneratorService.DbType.PostgreSQL
-                : SqlGeneratorService.DbType.SqlServer;
+            CommitPendingGridEdits();
+            DataTable dataSnapshot = _currentData.Copy();
 
+            if (dataSnapshot.Rows.Count > 100000)
+            {
+                var result = MessageBox.Show(
+                    $"当前数据量为 {dataSnapshot.Rows.Count:N0} 行，生成 SQL 可能较慢且文件较大。\n\n是否继续生成？",
+                    "大数据量警告",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result != MessageBoxResult.Yes)
+                {
+                    UpdateStatus("已取消生成");
+                    return;
+                }
+            }
+
+            SqlGeneratorService.DbType dbType = GetSelectedDbType();
             string tableName = TxtTableName.Text.Trim();
             bool dropIfExists = ChkDropIfExists.IsChecked == true;
             bool batchInsert = ChkBatchInsert.IsChecked == true;
-
-            BtnGenerateSql.IsEnabled = false;
-            BtnGenerateSql.Content = "⏳ 生成中...";
-            TxtSqlOutput.Text = "正在生成 SQL 语句，请稍候...";
+            bool limitFieldLength = ChkLimitFieldLength.IsChecked == true;
 
             try
             {
-                var data = _currentData;
-                string sql = await Task.Run(() =>
-                    SqlGeneratorService.GenerateFullSql(dbType, tableName, data, dropIfExists, batchInsert, batchSize));
+                SetBusyState(true, "正在生成 SQL...");
+                ShowProgress(15);
+                TxtSqlOutput.Text = "正在生成 SQL，请稍候...";
+
+                string sql = await Task.Run(() => SqlGeneratorService.GenerateFullSql(
+                    dbType,
+                    tableName,
+                    dataSnapshot,
+                    dropIfExists: dropIfExists,
+                    batchInsert: batchInsert,
+                    batchSize: batchSize,
+                    limitStringLength: limitFieldLength));
 
                 TxtSqlOutput.Text = sql;
+                TxtSqlOutput.ScrollToHome();
 
-                // 统计信息
-                int lineCount = sql.Split('\n').Length;
-                double sizeKb = System.Text.Encoding.UTF8.GetByteCount(sql) / 1024.0;
-                TxtSqlStats.Text = $"✅ 生成完成  |  {dbType}  |  表: {tableName}  |  {_currentData.Rows.Count} 行数据  |  SQL {lineCount} 行  |  {sizeKb:F1} KB";
+                int lineCount = sql.Split(Environment.NewLine).Length;
+                double sizeKb = System.Text.Encoding.UTF8.GetByteCount(sql) / 1024d;
+                TxtSqlStats.Text = $"数据库: {dbType}  |  表名: {tableName}  |  数据: {dataSnapshot.Rows.Count:N0} 行  |  SQL: {lineCount:N0} 行  |  {sizeKb:F1} KB";
+
+                UpdateStatus("SQL 生成完成");
+                ShowProgress(100);
             }
             catch (Exception ex)
             {
                 TxtSqlOutput.Text = $"生成失败: {ex.Message}";
                 MessageBox.Show($"SQL 生成失败：\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                UpdateStatus("SQL 生成失败");
             }
             finally
             {
-                BtnGenerateSql.IsEnabled = true;
-                BtnGenerateSql.Content = "⚡ 生成 SQL";
+                HideProgress();
+                SetBusyState(false, "就绪");
             }
         }
 
-        // ==================== Win32 剪贴板 API ====================
+        private void BtnCopySql_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
+            {
+                MessageBox.Show("当前没有可复制的 SQL。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            bool copied = TryCopyToClipboard(TxtSqlOutput.Text);
+            if (!copied)
+            {
+                MessageBox.Show("剪贴板当前被占用，请稍后再试。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            BtnCopySql.Content = "已复制";
+            UpdateStatus("SQL 已复制到剪贴板");
+
+            var timer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1.5)
+            };
+            timer.Tick += (_, _) =>
+            {
+                BtnCopySql.Content = "复制 SQL";
+                timer.Stop();
+            };
+            timer.Start();
+        }
+
+        private void BtnSaveSql_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
+            {
+                MessageBox.Show("当前没有可保存的 SQL。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "SQL 文件|*.sql|文本文件|*.txt",
+                FileName = $"{TxtTableName.Text}_{DateTime.Now:yyyyMMdd_HHmmss}.sql",
+                Title = "保存 SQL 文件"
+            };
+
+            ApplyDefaultExportPath(dialog);
+
+            if (dialog.ShowDialog() == true)
+            {
+                ExportService.ExportSql(dialog.FileName, TxtSqlOutput.Text);
+                UpdateStatus($"SQL 已保存: {dialog.FileName}");
+            }
+        }
+
+        private void BtnExportCsv_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentData == null)
+            {
+                MessageBox.Show("当前没有可导出的表格数据。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            CommitPendingGridEdits();
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "CSV 文件|*.csv",
+                FileName = $"{TxtTableName.Text}_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+                Title = "导出 CSV"
+            };
+
+            ApplyDefaultExportPath(dialog);
+
+            if (dialog.ShowDialog() == true)
+            {
+                ExportService.ExportCsv(dialog.FileName, _currentData);
+                UpdateStatus($"CSV 已导出: {dialog.FileName}");
+            }
+        }
+
+        private void BtnExportJson_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentData == null)
+            {
+                MessageBox.Show("当前没有可导出的表格数据。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            CommitPendingGridEdits();
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "JSON 文件|*.json",
+                FileName = $"{TxtTableName.Text}_{DateTime.Now:yyyyMMdd_HHmmss}.json",
+                Title = "导出 JSON"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                ExportService.ExportJson(dialog.FileName, _currentData);
+                UpdateStatus($"JSON 已导出: {dialog.FileName}");
+            }
+        }
+
+        private void Page_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                if (files != null && files.Length > 0 && IsSupportedFile(files[0]))
+                {
+                    e.Effects = DragDropEffects.Copy;
+                    return;
+                }
+            }
+
+            e.Effects = DragDropEffects.None;
+        }
+
+        private async void Page_Drop(object sender, DragEventArgs e)
+        {
+            if (_isBusy || !e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                return;
+            }
+
+            string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            if (files == null || files.Length == 0 || !IsSupportedFile(files[0]))
+            {
+                return;
+            }
+
+            await LoadSelectedFileAsync(files[0]);
+        }
+
+        private async void Page_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
+            {
+                e.Handled = true;
+                BtnSelectFile_Click(sender, new RoutedEventArgs());
+                return;
+            }
+
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
+            {
+                e.Handled = true;
+                BtnSaveSql_Click(sender, new RoutedEventArgs());
+                return;
+            }
+
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.C && TxtSqlOutput.IsFocused)
+            {
+                e.Handled = true;
+                BtnCopySql_Click(sender, new RoutedEventArgs());
+                return;
+            }
+
+            if (e.Key == Key.F5 && !_isBusy && _currentData != null)
+            {
+                e.Handled = true;
+                BtnGenerateSql_Click(sender, new RoutedEventArgs());
+                return;
+            }
+
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.R && !string.IsNullOrWhiteSpace(_currentFilePath))
+            {
+                e.Handled = true;
+                await LoadDataAsync(_currentFilePath, _currentSheetName);
+            }
+        }
+
+        private void DgPreview_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            e.Row.Header = (e.Row.GetIndex() + 1).ToString();
+        }
+
+        private void ResetCurrentData()
+        {
+            _currentData = null;
+            DgPreview.ItemsSource = null;
+            TxtPreviewInfo.Text = "请先选择数据文件";
+            TxtPreviewInfo.Foreground = MutedBrush;
+            TxtSqlOutput.Clear();
+            TxtSqlStats.Text = "";
+            UpdateExportButtons();
+        }
+
+        private void UpdateFileInfo(string filePath, string? sheetName, long fileSize, int totalRows, int totalCols)
+        {
+            string fileName = Path.GetFileName(filePath);
+            string sizeLabel = fileSize >= 1024 * 1024
+                ? $"{fileSize / 1024d / 1024d:F2} MB"
+                : $"{fileSize / 1024d:F1} KB";
+            string sheetLabel = string.IsNullOrWhiteSpace(sheetName) ? "" : $"  |  Sheet: {sheetName}";
+
+            TxtFileInfo.Text = $"文件: {fileName}  |  大小: {sizeLabel}  |  行数: {totalRows:N0}  |  列数: {totalCols:N0}{sheetLabel}";
+        }
+
+        private void ShowLoadHints(int totalRows)
+        {
+            if (totalRows > 100000)
+            {
+                UpdateStatus($"当前数据量 {totalRows:N0} 行，加载和生成 SQL 可能较慢。");
+            }
+            else if (totalRows > 50000)
+            {
+                UpdateStatus($"数据量 {totalRows:N0} 行，建议优先使用批量 INSERT。");
+            }
+            else
+            {
+                UpdateStatus("正在加载数据...");
+            }
+        }
+
+        private void CommitPendingGridEdits()
+        {
+            DgPreview.CommitEdit(DataGridEditingUnit.Cell, true);
+            DgPreview.CommitEdit(DataGridEditingUnit.Row, true);
+        }
+
+        private SqlGeneratorService.DbType GetSelectedDbType()
+        {
+            if (CbDatabaseType is null)
+            {
+                return SqlGeneratorService.DbType.PostgreSQL;
+            }
+
+            string selected = (CbDatabaseType.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "PostgreSQL";
+            return selected switch
+            {
+                "SQL Server" => SqlGeneratorService.DbType.SqlServer,
+                "MySQL" => SqlGeneratorService.DbType.MySQL,
+                "Oracle" => SqlGeneratorService.DbType.Oracle,
+                _ => SqlGeneratorService.DbType.PostgreSQL
+            };
+        }
+
+        private void LoadImportSettings(bool forceTableName)
+        {
+            _importSettings = ImportSettingsService.Load();
+            ApplyImportSettingsToUi(forceTableName);
+        }
+
+        private void ApplyImportSettingsToUi(bool forceTableName)
+        {
+            SelectDbType(_importSettings.DefaultDbType);
+            TxtBatchSize.Text = _importSettings.BatchSize.ToString();
+            ChkDropIfExists.IsChecked = _importSettings.DropIfExists;
+            ChkBatchInsert.IsChecked = _importSettings.BatchInsert;
+            ChkLimitFieldLength.IsChecked = _importSettings.LimitFieldLength;
+            ApplyDatabaseHint(forceTableName);
+        }
+
+        private void SelectDbType(string dbType)
+        {
+            foreach (ComboBoxItem item in CbDatabaseType.Items)
+            {
+                string content = item.Content?.ToString() ?? string.Empty;
+                if (string.Equals(content, dbType, StringComparison.OrdinalIgnoreCase))
+                {
+                    CbDatabaseType.SelectedItem = item;
+                    return;
+                }
+            }
+
+            CbDatabaseType.SelectedIndex = 0;
+        }
+
+        private void ApplyDatabaseHint(bool forceTableName)
+        {
+            if (TxtTableHint is null || TxtTableName is null || CbDatabaseType is null)
+            {
+                return;
+            }
+
+            SqlGeneratorService.DbType dbType = GetSelectedDbType();
+            TxtTableHint.Text = dbType switch
+            {
+                SqlGeneratorService.DbType.SqlServer => "提示：SQL Server 临时表建议使用 # 前缀，批量 INSERT 自动限制为 1000 行。",
+                SqlGeneratorService.DbType.MySQL => "提示：MySQL 使用 CREATE TEMPORARY TABLE，布尔值会输出为 1 / 0。",
+                SqlGeneratorService.DbType.Oracle => "提示：Oracle 使用 CREATE GLOBAL TEMPORARY TABLE，日期会输出为 TO_DATE(...)。",
+                _ => "提示：PostgreSQL 使用 CREATE TEMPORARY TABLE，布尔值会输出为 TRUE / FALSE。"
+            };
+
+            string suggestedName = string.IsNullOrWhiteSpace(_importSettings.DefaultTableName)
+                ? SqlGeneratorService.GetDefaultTableName(dbType)
+                : _importSettings.DefaultTableName.Trim();
+            string current = TxtTableName.Text.Trim();
+            var defaultNames = Enum.GetValues<SqlGeneratorService.DbType>()
+                .SelectMany(type => new[]
+                {
+                    SqlGeneratorService.GetDefaultTableName(type),
+                    _importSettings.DefaultTableName
+                })
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (forceTableName || string.IsNullOrWhiteSpace(current) || defaultNames.Contains(current) || string.Equals(current, _lastSuggestedTableName, StringComparison.OrdinalIgnoreCase))
+            {
+                TxtTableName.Text = suggestedName;
+            }
+
+            _lastSuggestedTableName = suggestedName;
+        }
+
+        private void ApplyDefaultExportPath(FileDialog dialog)
+        {
+            if (!string.IsNullOrWhiteSpace(_importSettings.DefaultExportPath) && Directory.Exists(_importSettings.DefaultExportPath))
+            {
+                dialog.InitialDirectory = _importSettings.DefaultExportPath;
+            }
+        }
+
+        private void UpdateExportButtons()
+        {
+            if (BtnGenerateSql is null || BtnExportCsv is null || BtnExportJson is null || BtnSaveSql is null || BtnCopySql is null || TxtSqlOutput is null)
+            {
+                return;
+            }
+
+            bool hasData = _currentData != null && _currentData.Columns.Count > 0;
+            BtnGenerateSql.IsEnabled = !_isBusy && hasData;
+            BtnExportCsv.IsEnabled = !_isBusy && hasData;
+            BtnExportJson.IsEnabled = !_isBusy && hasData;
+            BtnSaveSql.IsEnabled = !_isBusy && !string.IsNullOrWhiteSpace(TxtSqlOutput.Text);
+            BtnCopySql.IsEnabled = !_isBusy && !string.IsNullOrWhiteSpace(TxtSqlOutput.Text);
+        }
+
+        private void SetBusyState(bool isBusy, string status)
+        {
+            _isBusy = isBusy;
+            if (BtnSelectFile != null) BtnSelectFile.IsEnabled = !isBusy;
+            if (CbSheetList != null) CbSheetList.IsEnabled = !isBusy;
+            if (CbDbfEncoding != null) CbDbfEncoding.IsEnabled = !isBusy;
+            if (CbDatabaseType != null) CbDatabaseType.IsEnabled = !isBusy;
+            if (DgPreview != null) DgPreview.IsEnabled = !isBusy;
+            UpdateExportButtons();
+            UpdateStatus(status);
+            if (BtnGenerateSql != null) BtnGenerateSql.Content = isBusy ? "处理中..." : "生成 SQL";
+        }
+
+        private void UpdateStatus(string message)
+        {
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = message;
+            }
+        }
+
+        private void ShowProgress(int value)
+        {
+            if (ProgressLoad != null)
+            {
+                ProgressLoad.Visibility = Visibility.Visible;
+                ProgressLoad.Value = Math.Max(0, Math.Min(100, value));
+            }
+        }
+
+        private void HideProgress()
+        {
+            if (ProgressLoad != null)
+            {
+                ProgressLoad.Visibility = Visibility.Collapsed;
+                ProgressLoad.Value = 0;
+            }
+        }
+
+        private void HandleLoadError(Exception ex, string title)
+        {
+            _currentData = null;
+            DgPreview.ItemsSource = null;
+            TxtPreviewInfo.Text = $"解析失败: {ex.Message}";
+            TxtPreviewInfo.Foreground = ErrorBrush;
+            UpdateStatus("加载失败");
+            UpdateExportButtons();
+            MessageBox.Show($"{title}：\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        private static bool IsSupportedFile(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext is ".xlsx" or ".xls" or ".csv" or ".dbf";
+        }
 
         [DllImport("user32.dll")]
         private static extern bool OpenClipboard(IntPtr hWndNewOwner);
@@ -238,122 +729,59 @@ namespace WpfApp1.Views
         private const uint CF_UNICODETEXT = 13;
         private const uint GMEM_MOVEABLE = 0x0002;
 
-        /// <summary>
-        /// 使用 Win32 API 写入剪贴板，绕过 WPF/OLE 剪贴板锁定问题
-        /// </summary>
-        private static bool CopyToClipboardNative(string text)
+        private static bool TryCopyToClipboard(string text)
         {
-            if (!OpenClipboard(IntPtr.Zero))
-                return false;
-
             try
             {
-                EmptyClipboard();
-
-                var bytes = (text.Length + 1) * 2; // UTF-16
-                var hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)bytes);
-                if (hGlobal == IntPtr.Zero) return false;
-
-                var target = GlobalLock(hGlobal);
-                if (target == IntPtr.Zero) return false;
-
-                Marshal.Copy(text.ToCharArray(), 0, target, text.Length);
-                // 写入末尾 null 终止符
-                Marshal.WriteInt16(target, text.Length * 2, 0);
-                GlobalUnlock(hGlobal);
-
-                SetClipboardData(CF_UNICODETEXT, hGlobal);
-                return true;
-            }
-            finally
-            {
-                CloseClipboard();
-            }
-        }
-
-        // ==================== 复制到剪贴板 ====================
-
-        private void BtnCopySql_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
-            {
-                MessageBox.Show("没有可复制的 SQL 语句，请先生成！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            bool success = false;
-
-            // 方式1：Win32 原生 API（最可靠）
-            try
-            {
-                success = CopyToClipboardNative(TxtSqlOutput.Text);
-            }
-            catch
-            {
-                success = false;
-            }
-
-            // 方式2：回退到 WPF 方式（带重试）
-            if (!success)
-            {
-                for (int i = 0; i < 5; i++)
+                if (OpenClipboard(IntPtr.Zero))
                 {
                     try
                     {
-                        Clipboard.SetDataObject(TxtSqlOutput.Text, true);
-                        success = true;
-                        break;
+                        EmptyClipboard();
+
+                        int bytes = (text.Length + 1) * 2;
+                        IntPtr hGlobal = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)bytes);
+                        if (hGlobal == IntPtr.Zero)
+                        {
+                            return false;
+                        }
+
+                        IntPtr target = GlobalLock(hGlobal);
+                        if (target == IntPtr.Zero)
+                        {
+                            return false;
+                        }
+
+                        Marshal.Copy(text.ToCharArray(), 0, target, text.Length);
+                        Marshal.WriteInt16(target, text.Length * 2, 0);
+                        GlobalUnlock(hGlobal);
+                        _ = SetClipboardData(CF_UNICODETEXT, hGlobal);
+                        return true;
                     }
-                    catch
+                    finally
                     {
-                        Thread.Sleep(150);
+                        CloseClipboard();
                     }
                 }
             }
-
-            if (success)
+            catch
             {
-                BtnCopySql.Content = "✅ 已复制！";
-                var timer = new System.Windows.Threading.DispatcherTimer
+            }
+
+            for (int i = 0; i < 5; i++)
+            {
+                try
                 {
-                    Interval = TimeSpan.FromSeconds(2)
-                };
-                timer.Tick += (s, _) =>
+                    Clipboard.SetDataObject(text, true);
+                    return true;
+                }
+                catch
                 {
-                    BtnCopySql.Content = "📋 复制到剪贴板";
-                    ((System.Windows.Threading.DispatcherTimer)s!).Stop();
-                };
-                timer.Start();
-            }
-            else
-            {
-                MessageBox.Show("剪贴板被其他程序占用，复制失败。\n\n替代方案：点击 SQL 文本框，Ctrl+A 全选后 Ctrl+C 复制。",
-                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-        }
-
-        // ==================== 保存为文件 ====================
-
-        private void BtnSaveSql_Click(object sender, RoutedEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
-            {
-                MessageBox.Show("没有可保存的 SQL 语句，请先生成！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                    Thread.Sleep(120);
+                }
             }
 
-            var dialog = new SaveFileDialog
-            {
-                Filter = "SQL 文件|*.sql|文本文件|*.txt",
-                FileName = $"{TxtTableName.Text}_{DateTime.Now:yyyyMMdd_HHmmss}.sql",
-                Title = "保存 SQL 文件"
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                File.WriteAllText(dialog.FileName, TxtSqlOutput.Text, System.Text.Encoding.UTF8);
-                MessageBox.Show($"SQL 文件已保存到：\n{dialog.FileName}", "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+            return false;
         }
     }
 }
