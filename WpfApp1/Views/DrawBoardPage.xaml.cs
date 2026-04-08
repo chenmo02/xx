@@ -109,6 +109,22 @@ namespace WpfApp1.Views
                     var data = message.Substring(6);
                     HandleSceneData(data);
                 }
+                else if (message != null && message.StartsWith("LOAD:"))
+                {
+                    var result = message.Substring(5);
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (result == "OK")
+                        {
+                            TxtStatus.Text = "  ✅ 文件加载成功";
+                        }
+                        else if (result.StartsWith("ERROR:"))
+                        {
+                            var errMsg = result.Substring(6);
+                            TxtStatus.Text = $"  ❌ 加载失败: {errMsg}";
+                        }
+                    });
+                }
             }
             catch { }
         }
@@ -169,11 +185,87 @@ namespace WpfApp1.Views
                     }
                 };
 
-                // 辅助函数：加载场景数据
+                // 辅助函数：加载场景数据（通过 Excalidraw 内部 API）
                 window.__ccLoadScene = function(jsonStr) {
                     try {
+                        var data = JSON.parse(jsonStr);
+                        
+                        // 分离 elements 和 appState
+                        var elements = data.elements || [];
+                        var appState = data.appState || {};
+                        var files = data.files || {};
+                        
+                        // 尝试通过 Excalidraw 内部 API 加载
+                        // 方式1：查找 React Fiber 上的 updateScene
+                        var excalidrawEl = document.querySelector('.excalidraw');
+                        if (excalidrawEl) {
+                            // 遍历 React Fiber 树查找 Excalidraw 实例
+                            var fiberKey = Object.keys(excalidrawEl).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'));
+                            if (fiberKey) {
+                                var fiber = excalidrawEl[fiberKey];
+                                var node = fiber;
+                                // 向上遍历找到有 updateScene 的组件
+                                for (var i = 0; i < 50 && node; i++) {
+                                    if (node.memoizedProps && node.memoizedProps.excalidrawAPI) {
+                                        var api = node.memoizedProps.excalidrawAPI;
+                                        if (api && api.updateScene) {
+                                            api.updateScene({ elements: elements });
+                                            if (api.addFiles && Object.keys(files).length > 0) {
+                                                api.addFiles(Object.values(files));
+                                            }
+                                            api.scrollToContent();
+                                            window.chrome.webview.postMessage('LOAD:OK');
+                                            return;
+                                        }
+                                    }
+                                    if (node.stateNode && node.stateNode.updateScene) {
+                                        node.stateNode.updateScene({ elements: elements });
+                                        window.chrome.webview.postMessage('LOAD:OK');
+                                        return;
+                                    }
+                                    node = node.return;
+                                }
+                            }
+                        }
+                        
+                        // 方式2：通过 Blob URL 重新加载
+                        var blob = new Blob([jsonStr], { type: 'application/json' });
+                        var url = URL.createObjectURL(blob);
+                        
+                        // 使用 Excalidraw 的文件加载机制
+                        // 构造一个 File 对象并触发 loadFromBlob
+                        var file = new File([jsonStr], 'drawing.excalidraw', { type: 'application/json' });
+                        
+                        // 尝试调用全局的 loadFromBlob（如果存在）
+                        if (window.loadFromBlob) {
+                            window.loadFromBlob(blob, null, null).then(function(data) {
+                                window.chrome.webview.postMessage('LOAD:OK');
+                            });
+                            return;
+                        }
+                        
+                        // 方式3：回退到 localStorage + reload（兼容旧版本）
+                        // 同时写入多个可能的 key
                         localStorage.setItem('excalidraw', jsonStr);
-                        location.reload();
+                        localStorage.setItem('excalidraw-state', jsonStr);
+                        
+                        // 尝试写入 IndexedDB
+                        var dbReq = indexedDB.open('excalidraw', 1);
+                        dbReq.onsuccess = function(event) {
+                            try {
+                                var db = event.target.result;
+                                var storeNames = db.objectStoreNames;
+                                if (storeNames.length > 0) {
+                                    var tx = db.transaction(storeNames[0], 'readwrite');
+                                    var store = tx.objectStore(storeNames[0]);
+                                    store.put(data, 'scene');
+                                }
+                            } catch(e) {}
+                            location.reload();
+                        };
+                        dbReq.onerror = function() {
+                            location.reload();
+                        };
                     } catch(e) {
                         alert('加载失败: ' + e.message);
                     }
@@ -208,14 +300,50 @@ namespace WpfApp1.Views
                 try
                 {
                     var json = File.ReadAllText(dlg.FileName, Encoding.UTF8);
-                    // 转义 JSON 字符串用于 JS
-                    var escaped = json.Replace("\\", "\\\\").Replace("'", "\\'").Replace("\n", "\\n").Replace("\r", "\\r");
-                    await ExcalidrawWebView.CoreWebView2.ExecuteScriptAsync($"window.__ccLoadScene('{escaped}');");
-                    TxtStatus.Text = $"  ✅ 已加载: {Path.GetFileName(dlg.FileName)}";
+                    var fileName = Path.GetFileName(dlg.FileName);
+
+                    // 使用 Base64 传输避免转义问题
+                    var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+
+                    // 通过模拟拖放 File 对象来加载（Excalidraw 原生支持）
+                    var loadScript = $@"
+                        (async function() {{
+                            try {{
+                                var base64 = '{base64}';
+                                var raw = atob(base64);
+                                var bytes = new Uint8Array(raw.length);
+                                for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+                                var blob = new Blob([bytes], {{ type: 'application/json' }});
+                                var file = new File([blob], '{fileName.Replace("'", "\\'")}', {{ type: 'application/json' }});
+
+                                // 模拟拖放事件让 Excalidraw 原生处理文件
+                                var dt = new DataTransfer();
+                                dt.items.add(file);
+                                var dropTarget = document.querySelector('.excalidraw') || document.querySelector('canvas') || document.body;
+                                
+                                var dragEnter = new DragEvent('dragenter', {{ dataTransfer: dt, bubbles: true }});
+                                var dragOver = new DragEvent('dragover', {{ dataTransfer: dt, bubbles: true }});
+                                var drop = new DragEvent('drop', {{ dataTransfer: dt, bubbles: true }});
+                                
+                                dropTarget.dispatchEvent(dragEnter);
+                                dropTarget.dispatchEvent(dragOver);
+                                dropTarget.dispatchEvent(drop);
+                                
+                                window.chrome.webview.postMessage('LOAD:OK');
+                            }} catch(e) {{
+                                window.chrome.webview.postMessage('LOAD:ERROR:' + e.message);
+                            }}
+                        }})();
+                    ";
+
+                    TxtStatus.Text = $"  ⏳ 正在加载: {fileName}";
+                    await ExcalidrawWebView.CoreWebView2.ExecuteScriptAsync(loadScript);
+                    TxtStatus.Text = $"  ✅ 已加载: {fileName}";
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"文件加载失败：\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    TxtStatus.Text = "  ❌ 加载失败";
                 }
             }
         }
