@@ -26,6 +26,8 @@ namespace WpfApp1.Services
 
         public string Locator { get; init; } = "";
 
+        public string LocatorKey { get; init; } = "";
+
         public string ColumnName { get; init; } = "";
 
         public string LeftValue { get; init; } = "";
@@ -33,6 +35,14 @@ namespace WpfApp1.Services
         public string RightValue { get; init; } = "";
 
         public string Message { get; init; } = "";
+
+        public int? RowNumber { get; init; }
+
+        public int GroupSortOrder { get; init; }
+
+        public string LeftRowPreview { get; init; } = "";
+
+        public string RightRowPreview { get; init; } = "";
     }
 
     public sealed class CsvCompareResult
@@ -87,10 +97,12 @@ namespace WpfApp1.Services
                 diffItems.Add(CreateDiffItem(
                     CsvDiffType.ColumnRemoved,
                     "表头",
+                    $"HEADER:{leftOnlyColumn}",
                     leftOnlyColumn,
                     leftOnlyColumn,
                     "",
-                    "列只存在于 A 文件"));
+                    "该列仅存在于文件 A",
+                    groupSortOrder: GetGroupSortOrder(CsvDiffType.ColumnRemoved)));
             }
 
             foreach (string rightOnlyColumn in rightColumns.Where(column => !leftLookup.Contains(column)))
@@ -98,10 +110,12 @@ namespace WpfApp1.Services
                 diffItems.Add(CreateDiffItem(
                     CsvDiffType.ColumnAdded,
                     "表头",
+                    $"HEADER:{rightOnlyColumn}",
                     rightOnlyColumn,
                     "",
                     rightOnlyColumn,
-                    "列只存在于 B 文件"));
+                    "该列仅存在于文件 B",
+                    groupSortOrder: GetGroupSortOrder(CsvDiffType.ColumnAdded)));
             }
 
             if (mode == CsvCompareMode.ByKeyColumns)
@@ -126,39 +140,53 @@ namespace WpfApp1.Services
 
             for (int rowIndex = 0; rowIndex < maxRows; rowIndex++)
             {
-                string locator = $"第 {rowIndex + 1} 行";
+                int rowNumber = rowIndex + 1;
+                string locator = $"第 {rowNumber} 行";
+                string locatorKey = $"ROW:{rowNumber}";
 
                 if (rowIndex >= leftTable.Rows.Count)
                 {
+                    DataRow rightRow = rightTable.Rows[rowIndex];
                     diffItems.Add(CreateDiffItem(
                         CsvDiffType.RowAdded,
                         locator,
+                        locatorKey,
                         "",
                         "",
                         "",
-                        "该行只存在于 B 文件"));
+                        "该行仅存在于文件 B",
+                        rowNumber,
+                        GetGroupSortOrder(CsvDiffType.RowAdded),
+                        rightRowPreview: BuildRowPreview(rightRow, commonColumns, useLeftColumns: false)));
                     continue;
                 }
 
                 if (rowIndex >= rightTable.Rows.Count)
                 {
+                    DataRow leftRow = leftTable.Rows[rowIndex];
                     diffItems.Add(CreateDiffItem(
                         CsvDiffType.RowRemoved,
                         locator,
+                        locatorKey,
                         "",
                         "",
                         "",
-                        "该行只存在于 A 文件"));
+                        "该行仅存在于文件 A",
+                        rowNumber,
+                        GetGroupSortOrder(CsvDiffType.RowRemoved),
+                        leftRowPreview: BuildRowPreview(leftRow, commonColumns, useLeftColumns: true)));
                     continue;
                 }
 
-                DataRow leftRow = leftTable.Rows[rowIndex];
-                DataRow rightRow = rightTable.Rows[rowIndex];
+                DataRow currentLeftRow = leftTable.Rows[rowIndex];
+                DataRow currentRightRow = rightTable.Rows[rowIndex];
+                string leftPreview = BuildRowPreview(currentLeftRow, commonColumns, useLeftColumns: true);
+                string rightPreview = BuildRowPreview(currentRightRow, commonColumns, useLeftColumns: false);
 
                 foreach (ColumnPair columnPair in commonColumns)
                 {
-                    string leftValue = GetCellText(leftRow, columnPair.LeftName);
-                    string rightValue = GetCellText(rightRow, columnPair.RightName);
+                    string leftValue = GetCellText(currentLeftRow, columnPair.LeftName);
+                    string rightValue = GetCellText(currentRightRow, columnPair.RightName);
                     if (string.Equals(leftValue, rightValue, StringComparison.Ordinal))
                     {
                         continue;
@@ -167,10 +195,15 @@ namespace WpfApp1.Services
                     diffItems.Add(CreateDiffItem(
                         CsvDiffType.CellModified,
                         locator,
+                        locatorKey,
                         columnPair.DisplayName,
                         leftValue,
                         rightValue,
-                        "同一行同一列的值不同"));
+                        "同一行同一列的值不同",
+                        rowNumber,
+                        GetGroupSortOrder(CsvDiffType.CellModified),
+                        leftPreview,
+                        rightPreview));
                 }
             }
         }
@@ -193,8 +226,8 @@ namespace WpfApp1.Services
                 return;
             }
 
-            Dictionary<string, DataRow> leftRows = BuildKeyLookup(leftTable, selectedPairs, true, diffItems, validationErrors);
-            Dictionary<string, DataRow> rightRows = BuildKeyLookup(rightTable, selectedPairs, false, diffItems, validationErrors);
+            Dictionary<string, DataRow> leftRows = BuildKeyLookup(leftTable, commonColumns, selectedPairs, true, diffItems, validationErrors);
+            Dictionary<string, DataRow> rightRows = BuildKeyLookup(rightTable, commonColumns, selectedPairs, false, diffItems, validationErrors);
 
             if (validationErrors.Count > 0)
             {
@@ -209,11 +242,14 @@ namespace WpfApp1.Services
                 DataRow row = leftRows[removedKey];
                 diffItems.Add(CreateDiffItem(
                     CsvDiffType.RowRemoved,
-                    BuildKeyLocator(row, selectedPairs, true),
+                    BuildKeyLocator(row, selectedPairs, useLeftColumns: true),
+                    $"KEY:{removedKey}",
                     "",
                     "",
                     "",
-                    "该主键只存在于 A 文件"));
+                    "该主键仅存在于文件 A",
+                    groupSortOrder: GetGroupSortOrder(CsvDiffType.RowRemoved),
+                    leftRowPreview: BuildRowPreview(row, commonColumns, useLeftColumns: true)));
             }
 
             foreach (string addedKey in rightKeys.Except(leftKeys, StringComparer.Ordinal))
@@ -221,11 +257,14 @@ namespace WpfApp1.Services
                 DataRow row = rightRows[addedKey];
                 diffItems.Add(CreateDiffItem(
                     CsvDiffType.RowAdded,
-                    BuildKeyLocator(row, selectedPairs, false),
+                    BuildKeyLocator(row, selectedPairs, useLeftColumns: false),
+                    $"KEY:{addedKey}",
                     "",
                     "",
                     "",
-                    "该主键只存在于 B 文件"));
+                    "该主键仅存在于文件 B",
+                    groupSortOrder: GetGroupSortOrder(CsvDiffType.RowAdded),
+                    rightRowPreview: BuildRowPreview(row, commonColumns, useLeftColumns: false)));
             }
 
             var keyDisplayNames = selectedPairs
@@ -236,6 +275,9 @@ namespace WpfApp1.Services
             {
                 DataRow leftRow = leftRows[commonKey];
                 DataRow rightRow = rightRows[commonKey];
+                string locator = BuildKeyLocator(leftRow, selectedPairs, useLeftColumns: true);
+                string leftPreview = BuildRowPreview(leftRow, commonColumns, useLeftColumns: true);
+                string rightPreview = BuildRowPreview(rightRow, commonColumns, useLeftColumns: false);
 
                 foreach (ColumnPair columnPair in commonColumns)
                 {
@@ -253,17 +295,22 @@ namespace WpfApp1.Services
 
                     diffItems.Add(CreateDiffItem(
                         CsvDiffType.CellModified,
-                        BuildKeyLocator(leftRow, selectedPairs, true),
+                        locator,
+                        $"KEY:{commonKey}",
                         columnPair.DisplayName,
                         leftValue,
                         rightValue,
-                        "相同主键下该列的值不同"));
+                        "相同主键下该列的值不同",
+                        groupSortOrder: GetGroupSortOrder(CsvDiffType.CellModified),
+                        leftRowPreview: leftPreview,
+                        rightRowPreview: rightPreview));
                 }
             }
         }
 
         private static Dictionary<string, DataRow> BuildKeyLookup(
             DataTable table,
+            IReadOnlyList<ColumnPair> previewColumns,
             IReadOnlyList<ColumnPair> keyColumns,
             bool isLeftSide,
             List<CsvDiffItem> diffItems,
@@ -293,15 +340,21 @@ namespace WpfApp1.Services
                 string sideLabel = isLeftSide ? "A" : "B";
                 string locator = BuildKeyLocator(sampleRow, keyColumns, isLeftSide);
                 string rowsText = string.Join(", ", rowIndexes);
+                string leftPreview = isLeftSide ? BuildRowPreview(sampleRow, previewColumns, useLeftColumns: true) : "";
+                string rightPreview = isLeftSide ? "" : BuildRowPreview(sampleRow, previewColumns, useLeftColumns: false);
 
                 validationErrors.Add($"{sideLabel} 文件存在重复主键：{locator}，重复行号：{rowsText}");
                 diffItems.Add(CreateDiffItem(
                     CsvDiffType.DuplicateKey,
                     locator,
+                    $"DUP:{sideLabel}:{compositeKey}",
                     "",
                     isLeftSide ? rowsText : "",
                     isLeftSide ? "" : rowsText,
-                    $"{sideLabel} 文件存在重复主键"));
+                    $"{sideLabel} 文件存在重复主键",
+                    groupSortOrder: GetGroupSortOrder(CsvDiffType.DuplicateKey),
+                    leftRowPreview: leftPreview,
+                    rightRowPreview: rightPreview));
             }
 
             if (validationErrors.Count > 0)
@@ -354,6 +407,49 @@ namespace WpfApp1.Services
         private static string FormatLocatorValue(string value)
             => string.IsNullOrEmpty(value) ? "(空)" : value;
 
+        private static string BuildRowPreview(DataRow row, IReadOnlyList<ColumnPair> columnPairs, bool useLeftColumns)
+        {
+            IEnumerable<(string DisplayName, string ColumnName)> previewColumns;
+            if (columnPairs.Count > 0)
+            {
+                previewColumns = columnPairs.Select(pair => (pair.DisplayName, useLeftColumns ? pair.LeftName : pair.RightName));
+            }
+            else
+            {
+                previewColumns = row.Table.Columns.Cast<DataColumn>().Select(column => (column.ColumnName, column.ColumnName));
+            }
+
+            var pairs = previewColumns.Take(4).ToList();
+            if (pairs.Count == 0)
+            {
+                return "(空行)";
+            }
+
+            var segments = new List<string>(pairs.Count);
+            foreach ((string displayName, string columnName) in pairs)
+            {
+                segments.Add($"{displayName}={FormatPreviewValue(GetCellText(row, columnName))}");
+            }
+
+            if (previewColumns.Skip(4).Any())
+            {
+                segments.Add("…");
+            }
+
+            return string.Join("；", segments);
+        }
+
+        private static string FormatPreviewValue(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return "(空)";
+            }
+
+            const int maxLength = 24;
+            return value.Length <= maxLength ? value : $"{value[..maxLength]}…";
+        }
+
         private static string GetCellText(DataRow row, string columnName)
         {
             object? value = row[columnName];
@@ -363,22 +459,43 @@ namespace WpfApp1.Services
         private static CsvDiffItem CreateDiffItem(
             CsvDiffType diffType,
             string locator,
+            string locatorKey,
             string columnName,
             string leftValue,
             string rightValue,
-            string message)
+            string message,
+            int? rowNumber = null,
+            int groupSortOrder = 0,
+            string leftRowPreview = "",
+            string rightRowPreview = "")
         {
             return new CsvDiffItem
             {
                 DiffType = diffType,
                 DiffTypeText = GetDiffTypeText(diffType),
                 Locator = locator,
+                LocatorKey = locatorKey,
                 ColumnName = columnName,
                 LeftValue = leftValue,
                 RightValue = rightValue,
-                Message = message
+                Message = message,
+                RowNumber = rowNumber,
+                GroupSortOrder = groupSortOrder,
+                LeftRowPreview = leftRowPreview,
+                RightRowPreview = rightRowPreview
             };
         }
+
+        private static int GetGroupSortOrder(CsvDiffType diffType) => diffType switch
+        {
+            CsvDiffType.DuplicateKey => 0,
+            CsvDiffType.ColumnRemoved => 10,
+            CsvDiffType.ColumnAdded => 11,
+            CsvDiffType.RowRemoved => 20,
+            CsvDiffType.RowAdded => 30,
+            CsvDiffType.CellModified => 40,
+            _ => 99
+        };
 
         private static string GetDiffTypeText(CsvDiffType diffType) => diffType switch
         {

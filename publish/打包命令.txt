@@ -7,3 +7,5 @@ Notes:
 1. The main deliverable is a single CCToolbox.exe
 2. The target machine does not need a separate .NET Desktop Runtime
 3. The draw board still requires Microsoft Edge WebView2 Runtime
+4. In Visual Studio, use startup profile `CCToolbox (VS本地构建版)` for normal debugging
+5. In Visual Studio, use startup profile `CCToolbox (单文件EXE，已发布)` only after publish succeeds

@@ -30,7 +30,7 @@ namespace WpfApp1.Views
         private void GoToCsvCompare_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (Application.Current.MainWindow is MainWindow mw)
-            { mw.MainFrame.Navigate(new CsvComparePage()); mw.NavCsvCompare.IsChecked = true; }
+            { mw.NavigateToCsvCompare(); }
         }
 
         private void GoToJsonTool_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

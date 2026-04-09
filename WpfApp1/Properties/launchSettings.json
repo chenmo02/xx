@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "CCToolbox (VS本地构建版)": {
+      "commandName": "Project"
+    },
+    "CCToolbox (单文件EXE，已发布)": {
+      "commandName": "Executable",
+      "executablePath": "..\\artifacts\\publish\\win-x64-single\\CCToolbox.exe",
+      "workingDirectory": "..\\artifacts\\publish\\win-x64-single"
+    }
+  }
+}

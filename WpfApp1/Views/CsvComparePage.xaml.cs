@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using WpfApp1.Services;
 
 namespace WpfApp1.Views
@@ -21,26 +20,61 @@ namespace WpfApp1.Views
         private sealed class LoadedFileContext
         {
             public required DelimitedTextLoadResult LoadResult { get; init; }
-
             public DataTable Table => LoadResult.Table;
+        }
+
+        private sealed class CsvCompareDisplayRow
+        {
+            public required CsvDiffType DiffGroupType { get; init; }
+            public required string DiffTypeText { get; init; }
+            public required string Locator { get; init; }
+            public required string SummaryText { get; init; }
+            public required int DiffCount { get; init; }
+            public required int ChangedColumnCount { get; init; }
+            public required string LeftPreview { get; init; }
+            public required string RightPreview { get; init; }
+            public required int GroupSortOrder { get; init; }
+            public required string LocatorKey { get; init; }
+            public int? RowNumber { get; init; }
+            public required IReadOnlyList<CsvDiffItem> Details { get; init; }
+        }
+
+        private sealed class CsvCompareDetailRow
+        {
+            public required string ColumnName { get; init; }
+            public required string LeftValue { get; init; }
+            public required string RightValue { get; init; }
+            public required string Message { get; init; }
         }
 
         private LoadedFileContext? _leftFile;
         private LoadedFileContext? _rightFile;
         private CsvCompareResult? _lastResult;
+        private readonly List<int> _pageSizes = [50, 100, 200];
+        private List<CsvCompareDisplayRow> _allDisplayRows = [];
+        private List<CsvCompareDisplayRow> _filteredDisplayRows = [];
+        private List<CsvCompareDisplayRow> _currentPageRows = [];
+        private List<CsvDiffItem> _visibleHeaderChanges = [];
+        private int _pageIndex;
+        private int _pageSize = 100;
+        private CsvCompareMode _currentMode = CsvCompareMode.ByRowNumber;
 
         public CsvComparePage()
         {
             InitializeComponent();
+            CmbPageSize.ItemsSource = _pageSizes;
+            CmbPageSize.SelectedItem = _pageSize;
+            UpdateResponsiveLayout();
             UpdateModeUi();
             ResetResults();
+            RestoreState();
         }
 
-        private async void BtnLoadLeft_Click(object sender, RoutedEventArgs e)
-            => await LoadFileAsync(isLeft: true);
+        private void Page_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateResponsiveLayout();
 
-        private async void BtnLoadRight_Click(object sender, RoutedEventArgs e)
-            => await LoadFileAsync(isLeft: false);
+        private async void BtnLoadLeft_Click(object sender, RoutedEventArgs e) => await LoadFileAsync(isLeft: true);
+
+        private async void BtnLoadRight_Click(object sender, RoutedEventArgs e) => await LoadFileAsync(isLeft: false);
 
         private async Task LoadFileAsync(bool isLeft)
         {
@@ -59,7 +93,6 @@ namespace WpfApp1.Views
             {
                 DelimitedTextLoadResult result = await Task.Run(() => DelimitedTextFileService.LoadFile(dialog.FileName));
                 var context = new LoadedFileContext { LoadResult = result };
-
                 if (isLeft)
                 {
                     _leftFile = context;
@@ -72,6 +105,7 @@ namespace WpfApp1.Views
                 UpdateFilePanel(isLeft, context);
                 RefreshKeyColumns();
                 ResetResults();
+                SaveState();
             }
             catch (Exception ex)
             {
@@ -85,6 +119,7 @@ namespace WpfApp1.Views
             RefreshFilePanels();
             RefreshKeyColumns();
             ResetResults();
+            SaveState();
         }
 
         private void BtnClear_Click(object sender, RoutedEventArgs e)
@@ -94,12 +129,98 @@ namespace WpfApp1.Views
             RefreshFilePanels();
             RefreshKeyColumns();
             ResetResults();
+            SaveState();
         }
 
         private void CompareMode_Checked(object sender, RoutedEventArgs e)
         {
             UpdateModeUi();
             UpdateCompareButtonState();
+            if (RbCompareByKey == null)
+            {
+                return;
+            }
+
+            _currentMode = RbCompareByKey.IsChecked == true ? CsvCompareMode.ByKeyColumns : CsvCompareMode.ByRowNumber;
+            SaveState();
+        }
+
+        private void FilterChanged(object sender, RoutedEventArgs e)
+        {
+            if (_lastResult == null)
+            {
+                return;
+            }
+
+            RenderResult(resetPage: true);
+            SaveState();
+        }
+
+        private void CmbPageSize_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CmbPageSize?.SelectedItem is not int selectedPageSize || selectedPageSize == _pageSize)
+            {
+                return;
+            }
+
+            _pageSize = selectedPageSize;
+            _pageIndex = 0;
+            BindCurrentPage();
+            SaveState();
+        }
+
+        private void BtnFirstPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_pageIndex == 0)
+            {
+                return;
+            }
+
+            _pageIndex = 0;
+            BindCurrentPage();
+            SaveState();
+        }
+
+        private void BtnPrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_pageIndex <= 0)
+            {
+                return;
+            }
+
+            _pageIndex--;
+            BindCurrentPage();
+            SaveState();
+        }
+
+        private void BtnNextPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_filteredDisplayRows.Count == 0)
+            {
+                return;
+            }
+
+            int totalPages = (int)Math.Ceiling(_filteredDisplayRows.Count / (double)_pageSize);
+            if (_pageIndex >= totalPages - 1)
+            {
+                return;
+            }
+
+            _pageIndex++;
+            BindCurrentPage();
+            SaveState();
+        }
+
+        private void BtnLastPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_filteredDisplayRows.Count == 0)
+            {
+                return;
+            }
+
+            _pageIndex = Math.Max(0, (int)Math.Ceiling(_filteredDisplayRows.Count / (double)_pageSize) - 1);
+            BindCurrentPage();
+            SaveState();
         }
 
         private void BtnCompare_Click(object sender, RoutedEventArgs e)
@@ -110,63 +231,65 @@ namespace WpfApp1.Views
                 return;
             }
 
-            CsvCompareMode mode = RbCompareByKey.IsChecked == true ? CsvCompareMode.ByKeyColumns : CsvCompareMode.ByRowNumber;
+            _currentMode = RbCompareByKey.IsChecked == true ? CsvCompareMode.ByKeyColumns : CsvCompareMode.ByRowNumber;
             List<string> selectedKeyColumns = GetSelectedKeyColumns();
-
-            if (mode == CsvCompareMode.ByKeyColumns && selectedKeyColumns.Count == 0)
+            if (_currentMode == CsvCompareMode.ByKeyColumns && selectedKeyColumns.Count == 0)
             {
                 MessageBox.Show("主键模式至少需要选择一个公共列。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            _lastResult = CsvCompareService.Compare(_leftFile.Table, _rightFile.Table, mode, selectedKeyColumns);
+            _lastResult = CsvCompareService.Compare(_leftFile.Table, _rightFile.Table, _currentMode, selectedKeyColumns);
             BtnCopyReport.IsEnabled = true;
             BtnExportResult.IsEnabled = true;
-            RenderResult();
+            _pageIndex = 0;
+            RenderResult(resetPage: true);
+            SaveState();
         }
 
-        private void FilterChanged(object sender, RoutedEventArgs e)
+        private void DgSummaryRows_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_lastResult == null)
-            {
-                return;
-            }
-
-            RenderResult();
+            BindDetail((CsvCompareDisplayRow?)DgSummaryRows.SelectedItem);
         }
 
-        private void BtnCopyReport_Click(object sender, RoutedEventArgs e)
+        private void UpdateResponsiveLayout()
         {
-            if (_lastResult == null)
+            if (FileCardsGrid == null || LeftFileCard == null || RightFileCard == null)
             {
                 return;
             }
 
-            SafeCopyToClipboard(BuildReport());
-            MessageBox.Show("报告已复制到剪贴板。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private void BtnExportResult_Click(object sender, RoutedEventArgs e)
-        {
-            if (_lastResult == null)
+            bool useStackLayout = ActualWidth < 1120;
+            if (useStackLayout)
             {
-                return;
+                FileCardsGrid.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+                FileCardsGrid.ColumnDefinitions[1].Width = new GridLength(0);
+                FileCardsGrid.ColumnDefinitions[2].Width = new GridLength(0);
+                FileCardsGrid.RowDefinitions[0].Height = GridLength.Auto;
+                FileCardsGrid.RowDefinitions[1].Height = new GridLength(12);
+                FileCardsGrid.RowDefinitions[2].Height = GridLength.Auto;
+                Grid.SetRow(LeftFileCard, 0);
+                Grid.SetColumn(LeftFileCard, 0);
+                Grid.SetColumnSpan(LeftFileCard, 3);
+                Grid.SetRow(RightFileCard, 2);
+                Grid.SetColumn(RightFileCard, 0);
+                Grid.SetColumnSpan(RightFileCard, 3);
             }
-
-            var dialog = new SaveFileDialog
+            else
             {
-                Filter = "CSV 文件|*.csv",
-                FileName = $"csv_compare_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
-            };
-
-            if (dialog.ShowDialog() != true)
-            {
-                return;
+                FileCardsGrid.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+                FileCardsGrid.ColumnDefinitions[1].Width = new GridLength(12);
+                FileCardsGrid.ColumnDefinitions[2].Width = new GridLength(1, GridUnitType.Star);
+                FileCardsGrid.RowDefinitions[0].Height = GridLength.Auto;
+                FileCardsGrid.RowDefinitions[1].Height = new GridLength(0);
+                FileCardsGrid.RowDefinitions[2].Height = new GridLength(0);
+                Grid.SetRow(LeftFileCard, 0);
+                Grid.SetColumn(LeftFileCard, 0);
+                Grid.SetColumnSpan(LeftFileCard, 1);
+                Grid.SetRow(RightFileCard, 0);
+                Grid.SetColumn(RightFileCard, 2);
+                Grid.SetColumnSpan(RightFileCard, 1);
             }
-
-            DataTable exportTable = BuildExportTable(GetVisibleDiffItems());
-            ExportService.ExportCsv(dialog.FileName, exportTable);
-            MessageBox.Show($"结果已导出到：\n{dialog.FileName}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void RefreshFilePanels()
@@ -194,8 +317,7 @@ namespace WpfApp1.Views
 
         private void UpdateFilePanel(bool isLeft, LoadedFileContext context)
         {
-            string metaText = $"{FormatFileSize(context.LoadResult.FileSize)}  |  {context.Table.Rows.Count} 行 × {context.Table.Columns.Count} 列  |  分隔符: {DelimitedTextFileService.GetDelimiterName(context.LoadResult.Delimiter)}  |  编码: {context.LoadResult.Encoding.EncodingName}";
-
+            string metaText = $"{FormatFileSize(context.LoadResult.FileSize)} | {context.Table.Rows.Count} 行 × {context.Table.Columns.Count} 列 | 分隔符：{DelimitedTextFileService.GetDelimiterName(context.LoadResult.Delimiter)} | 编码：{context.LoadResult.Encoding.EncodingName}";
             if (isLeft)
             {
                 TxtLeftFileName.Text = context.LoadResult.FileName;
@@ -219,7 +341,7 @@ namespace WpfApp1.Views
             KeyColumnsContainer.Visibility = byKey ? Visibility.Visible : Visibility.Collapsed;
             TxtModeHint.Text = byKey
                 ? "主键模式会按选中的公共列组成复合主键进行匹配。"
-                : "行号模式会按第 N 行对第 N 行进行比较。";
+                : "行号模式会按第 N 行对第 N 行进行比较，并先汇总显示发生变化的行。";
         }
 
         private void RefreshKeyColumns()
@@ -231,7 +353,6 @@ namespace WpfApp1.Views
 
             var selectedBeforeRefresh = GetSelectedKeyColumns().ToHashSet(StringComparer.OrdinalIgnoreCase);
             KeyColumnsPanel.Children.Clear();
-
             List<string> commonColumns = GetCommonColumns();
             if (commonColumns.Count == 0)
             {
@@ -268,6 +389,7 @@ namespace WpfApp1.Views
                     ? $"可选公共列共 {commonColumns.Count} 个，请至少选择一个主键列。"
                     : $"已选择 {selectedCount} 个主键列，可执行复合主键匹配。";
             UpdateCompareButtonState();
+            SaveState();
         }
 
         private List<string> GetSelectedKeyColumns()
@@ -277,8 +399,7 @@ namespace WpfApp1.Views
                 return [];
             }
 
-            return KeyColumnsPanel.Children
-                .OfType<CheckBox>()
+            return KeyColumnsPanel.Children.OfType<CheckBox>()
                 .Where(checkBox => checkBox.IsChecked == true)
                 .Select(checkBox => checkBox.Tag?.ToString() ?? string.Empty)
                 .Where(column => !string.IsNullOrWhiteSpace(column))
@@ -315,34 +436,144 @@ namespace WpfApp1.Views
                 return;
             }
 
-            if (RbCompareByKey.IsChecked == true)
+            BtnCompare.IsEnabled = RbCompareByKey.IsChecked == true
+                ? GetSelectedKeyColumns().Count > 0
+                : true;
+        }
+
+        private void RestoreState()
+        {
+            CsvCompareCachedState state = CsvCompareStateService.State;
+            if (state.LeftFile == null && state.RightFile == null && state.LastResult == null)
             {
-                BtnCompare.IsEnabled = GetSelectedKeyColumns().Count > 0;
                 return;
             }
 
-            BtnCompare.IsEnabled = true;
+            _leftFile = state.LeftFile == null ? null : FromCachedFile(state.LeftFile);
+            _rightFile = state.RightFile == null ? null : FromCachedFile(state.RightFile);
+            _lastResult = state.LastResult;
+            _pageSize = _pageSizes.Contains(state.PageSize) ? state.PageSize : 100;
+            _pageIndex = Math.Max(0, state.PageIndex);
+            _currentMode = state.CurrentMode;
+
+            RefreshFilePanels();
+            RefreshKeyColumns();
+
+            if (RbCompareByKey != null && RbCompareByRow != null)
+            {
+                RbCompareByKey.IsChecked = _currentMode == CsvCompareMode.ByKeyColumns;
+                RbCompareByRow.IsChecked = _currentMode != CsvCompareMode.ByKeyColumns;
+            }
+
+            ApplySelectedKeyColumns(state.SelectedKeyColumns);
+            UpdateModeUi();
+
+            if (ChkShowColumnChanges != null) ChkShowColumnChanges.IsChecked = state.ShowColumnChanges;
+            if (ChkShowRowChanges != null) ChkShowRowChanges.IsChecked = state.ShowRowChanges;
+            if (ChkShowCellChanges != null) ChkShowCellChanges.IsChecked = state.ShowCellChanges;
+            if (ChkExportFilteredOnly != null) ChkExportFilteredOnly.IsChecked = state.ExportFilteredOnly;
+            if (CmbPageSize != null) CmbPageSize.SelectedItem = _pageSize;
+
+            UpdateCompareButtonState();
+
+            if (_lastResult != null)
+            {
+                RenderResult(resetPage: false);
+            }
+        }
+
+        private void SaveState()
+        {
+            CsvCompareCachedState state = CsvCompareStateService.State;
+            state.LeftFile = _leftFile == null ? null : ToCachedFile(_leftFile);
+            state.RightFile = _rightFile == null ? null : ToCachedFile(_rightFile);
+            state.LastResult = _lastResult;
+            state.CurrentMode = _currentMode;
+            state.SelectedKeyColumns = GetSelectedKeyColumns();
+            state.ShowColumnChanges = ChkShowColumnChanges?.IsChecked == true;
+            state.ShowRowChanges = ChkShowRowChanges?.IsChecked == true;
+            state.ShowCellChanges = ChkShowCellChanges?.IsChecked == true;
+            state.ExportFilteredOnly = ChkExportFilteredOnly?.IsChecked == true;
+            state.PageSize = _pageSize;
+            state.PageIndex = _pageIndex;
+        }
+
+        private void ApplySelectedKeyColumns(IReadOnlyCollection<string> selectedColumns)
+        {
+            if (KeyColumnsPanel == null)
+            {
+                return;
+            }
+
+            foreach (CheckBox checkBox in KeyColumnsPanel.Children.OfType<CheckBox>())
+            {
+                string column = checkBox.Tag?.ToString() ?? string.Empty;
+                checkBox.IsChecked = selectedColumns.Contains(column, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private static CsvCompareCachedFile ToCachedFile(LoadedFileContext context)
+        {
+            return new CsvCompareCachedFile
+            {
+                FileName = context.LoadResult.FileName,
+                FileSize = context.LoadResult.FileSize,
+                Delimiter = context.LoadResult.Delimiter,
+                Encoding = context.LoadResult.Encoding,
+                Table = context.Table.Copy()
+            };
+        }
+
+        private static LoadedFileContext FromCachedFile(CsvCompareCachedFile cachedFile)
+        {
+            return new LoadedFileContext
+            {
+                LoadResult = new DelimitedTextLoadResult
+                {
+                    FilePath = cachedFile.FileName,
+                    FileName = cachedFile.FileName,
+                    FileSize = cachedFile.FileSize,
+                    Encoding = cachedFile.Encoding,
+                    Delimiter = cachedFile.Delimiter,
+                    Table = cachedFile.Table.Copy()
+                }
+            };
         }
 
         private void ResetResults()
         {
             _lastResult = null;
+            _allDisplayRows = [];
+            _filteredDisplayRows = [];
+            _currentPageRows = [];
+            _visibleHeaderChanges = [];
+            _pageIndex = 0;
+
             ValidationBanner.Visibility = Visibility.Collapsed;
             TxtValidationMessage.Text = string.Empty;
             TxtSummary.Text = "请先导入两个文件并执行对比。";
-            TxtEmptyState.Text = "当前没有可显示的差异结果。";
-            TxtEmptyState.Visibility = Visibility.Visible;
-            DgDiffs.Visibility = Visibility.Collapsed;
-            DgDiffs.ItemsSource = null;
+            TxtScopeSummary.Text = string.Empty;
+            TxtHeaderChangesSummary.Text = string.Empty;
+            HeaderChangesBanner.Visibility = Visibility.Collapsed;
+            TxtResultEmptyState.Text = "当前没有可显示的差异结果。";
+            TxtResultEmptyState.Visibility = Visibility.Visible;
+            DgSummaryRows.Visibility = Visibility.Collapsed;
+            DgSummaryRows.ItemsSource = null;
+            DgDetailRows.ItemsSource = null;
+            DgDetailRows.Visibility = Visibility.Collapsed;
+            TxtDetailTitle.Text = "请选择上方一条汇总结果以查看具体明细。";
+            TxtDetailLeftPreview.Text = "—";
+            TxtDetailRightPreview.Text = "—";
+            TxtDetailEmptyState.Text = "请选择上方一条汇总结果以查看具体明细。";
+            TxtDetailEmptyState.Visibility = Visibility.Visible;
+            TxtPageInfo.Text = "第 0 / 0 页";
             BtnCopyReport.IsEnabled = false;
             BtnExportResult.IsEnabled = false;
-            ChkShowColumnChanges.IsEnabled = true;
-            ChkShowRowChanges.IsEnabled = true;
-            ChkShowCellChanges.IsEnabled = true;
+            SetFilterControlsEnabled(true);
             UpdateCompareButtonState();
         }
 
-        private void RenderResult()
+        private void RenderResult(bool resetPage)
         {
             if (_lastResult == null)
             {
@@ -350,44 +581,277 @@ namespace WpfApp1.Views
                 return;
             }
 
+            if (resetPage)
+            {
+                _pageIndex = 0;
+            }
+
             if (_lastResult.HasValidationErrors)
             {
-                ValidationBanner.Visibility = Visibility.Visible;
-                TxtValidationMessage.Text = string.Join(Environment.NewLine, _lastResult.ValidationErrors);
-                ChkShowColumnChanges.IsEnabled = false;
-                ChkShowRowChanges.IsEnabled = false;
-                ChkShowCellChanges.IsEnabled = false;
-
-                List<CsvDiffItem> duplicateItems = _lastResult.DiffItems
-                    .Where(item => item.DiffType == CsvDiffType.DuplicateKey)
-                    .ToList();
-
-                TxtSummary.Text = $"发现 {_lastResult.DuplicateKeyCount} 个重复主键，已停止正常对比，请先修复数据。";
-                BindDiffItems(duplicateItems, "当前没有可显示的重复主键明细。");
+                RenderValidationResult();
                 return;
             }
 
             ValidationBanner.Visibility = Visibility.Collapsed;
             TxtValidationMessage.Text = string.Empty;
-            ChkShowColumnChanges.IsEnabled = true;
-            ChkShowRowChanges.IsEnabled = true;
-            ChkShowCellChanges.IsEnabled = true;
+            SetFilterControlsEnabled(true);
 
-            List<CsvDiffItem> visibleItems = GetVisibleDiffItems();
-            if (_lastResult.DiffItems.Count == 0)
+            _visibleHeaderChanges = ChkShowColumnChanges.IsChecked == true
+                ? _lastResult.DiffItems.Where(item => item.DiffType is CsvDiffType.ColumnAdded or CsvDiffType.ColumnRemoved)
+                    .OrderBy(item => item.GroupSortOrder)
+                    .ThenBy(item => item.ColumnName, StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                : [];
+
+            _allDisplayRows = BuildDisplayRows(_lastResult.DiffItems);
+            _filteredDisplayRows = _allDisplayRows.Where(ShouldDisplayRowBeVisible).ToList();
+            TxtSummary.Text = _lastResult.DiffItems.Count == 0
+                ? "两个文件内容一致，没有发现任何差异。"
+                : $"原始差异 {_lastResult.DiffItems.Count} 项 | 行新增 {_lastResult.RowAddedCount} | 行删除 {_lastResult.RowRemovedCount} | 单元格修改 {_lastResult.CellModifiedCount} | 表头变更 {_lastResult.ColumnAddedCount + _lastResult.ColumnRemovedCount}";
+
+            UpdateHeaderChangesBanner();
+            BindCurrentPage();
+        }
+
+        private void RenderValidationResult()
+        {
+            SetFilterControlsEnabled(false);
+            ValidationBanner.Visibility = Visibility.Visible;
+            TxtValidationMessage.Text = string.Join(Environment.NewLine, _lastResult!.ValidationErrors);
+            HeaderChangesBanner.Visibility = Visibility.Collapsed;
+            TxtHeaderChangesSummary.Text = string.Empty;
+            _visibleHeaderChanges = [];
+            _allDisplayRows = BuildDuplicateDisplayRows(_lastResult.DiffItems.Where(item => item.DiffType == CsvDiffType.DuplicateKey).ToList());
+            _filteredDisplayRows = _allDisplayRows;
+            TxtSummary.Text = $"发现 {_lastResult.DuplicateKeyCount} 条重复主键，已停止正常对比，请先修复数据。";
+            BindCurrentPage();
+        }
+
+        private void SetFilterControlsEnabled(bool isEnabled)
+        {
+            ChkShowColumnChanges.IsEnabled = isEnabled;
+            ChkShowRowChanges.IsEnabled = isEnabled;
+            ChkShowCellChanges.IsEnabled = isEnabled;
+            CmbPageSize.IsEnabled = isEnabled;
+        }
+
+        private void UpdateHeaderChangesBanner()
+        {
+            if (_visibleHeaderChanges.Count == 0)
             {
-                TxtSummary.Text = "✅ 两个文件内容一致，没有发现任何差异。";
-                BindDiffItems([], "两个文件内容一致，没有发现任何差异。");
+                HeaderChangesBanner.Visibility = Visibility.Collapsed;
+                TxtHeaderChangesSummary.Text = string.Empty;
                 return;
             }
 
-            TxtSummary.Text = $"总差异 {_lastResult.DiffItems.Count} 处  |  行新增 {_lastResult.RowAddedCount}  |  行删除 {_lastResult.RowRemovedCount}  |  单元格修改 {_lastResult.CellModifiedCount}  |  列新增 {_lastResult.ColumnAddedCount}  |  列删除 {_lastResult.ColumnRemovedCount}"
-                + (visibleItems.Count != _lastResult.DiffItems.Count ? $"  |  当前显示 {visibleItems.Count} 条" : string.Empty);
+            List<string> addedColumns = _visibleHeaderChanges.Where(item => item.DiffType == CsvDiffType.ColumnAdded).Select(item => item.ColumnName).ToList();
+            List<string> removedColumns = _visibleHeaderChanges.Where(item => item.DiffType == CsvDiffType.ColumnRemoved).Select(item => item.ColumnName).ToList();
+            var sections = new List<string>();
+            if (addedColumns.Count > 0)
+            {
+                sections.Add($"新增列：{string.Join("、", addedColumns)}");
+            }
+            if (removedColumns.Count > 0)
+            {
+                sections.Add($"删除列：{string.Join("、", removedColumns)}");
+            }
 
-            BindDiffItems(visibleItems, "当前筛选条件下没有可显示的差异结果。");
+            TxtHeaderChangesSummary.Text = $"表头变更 {_visibleHeaderChanges.Count} 项。{string.Join("；", sections)}";
+            HeaderChangesBanner.Visibility = Visibility.Visible;
         }
 
-        private List<CsvDiffItem> GetVisibleDiffItems()
+        private bool ShouldDisplayRowBeVisible(CsvCompareDisplayRow row)
+        {
+            return row.DiffGroupType switch
+            {
+                CsvDiffType.RowAdded or CsvDiffType.RowRemoved => ChkShowRowChanges.IsChecked == true,
+                CsvDiffType.CellModified => ChkShowCellChanges.IsChecked == true,
+                _ => true
+            };
+        }
+
+        private void BindCurrentPage()
+        {
+            int totalItems = _filteredDisplayRows.Count;
+            int totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)_pageSize);
+            _pageIndex = totalPages == 0 ? 0 : Math.Clamp(_pageIndex, 0, totalPages - 1);
+            _currentPageRows = totalItems == 0 ? [] : _filteredDisplayRows.Skip(_pageIndex * _pageSize).Take(_pageSize).ToList();
+
+            TxtPageInfo.Text = totalPages == 0 ? "第 0 / 0 页" : $"第 {_pageIndex + 1} / {totalPages} 页";
+            TxtScopeSummary.Text = _lastResult == null ? string.Empty : $"汇总结果 {_allDisplayRows.Count} | 当前筛选 {_filteredDisplayRows.Count} | 当前页 {_currentPageRows.Count}";
+
+            if (_currentPageRows.Count == 0)
+            {
+                DgSummaryRows.Visibility = Visibility.Collapsed;
+                DgSummaryRows.ItemsSource = null;
+                TxtResultEmptyState.Visibility = Visibility.Visible;
+                TxtResultEmptyState.Text = _lastResult?.DiffItems.Count == 0
+                    ? "两个文件内容一致，没有发现任何差异。"
+                    : _visibleHeaderChanges.Count > 0
+                        ? "当前筛选下没有行级差异，表头变更请查看上方提示。"
+                        : "当前筛选下没有可显示的差异结果。";
+                BindDetail(null);
+                return;
+            }
+
+            TxtResultEmptyState.Visibility = Visibility.Collapsed;
+            DgSummaryRows.Visibility = Visibility.Visible;
+            DgSummaryRows.ItemsSource = _currentPageRows;
+            DgSummaryRows.SelectedItem = _currentPageRows[0];
+            BindDetail(_currentPageRows[0]);
+            SaveState();
+        }
+
+        private void BindDetail(CsvCompareDisplayRow? row)
+        {
+            if (row == null)
+            {
+                DgDetailRows.Visibility = Visibility.Collapsed;
+                DgDetailRows.ItemsSource = null;
+                TxtDetailTitle.Text = "请选择上方一条汇总结果以查看具体明细。";
+                TxtDetailLeftPreview.Text = "—";
+                TxtDetailRightPreview.Text = "—";
+                TxtDetailEmptyState.Text = "请选择上方一条汇总结果以查看具体明细。";
+                TxtDetailEmptyState.Visibility = Visibility.Visible;
+                return;
+            }
+
+            TxtDetailTitle.Text = $"{row.Locator} · {row.DiffTypeText} · {row.SummaryText}";
+            TxtDetailLeftPreview.Text = string.IsNullOrWhiteSpace(row.LeftPreview) ? "—" : row.LeftPreview;
+            TxtDetailRightPreview.Text = string.IsNullOrWhiteSpace(row.RightPreview) ? "—" : row.RightPreview;
+
+            List<CsvCompareDetailRow> detailRows = BuildDetailRows(row);
+            if (detailRows.Count == 0)
+            {
+                DgDetailRows.Visibility = Visibility.Collapsed;
+                DgDetailRows.ItemsSource = null;
+                TxtDetailEmptyState.Text = "当前项没有可显示的明细。";
+                TxtDetailEmptyState.Visibility = Visibility.Visible;
+                return;
+            }
+
+            TxtDetailEmptyState.Visibility = Visibility.Collapsed;
+            DgDetailRows.Visibility = Visibility.Visible;
+            DgDetailRows.ItemsSource = detailRows;
+        }
+
+        private static List<CsvCompareDisplayRow> BuildDisplayRows(IReadOnlyList<CsvDiffItem> diffItems)
+        {
+            return diffItems.Where(item => item.DiffType is CsvDiffType.RowAdded or CsvDiffType.RowRemoved or CsvDiffType.CellModified)
+                .GroupBy(item => item.LocatorKey, StringComparer.Ordinal)
+                .Select(group =>
+                {
+                    List<CsvDiffItem> details = group.OrderBy(item => string.IsNullOrWhiteSpace(item.ColumnName) ? 1 : 0)
+                        .ThenBy(item => item.ColumnName, StringComparer.OrdinalIgnoreCase).ToList();
+                    CsvDiffItem first = details[0];
+                    int changedColumnCount = details.Where(item => !string.IsNullOrWhiteSpace(item.ColumnName))
+                        .Select(item => item.ColumnName).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+
+                    return new CsvCompareDisplayRow
+                    {
+                        DiffGroupType = first.DiffType == CsvDiffType.CellModified ? CsvDiffType.CellModified : first.DiffType,
+                        DiffTypeText = first.DiffTypeText,
+                        Locator = first.Locator,
+                        SummaryText = BuildSummaryText(first.DiffType, details, changedColumnCount),
+                        DiffCount = details.Count,
+                        ChangedColumnCount = changedColumnCount,
+                        LeftPreview = FirstNonEmpty(details.Select(item => item.LeftRowPreview)),
+                        RightPreview = FirstNonEmpty(details.Select(item => item.RightRowPreview)),
+                        GroupSortOrder = first.GroupSortOrder,
+                        LocatorKey = first.LocatorKey,
+                        RowNumber = details.Select(item => item.RowNumber).FirstOrDefault(rowNumber => rowNumber.HasValue),
+                        Details = details
+                    };
+                })
+                .OrderBy(row => row.GroupSortOrder)
+                .ThenBy(row => row.RowNumber ?? int.MaxValue)
+                .ThenBy(row => row.Locator, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static List<CsvCompareDisplayRow> BuildDuplicateDisplayRows(IReadOnlyList<CsvDiffItem> diffItems)
+        {
+            return diffItems.Select(item => new CsvCompareDisplayRow
+                {
+                    DiffGroupType = CsvDiffType.DuplicateKey,
+                    DiffTypeText = item.DiffTypeText,
+                    Locator = item.Locator,
+                    SummaryText = item.Message,
+                    DiffCount = 1,
+                    ChangedColumnCount = 0,
+                    LeftPreview = item.LeftRowPreview,
+                    RightPreview = item.RightRowPreview,
+                    GroupSortOrder = item.GroupSortOrder,
+                    LocatorKey = item.LocatorKey,
+                    RowNumber = item.RowNumber,
+                    Details = [item]
+                })
+                .OrderBy(row => row.Locator, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static string BuildSummaryText(CsvDiffType diffType, IReadOnlyList<CsvDiffItem> details, int changedColumnCount)
+        {
+            return diffType switch
+            {
+                CsvDiffType.RowAdded => "该记录仅存在于文件 B",
+                CsvDiffType.RowRemoved => "该记录仅存在于文件 A",
+                CsvDiffType.CellModified => BuildChangedColumnsSummary(details, changedColumnCount),
+                _ => details[0].Message
+            };
+        }
+
+        private static string BuildChangedColumnsSummary(IReadOnlyList<CsvDiffItem> details, int changedColumnCount)
+        {
+            if (changedColumnCount == 0)
+            {
+                return "该行存在内容差异";
+            }
+
+            List<string> columnNames = details.Where(item => !string.IsNullOrWhiteSpace(item.ColumnName))
+                .Select(item => item.ColumnName).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            string previewColumns = string.Join("、", columnNames.Take(3));
+            return columnNames.Count > 3 ? $"{changedColumnCount} 列不同：{previewColumns} 等" : $"{changedColumnCount} 列不同：{previewColumns}";
+        }
+
+        private static string FirstNonEmpty(IEnumerable<string> values)
+        {
+            string? value = values.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item));
+            return string.IsNullOrWhiteSpace(value) ? "—" : value;
+        }
+
+        private static List<CsvCompareDetailRow> BuildDetailRows(CsvCompareDisplayRow row)
+        {
+            if (row.Details.Count == 0)
+            {
+                return [];
+            }
+
+            if (row.DiffGroupType == CsvDiffType.CellModified)
+            {
+                return row.Details.Select(item => new CsvCompareDetailRow
+                {
+                    ColumnName = item.ColumnName,
+                    LeftValue = item.LeftValue,
+                    RightValue = item.RightValue,
+                    Message = item.Message
+                }).ToList();
+            }
+
+            CsvDiffItem first = row.Details[0];
+            return
+            [
+                new CsvCompareDetailRow
+                {
+                    ColumnName = "整行预览",
+                    LeftValue = row.LeftPreview == "—" ? string.Empty : row.LeftPreview,
+                    RightValue = row.RightPreview == "—" ? string.Empty : row.RightPreview,
+                    Message = first.Message
+                }
+            ];
+        }
+
+        private IReadOnlyList<CsvDiffItem> GetExportDiffItems()
         {
             if (_lastResult == null)
             {
@@ -399,40 +863,58 @@ namespace WpfApp1.Views
                 return _lastResult.DiffItems.Where(item => item.DiffType == CsvDiffType.DuplicateKey).ToList();
             }
 
-            bool showColumnChanges = ChkShowColumnChanges.IsChecked == true;
-            bool showRowChanges = ChkShowRowChanges.IsChecked == true;
-            bool showCellChanges = ChkShowCellChanges.IsChecked == true;
+            if (ChkExportFilteredOnly.IsChecked != true)
+            {
+                return _lastResult.DiffItems;
+            }
 
-            return _lastResult.DiffItems.Where(item =>
-                (showColumnChanges && item.DiffType is CsvDiffType.ColumnAdded or CsvDiffType.ColumnRemoved) ||
-                (showRowChanges && item.DiffType is CsvDiffType.RowAdded or CsvDiffType.RowRemoved) ||
-                (showCellChanges && item.DiffType == CsvDiffType.CellModified)
-            ).ToList();
+            return _visibleHeaderChanges.Concat(_filteredDisplayRows.SelectMany(row => row.Details))
+                .OrderBy(item => item.GroupSortOrder)
+                .ThenBy(item => item.RowNumber ?? int.MaxValue)
+                .ThenBy(item => item.Locator, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.ColumnName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
-        private void BindDiffItems(IReadOnlyList<CsvDiffItem> items, string emptyMessage)
+        private void BtnCopyReport_Click(object sender, RoutedEventArgs e)
         {
-            if (items.Count == 0)
+            if (_lastResult == null)
             {
-                DgDiffs.Visibility = Visibility.Collapsed;
-                DgDiffs.ItemsSource = null;
-                TxtEmptyState.Visibility = Visibility.Visible;
-                TxtEmptyState.Text = emptyMessage;
                 return;
             }
 
-            TxtEmptyState.Visibility = Visibility.Collapsed;
-            DgDiffs.Visibility = Visibility.Visible;
-            DgDiffs.ItemsSource = items;
+            SafeCopyToClipboard(BuildReport());
+            MessageBox.Show("报告已复制到剪贴板。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void BtnExportResult_Click(object sender, RoutedEventArgs e)
+        {
+            if (_lastResult == null)
+            {
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "CSV 文件|*.csv",
+                FileName = $"csv_compare_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            ExportService.ExportCsv(dialog.FileName, BuildExportTable(GetExportDiffItems()));
+            MessageBox.Show($"结果已导出到：\n{dialog.FileName}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private string BuildReport()
         {
-            var visibleItems = GetVisibleDiffItems();
             var builder = new StringBuilder();
-
             builder.AppendLine("CSV 对比报告");
             builder.AppendLine($"生成时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            builder.AppendLine($"对比模式: {(_currentMode == CsvCompareMode.ByKeyColumns ? "主键模式" : "行号模式")}");
             builder.AppendLine($"文件 A: {_leftFile?.LoadResult.FileName ?? "未选择"}");
             builder.AppendLine($"文件 B: {_rightFile?.LoadResult.FileName ?? "未选择"}");
             builder.AppendLine();
@@ -450,45 +932,72 @@ namespace WpfApp1.Views
                 {
                     builder.AppendLine($"- {error}");
                 }
+
+                builder.AppendLine();
+                foreach (CsvCompareDisplayRow row in _allDisplayRows)
+                {
+                    builder.AppendLine($"[{row.DiffTypeText}] {row.Locator}");
+                    builder.AppendLine($"摘要: {row.SummaryText}");
+                    if (row.LeftPreview != "—")
+                    {
+                        builder.AppendLine($"A 预览: {row.LeftPreview}");
+                    }
+                    if (row.RightPreview != "—")
+                    {
+                        builder.AppendLine($"B 预览: {row.RightPreview}");
+                    }
+                    builder.AppendLine();
+                }
+
+                return builder.ToString().TrimEnd();
             }
-            else if (_lastResult.DiffItems.Count == 0)
+
+            builder.AppendLine(TxtSummary.Text);
+            if (!string.IsNullOrWhiteSpace(TxtScopeSummary.Text))
             {
-                builder.AppendLine("结果：两个文件内容一致，没有发现任何差异。");
+                builder.AppendLine(TxtScopeSummary.Text);
             }
-            else
+
+            if (_visibleHeaderChanges.Count > 0)
             {
-                builder.AppendLine(TxtSummary.Text);
+                builder.AppendLine();
+                builder.AppendLine("表头变更：");
+                builder.AppendLine(TxtHeaderChangesSummary.Text);
+            }
+
+            if (_filteredDisplayRows.Count == 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine("当前筛选下没有行级差异。");
+                return builder.ToString().TrimEnd();
             }
 
             builder.AppendLine();
-
-            if (visibleItems.Count == 0)
+            foreach (CsvCompareDisplayRow row in _filteredDisplayRows)
             {
-                builder.AppendLine("当前没有可导出的差异明细。");
-                return builder.ToString();
-            }
+                builder.AppendLine($"[{row.DiffTypeText}] {row.Locator}");
+                builder.AppendLine($"摘要: {row.SummaryText}");
+                if (row.LeftPreview != "—")
+                {
+                    builder.AppendLine($"A 预览: {row.LeftPreview}");
+                }
+                if (row.RightPreview != "—")
+                {
+                    builder.AppendLine($"B 预览: {row.RightPreview}");
+                }
 
-            foreach (CsvDiffItem item in visibleItems)
-            {
-                builder.AppendLine($"[{item.DiffTypeText}] {item.Locator}");
-                if (!string.IsNullOrWhiteSpace(item.ColumnName))
+                foreach (CsvCompareDetailRow detail in BuildDetailRows(row))
                 {
-                    builder.AppendLine($"列名: {item.ColumnName}");
+                    builder.AppendLine($"- {detail.ColumnName}: A={FormatReportValue(detail.LeftValue)} | B={FormatReportValue(detail.RightValue)} | {detail.Message}");
                 }
-                if (!string.IsNullOrEmpty(item.LeftValue))
-                {
-                    builder.AppendLine($"A 值: {item.LeftValue}");
-                }
-                if (!string.IsNullOrEmpty(item.RightValue))
-                {
-                    builder.AppendLine($"B 值: {item.RightValue}");
-                }
-                builder.AppendLine($"说明: {item.Message}");
+
                 builder.AppendLine();
             }
 
             return builder.ToString().TrimEnd();
         }
+
+        private static string FormatReportValue(string value) => string.IsNullOrEmpty(value) ? "(空)" : value;
 
         private static DataTable BuildExportTable(IReadOnlyList<CsvDiffItem> items)
         {

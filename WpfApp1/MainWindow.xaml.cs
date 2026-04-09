@@ -6,10 +6,24 @@ namespace WpfApp1
 {
     public partial class MainWindow : Window
     {
+        private readonly HomePage _homePage = new();
+
         public MainWindow()
         {
             InitializeComponent();
-            MainFrame.Navigate(new HomePage());
+            MainFrame.Navigate(_homePage);
+        }
+
+        public void NavigateToHome()
+        {
+            MainFrame.Navigate(_homePage);
+            NavHome.IsChecked = true;
+        }
+
+        public void NavigateToCsvCompare()
+        {
+            MainFrame.Navigate(new CsvComparePage());
+            NavCsvCompare.IsChecked = true;
         }
 
         private void NavButton_Checked(object sender, RoutedEventArgs e)
@@ -18,7 +32,7 @@ namespace WpfApp1
             var rb = sender as RadioButton;
             if (rb == null) return;
 
-            if (rb == NavHome) MainFrame.Navigate(new HomePage());
+            if (rb == NavHome) MainFrame.Navigate(_homePage);
             else if (rb == NavImport) MainFrame.Navigate(new DataImportPage());
             else if (rb == NavCsvViewer) MainFrame.Navigate(new CsvViewerPage());
             else if (rb == NavCsvCompare) MainFrame.Navigate(new CsvComparePage());
