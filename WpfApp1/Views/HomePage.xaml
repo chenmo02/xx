@@ -45,6 +45,18 @@
                                    FontSize="13"
                                    Foreground="#6B7280"
                                    Margin="0,8,0,0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Text="by"
+                                       FontSize="12"
+                                       Foreground="#9CA3AF"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="悲伤番茄"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#fe491a"
+                                       Margin="6,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <Border Grid.Column="1"
@@ -57,7 +69,7 @@
                                        FontSize="11"
                                        Foreground="#6366F1"/>
                             <TextBlock x:Name="TxtVersionBadge"
-                                       Text="v1.8.2"
+                                       Text="v2.0.0"
                                        FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="#4338CA"
@@ -319,7 +331,7 @@
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                         <TextBlock Text="版本" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtVersion" Text="v1.8.2" FontSize="18" FontWeight="Bold"
+                        <TextBlock x:Name="TxtVersion" Text="v2.0.0" FontSize="18" FontWeight="Bold"
                                    Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 

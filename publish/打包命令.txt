@@ -1,3 +1,8 @@
+编译：Bash(cd "C:\Users\33091\source\repos\chenmo02\xx" && dotnet build WpfAppl/WpfAppl.csproj)
+
+cd WpfApp1
+dotnet build
+
 打包命令：
 cd "C:\Users\33091\source\repos\chenmo02\xx" && dotnet publish WpfApp1/WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
 

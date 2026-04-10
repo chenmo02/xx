@@ -41,6 +41,10 @@ namespace WpfApp1.Views
             DataContext = this;
             UpdateStepUI();
             UpdateStructQuery();
+
+            // 拦截大文本粘贴，显示遮罩
+            DataObject.AddPastingHandler(TxtDdl, OnDdlPasting);
+            DataObject.AddPastingHandler(TxtInsert, OnInsertPasting);
         }
 
         // ══════════════════════════════════════════════════════════
@@ -164,6 +168,43 @@ namespace WpfApp1.Views
         //  Step 1：结构输入
         // ══════════════════════════════════════════════════════════
 
+        // ── 大文本粘贴拦截 ─────────────────────────────────────
+        private const int PasteThreshold = 5000; // 超过此字符数显示遮罩
+
+        private async void OnDdlPasting(object sender, DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(typeof(string)))
+            {
+                var text = (string)e.DataObject.GetData(typeof(string));
+                if (text != null && text.Length > PasteThreshold)
+                {
+                    e.CancelCommand(); // 取消默认粘贴
+                    DdlPasteOverlay.Visibility = Visibility.Visible;
+                    await Task.Delay(30); // 让遮罩渲染
+                    TxtDdl.Text = text;
+                    TxtDdl.CaretIndex = text.Length;
+                    DdlPasteOverlay.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
+        private async void OnInsertPasting(object sender, DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(typeof(string)))
+            {
+                var text = (string)e.DataObject.GetData(typeof(string));
+                if (text != null && text.Length > PasteThreshold)
+                {
+                    e.CancelCommand();
+                    InsertPasteOverlay.Visibility = Visibility.Visible;
+                    await Task.Delay(30);
+                    TxtInsert.Text = text;
+                    TxtInsert.CaretIndex = text.Length;
+                    InsertPasteOverlay.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
         private void StructMode_Changed(object sender, RoutedEventArgs e)
         {
             if (DdlCard == null || StructExcelCard == null) return;
@@ -235,6 +276,14 @@ namespace WpfApp1.Views
                 Clipboard.SetText(TxtStructQuery.Text);
                 SetStatus("查询语句已复制到剪贴板");
             }
+        }
+
+        private void BtnClearDdl_Click(object sender, RoutedEventArgs e)
+        {
+            TxtDdl.Clear();
+            TxtDdlStatus.Text = "";
+            _targetColumns.Clear();
+            SetStatus("");
         }
 
         private void BtnParseDdl_Click(object sender, RoutedEventArgs e)
@@ -397,6 +446,15 @@ namespace WpfApp1.Views
                 ? Brushes.Transparent
                 : new SolidColorBrush(Color.FromRgb(78, 110, 242));
             DataExcelInner.BorderThickness = new Thickness(isInsert ? 1 : 0);
+        }
+
+        private void BtnClearInsert_Click(object sender, RoutedEventArgs e)
+        {
+            TxtInsert.Clear();
+            TxtInsertStatus.Text = "";
+            _sourceData = null;
+            SourceHeaders = [];
+            SetStatus("");
         }
 
         private async void BtnParseInsert_Click(object sender, RoutedEventArgs e)
