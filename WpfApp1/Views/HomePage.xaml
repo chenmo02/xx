@@ -270,31 +270,31 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToSettings_Click">
+                <Border Style="{StaticResource QuickCardStyle}" Cursor="Hand" MouseLeftButtonUp="GoToDataValidation_Click">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#F3F4F6">
-                            <TextBlock Text="设"
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#EEF2FF">
+                            <TextBlock Text="验"
                                        FontSize="22"
                                        FontWeight="Bold"
-                                       Foreground="#4B5563"
+                                       Foreground="#4E6EF2"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="系统设置" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
-                            <TextBlock Text="管理默认配置、导出路径与常用开关，便于统一维护"
+                            <TextBlock Text="数据验证排查" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
+                            <TextBlock Text="导入 DDL 与 INSERT 数据，自动映射字段并逐行校验类型约束"
                                        FontSize="12"
                                        Foreground="#6B7280"
                                        Margin="0,8,0,0"
                                        TextWrapping="Wrap"
                                        LineHeight="18"/>
                         </StackPanel>
-                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#4B5563" Margin="0,14,0,0"/>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="12" Foreground="#4E6EF2" Margin="0,14,0,0"/>
                     </Grid>
                 </Border>
             </UniformGrid>

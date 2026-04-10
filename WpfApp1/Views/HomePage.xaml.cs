@@ -57,10 +57,10 @@ namespace WpfApp1.Views
             { mw.MainFrame.Navigate(new InvoicePrintPage()); mw.NavInvoice.IsChecked = true; }
         }
 
-        private void GoToSettings_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void GoToDataValidation_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (Application.Current.MainWindow is MainWindow mw)
-            { mw.MainFrame.Navigate(new SettingsPage()); mw.NavSettings.IsChecked = true; }
+            { mw.MainFrame.Navigate(new DataValidationPage()); mw.NavDataValidation.IsChecked = true; }
         }
     }
 }

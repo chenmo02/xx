@@ -87,6 +87,9 @@
                         <RadioButton x:Name="NavCsvCompare" Content="CSV 对比工具" Tag="🧮"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
+                        <RadioButton x:Name="NavDataValidation" Content="数据验证排查" Tag="✅"
+                                     Style="{StaticResource NavButtonStyle}" GroupName="Nav"
+                                     Checked="NavButton_Checked"/>
 
                         <Border Height="1" Background="#EBEBEB" Margin="14,8"/>
 

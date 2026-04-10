@@ -72,7 +72,12 @@ namespace WpfApp1.Views
 
         private void BtnSwap_Click(object sender, RoutedEventArgs e)
         {
-            (TxtJsonA.Text, TxtJsonB.Text) = (TxtJsonB.Text, TxtJsonA.Text);
+            var temp = TxtJsonA.Text;
+            TxtJsonA.Text = TxtJsonB.Text;
+            TxtJsonB.Text = temp;
+
+            if (_allDiffs.Count > 0)
+                BtnCompare_Click(sender, e);
         }
 
         // ═══════════════════════════════════════
@@ -242,19 +247,34 @@ namespace WpfApp1.Views
             }
         }
 
-        /// <summary>将整个节点收集为单一差异（新增/删除整棵子树）</summary>
+        /// <summary>递归展开节点，每个叶子值单独记录为一条差异（新增/删除）</summary>
         private void CollectAll(JsonElement el, string path, DiffType type)
         {
-            var val = FormatValue(el);
-            _allDiffs.Add(new DiffEntry
+            switch (el.ValueKind)
             {
-                Path = path,
-                Type = type,
-                OldValue = type == DiffType.Removed ? val : "",
-                NewValue = type == DiffType.Added ? val : "",
-                OldType = type == DiffType.Removed ? el.ValueKind.ToString() : "",
-                NewType = type == DiffType.Added ? el.ValueKind.ToString() : ""
-            });
+                case JsonValueKind.Object:
+                    foreach (var prop in el.EnumerateObject())
+                        CollectAll(prop.Value, $"{path}.{prop.Name}", type);
+                    break;
+
+                case JsonValueKind.Array:
+                    for (int i = 0; i < el.GetArrayLength(); i++)
+                        CollectAll(el[i], $"{path}[{i}]", type);
+                    break;
+
+                default:
+                    var val = FormatValue(el);
+                    _allDiffs.Add(new DiffEntry
+                    {
+                        Path = path,
+                        Type = type,
+                        OldValue = type == DiffType.Removed ? val : "",
+                        NewValue = type == DiffType.Added ? val : "",
+                        OldType = type == DiffType.Removed ? el.ValueKind.ToString() : "",
+                        NewType = type == DiffType.Added ? el.ValueKind.ToString() : ""
+                    });
+                    break;
+            }
         }
 
         private static string FormatValue(JsonElement el)
