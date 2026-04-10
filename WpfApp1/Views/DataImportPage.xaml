@@ -271,7 +271,7 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,24">
+    <ScrollViewer Style="{StaticResource PageScrollViewerStyle}" Padding="28,24">
         <StackPanel MaxWidth="1120">
 
             <TextBlock Text="数据导入 SQL 生成器"

@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using WpfApp1.Services;
 
 namespace WpfApp1.Views
@@ -250,6 +251,24 @@ namespace WpfApp1.Views
         private void DgSummaryRows_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             BindDetail((CsvCompareDisplayRow?)DgSummaryRows.SelectedItem);
+        }
+
+        private void ResultGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (PageScrollViewer == null)
+            {
+                return;
+            }
+
+            bool canScrollUp = PageScrollViewer.VerticalOffset > 0;
+            bool canScrollDown = PageScrollViewer.VerticalOffset < PageScrollViewer.ScrollableHeight;
+            if ((e.Delta > 0 && canScrollUp) || (e.Delta < 0 && canScrollDown))
+            {
+                double nextOffset = PageScrollViewer.VerticalOffset - e.Delta;
+                nextOffset = Math.Max(0, Math.Min(nextOffset, PageScrollViewer.ScrollableHeight));
+                PageScrollViewer.ScrollToVerticalOffset(nextOffset);
+                e.Handled = true;
+            }
         }
 
         private void UpdateResponsiveLayout()

@@ -1,9 +1,16 @@
-﻿<Application x:Class="CCToolbox.App"
+<Application x:Class="CCToolbox.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:WpfApp1"
+             xmlns:behaviors="clr-namespace:WpfApp1.Behaviors"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <Style x:Key="PageScrollViewerStyle" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="CanContentScroll" Value="False"/>
+            <Setter Property="PanningMode" Value="VerticalOnly"/>
+            <Setter Property="behaviors:ScrollViewerAssist.EnableHiddenWheelScroll" Value="True"/>
+        </Style>
     </Application.Resources>
 </Application>

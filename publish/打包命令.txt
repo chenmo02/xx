@@ -1,11 +1,23 @@
+打包命令：
+
 dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
 
-Output:
+输出目录：
+
 artifacts\publish\win-x64-single\
 
-Notes:
-1. The main deliverable is a single CCToolbox.exe
-2. The target machine does not need a separate .NET Desktop Runtime
-3. The draw board still requires Microsoft Edge WebView2 Runtime
-4. In Visual Studio, use startup profile `CCToolbox (VS本地构建版)` for normal debugging
-5. In Visual Studio, use startup profile `CCToolbox (单文件EXE，已发布)` only after publish succeeds
+交付文件：
+
+CCToolbox.exe
+
+说明：
+
+1. 当前版本：1.8.2
+2. 这是 win-x64、自包含、单文件发布
+3. 目标机器不需要单独安装 .NET Desktop Runtime
+4. Excalidraw 画板仍依赖 Microsoft Edge WebView2 Runtime
+5. Visual Studio 日常调试请使用：
+   CCToolbox-DebugLocal
+6. 验证已发布单文件时请直接运行：
+   artifacts\publish\win-x64-single\CCToolbox.exe
+7. 页面级滚动条默认隐藏，使用鼠标滚轮滚动页面；表格内部滚动不受影响

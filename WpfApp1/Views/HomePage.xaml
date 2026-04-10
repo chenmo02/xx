@@ -22,7 +22,7 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,22">
+    <ScrollViewer Style="{StaticResource PageScrollViewerStyle}" Padding="28,22">
         <StackPanel MaxWidth="980">
             <Border Background="White"
                     CornerRadius="12"
@@ -57,7 +57,7 @@
                                        FontSize="11"
                                        Foreground="#6366F1"/>
                             <TextBlock x:Name="TxtVersionBadge"
-                                       Text="v1.5.1"
+                                       Text="v1.8.2"
                                        FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="#4338CA"
@@ -319,7 +319,7 @@
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                         <TextBlock Text="版本" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtVersion" Text="v1.5.1" FontSize="18" FontWeight="Bold"
+                        <TextBlock x:Name="TxtVersion" Text="v1.8.2" FontSize="18" FontWeight="Bold"
                                    Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 

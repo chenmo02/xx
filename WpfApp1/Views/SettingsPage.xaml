@@ -274,7 +274,7 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="32,24">
+    <ScrollViewer Style="{StaticResource PageScrollViewerStyle}" Padding="32,24">
         <StackPanel MaxWidth="880">
 
             <!-- 页面标题 -->

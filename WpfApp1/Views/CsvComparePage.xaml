@@ -205,18 +205,12 @@
             <Setter Property="AlternationCount" Value="2"/>
         </Style>
     </Page.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  CanContentScroll="False"
-                  PanningMode="VerticalOnly">
-    <Grid Margin="20,16,20,20" VerticalAlignment="Top">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <DockPanel Grid.Row="0" Margin="0,0,0,14">
+    <Grid>
+    <ScrollViewer x:Name="PageScrollViewer"
+                  Style="{StaticResource PageScrollViewerStyle}"
+                  Margin="0">
+    <StackPanel Margin="20,16,20,20" VerticalAlignment="Top" MaxWidth="1200">
+        <DockPanel Margin="0,0,0,14">
             <StackPanel DockPanel.Dock="Left">
                 <TextBlock Text="CSV 对比工具" FontSize="22" FontWeight="Bold" Foreground="#111827"/>
                 <TextBlock Text="支持按行号或复合主键对比两个带表头的 CSV / TXT / TSV 文件。"
@@ -229,7 +223,7 @@
                         Style="{StaticResource PrimaryButton}" Click="BtnCompare_Click"/>
             </WrapPanel>
         </DockPanel>
-        <Grid x:Name="FileCardsGrid" Grid.Row="1" Margin="0,0,0,14">
+        <Grid x:Name="FileCardsGrid" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="12"/>
@@ -261,7 +255,7 @@
                 </StackPanel>
             </Border>
         </Grid>
-        <StackPanel Grid.Row="2" Margin="0,0,0,14">
+        <StackPanel Margin="0,0,0,14">
             <Border Style="{StaticResource CardBorder}" Padding="16,14" Margin="0,0,0,14">
                 <StackPanel>
                     <TextBlock Text="对比配置" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -285,7 +279,7 @@
                 <TextBlock x:Name="TxtValidationMessage" FontSize="12.5" Foreground="#B91C1C" TextWrapping="Wrap"/>
             </Border>
         </StackPanel>
-        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="16,14" MinHeight="720" Margin="0,0,0,4">
+        <Border Style="{StaticResource CardBorder}" Padding="16,14" MinHeight="720" Margin="0,0,0,4">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -330,7 +324,9 @@
                                       EnableRowVirtualization="True" EnableColumnVirtualization="True"
                                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                       ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                      ScrollViewer.HorizontalScrollBarVisibility="Auto" SelectionChanged="DgSummaryRows_SelectionChanged"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      SelectionChanged="DgSummaryRows_SelectionChanged"
+                                      PreviewMouseWheel="ResultGrid_PreviewMouseWheel"
                                       Visibility="Collapsed">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="差异类型" Binding="{Binding DiffTypeText}" Width="110"/>
@@ -390,7 +386,9 @@
                                               EnableRowVirtualization="True" EnableColumnVirtualization="True"
                                               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                               ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                              ScrollViewer.HorizontalScrollBarVisibility="Auto" Visibility="Collapsed">
+                                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                              PreviewMouseWheel="ResultGrid_PreviewMouseWheel"
+                                              Visibility="Collapsed">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="列名" Binding="{Binding ColumnName}" Width="160"/>
                                             <DataGridTemplateColumn Header="A 值" Width="*">
@@ -420,6 +418,7 @@
                 </Border>
             </Grid>
         </Border>
-    </Grid>
+    </StackPanel>
     </ScrollViewer>
+    </Grid>
 </Page>
