@@ -13,9 +13,9 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="MinWidth" Value="88"/>
-            <Setter Property="Padding" Value="16,9"/>
-            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="MinWidth" Value="72"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#4E6EF2"/>
@@ -88,10 +88,14 @@
                                 </Grid>
                             </Border>
                             <ToggleButton x:Name="ToggleButton"
-                                          Background="Transparent"
-                                          BorderThickness="0"
                                           Focusable="False"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
                             <Popup x:Name="Popup"
                                    Placement="Bottom"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
@@ -204,25 +208,46 @@
             <Setter Property="RowStyle" Value="{StaticResource ResultDataGridRow}"/>
             <Setter Property="AlternationCount" Value="2"/>
         </Style>
+        <Style x:Key="ResultRowHeaderStyle" TargetType="DataGridRowHeader">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridRowHeader">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
     <Grid>
     <ScrollViewer x:Name="PageScrollViewer"
                   Style="{StaticResource PageScrollViewerStyle}"
                   Margin="0">
     <StackPanel Margin="20,16,20,20" VerticalAlignment="Top" MaxWidth="1200">
-        <DockPanel Margin="0,0,0,14">
-            <StackPanel DockPanel.Dock="Left">
-                <TextBlock Text="CSV 对比工具" FontSize="22" FontWeight="Bold" Foreground="#111827"/>
-                <TextBlock Text="支持按行号或复合主键对比两个带表头的 CSV / TXT / TSV 文件。"
-                           Margin="0,4,0,0" FontSize="13" Foreground="#64748B"/>
-            </StackPanel>
-            <WrapPanel DockPanel.Dock="Right">
-                <Button Content="交换左右" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Click="BtnSwap_Click"/>
-                <Button Content="清空" Margin="0,0,8,8" Style="{StaticResource GhostButton}" Click="BtnClear_Click"/>
-                <Button x:Name="BtnCompare" Content="开始对比" Margin="0,0,0,8" IsEnabled="False"
+        <StackPanel Margin="0,0,0,14">
+            <TextBlock Text="CSV 对比工具" FontSize="22" FontWeight="Bold" Foreground="#111827"/>
+            <TextBlock Text="支持按行号或复合主键对比两个带表头的 CSV / TXT / TSV 文件。"
+                       Margin="0,4,0,0" FontSize="13" Foreground="#64748B"/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button Content="交换左右" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Click="BtnSwap_Click"/>
+                <Button Content="清空" Margin="0,0,16,0" Style="{StaticResource GhostButton}" Click="BtnClear_Click"/>
+                <Border Width="1" Background="#D1D5DB" Margin="0,3,16,3"/>
+                <Button x:Name="BtnCompare" Content="开始对比" IsEnabled="False"
                         Style="{StaticResource PrimaryButton}" Click="BtnCompare_Click"/>
-            </WrapPanel>
-        </DockPanel>
+            </StackPanel>
+        </StackPanel>
         <Grid x:Name="FileCardsGrid" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -300,27 +325,46 @@
                         BorderBrush="#FDBA74" BorderThickness="1" CornerRadius="8" Visibility="Collapsed">
                     <TextBlock x:Name="TxtHeaderChangesSummary" FontSize="12" Foreground="#9A3412" TextWrapping="Wrap"/>
                 </Border>
-                <WrapPanel Grid.Row="2" Margin="0,0,0,12">
-                    <CheckBox x:Name="ChkShowColumnChanges" Content="列变更" Margin="0,0,10,8" IsChecked="True" Checked="FilterChanged" Unchecked="FilterChanged"/>
-                    <CheckBox x:Name="ChkShowRowChanges" Content="行变更" Margin="0,0,10,8" IsChecked="True" Checked="FilterChanged" Unchecked="FilterChanged"/>
-                    <CheckBox x:Name="ChkShowCellChanges" Content="单元格修改" Margin="0,0,14,8" IsChecked="True" Checked="FilterChanged" Unchecked="FilterChanged"/>
-                    <TextBlock Text="每页" VerticalAlignment="Center" Margin="0,0,8,8" FontSize="12" Foreground="#64748B"/>
-                    <ComboBox x:Name="CmbPageSize" Width="92" Margin="0,0,12,8" Style="{StaticResource FlatComboBox}" ItemContainerStyle="{StaticResource FlatComboBoxItem}" SelectionChanged="CmbPageSize_SelectionChanged"/>
-                    <Button Content="首页" Margin="0,0,8,8" Style="{StaticResource GhostButton}" Click="BtnFirstPage_Click"/>
-                    <Button Content="上一页" Margin="0,0,8,8" Style="{StaticResource GhostButton}" Click="BtnPrevPage_Click"/>
-                    <TextBlock x:Name="TxtPageInfo" VerticalAlignment="Center" Margin="0,0,12,8" FontSize="12" Foreground="#64748B"/>
-                    <Button Content="下一页" Margin="0,0,8,8" Style="{StaticResource GhostButton}" Click="BtnNextPage_Click"/>
-                    <Button Content="末页" Margin="0,0,12,8" Style="{StaticResource GhostButton}" Click="BtnLastPage_Click"/>
-                    <CheckBox x:Name="ChkExportFilteredOnly" Content="仅导出当前筛选结果" Margin="0,0,12,8" VerticalAlignment="Center"/>
-                    <Button x:Name="BtnCopyReport" Content="复制报告" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Click="BtnCopyReport_Click" IsEnabled="False"/>
-                    <Button x:Name="BtnExportResult" Content="导出结果" Margin="0,0,0,8" Style="{StaticResource PrimaryButton}" Click="BtnExportResult_Click" IsEnabled="False"/>
-                </WrapPanel>
+                <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                    <!-- 第一行：筛选 + 导出 -->
+                    <DockPanel Margin="0,0,0,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <CheckBox x:Name="ChkExportFilteredOnly" Content="仅导出筛选结果" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <Button x:Name="BtnCopyReport" Content="复制报告" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Click="BtnCopyReport_Click" IsEnabled="False"/>
+                            <Button x:Name="BtnExportResult" Content="导出结果" Style="{StaticResource PrimaryButton}" Click="BtnExportResult_Click" IsEnabled="False"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="筛选：" FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <CheckBox x:Name="ChkShowColumnChanges" Content="列变更" Margin="0,0,12,0" IsChecked="True" Checked="FilterChanged" Unchecked="FilterChanged"/>
+                            <CheckBox x:Name="ChkShowRowChanges" Content="行变更" Margin="0,0,12,0" IsChecked="True" Checked="FilterChanged" Unchecked="FilterChanged"/>
+                            <CheckBox x:Name="ChkShowCellChanges" Content="单元格修改" IsChecked="True" Checked="FilterChanged" Unchecked="FilterChanged"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <!-- 第二行：翻页 + 每页行数 -->
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="每页" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="CmbPageSize" Width="84" FontSize="11" Style="{StaticResource FlatComboBox}" ItemContainerStyle="{StaticResource FlatComboBoxItem}" SelectionChanged="CmbPageSize_SelectionChanged"/>
+                            <TextBlock Text="行" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="首页" Margin="0,0,6,0" Style="{StaticResource GhostButton}" Click="BtnFirstPage_Click"/>
+                            <Button Content="上一页" Margin="0,0,8,0" Style="{StaticResource GhostButton}" Click="BtnPrevPage_Click"/>
+                            <TextBlock x:Name="TxtPageInfo" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="12" Foreground="#64748B"/>
+                            <Button Content="下一页" Margin="0,0,6,0" Style="{StaticResource GhostButton}" Click="BtnNextPage_Click"/>
+                            <Button Content="末页" Style="{StaticResource GhostButton}" Click="BtnLastPage_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+                </StackPanel>
                 <Grid Grid.Row="3" Height="340" MinHeight="260">
                     <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Background="White">
                         <Grid>
                             <DataGrid x:Name="DgSummaryRows" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
                                       CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeRows="False" CanUserSortColumns="False"
                                       Style="{StaticResource ResultDataGrid}" MinRowHeight="34"
+                                      HeadersVisibility="All" RowHeaderWidth="40"
+                                      RowHeaderStyle="{StaticResource ResultRowHeaderStyle}"
+                                      LoadingRow="DgSummaryRows_LoadingRow"
                                       EnableRowVirtualization="True" EnableColumnVirtualization="True"
                                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                       ScrollViewer.CanContentScroll="True" ScrollViewer.VerticalScrollBarVisibility="Auto"

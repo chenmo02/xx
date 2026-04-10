@@ -51,7 +51,7 @@ namespace WpfApp1.Views
         private LoadedFileContext? _leftFile;
         private LoadedFileContext? _rightFile;
         private CsvCompareResult? _lastResult;
-        private readonly List<int> _pageSizes = [50, 100, 200];
+        private readonly List<int> _pageSizes = [10, 20, 50, 100, 200];
         private List<CsvCompareDisplayRow> _allDisplayRows = [];
         private List<CsvCompareDisplayRow> _filteredDisplayRows = [];
         private List<CsvCompareDisplayRow> _currentPageRows = [];
@@ -246,6 +246,11 @@ namespace WpfApp1.Views
             _pageIndex = 0;
             RenderResult(resetPage: true);
             SaveState();
+        }
+
+        private void DgSummaryRows_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            e.Row.Header = (_pageIndex * _pageSize + e.Row.GetIndex() + 1).ToString();
         }
 
         private void DgSummaryRows_SelectionChanged(object sender, SelectionChangedEventArgs e)
