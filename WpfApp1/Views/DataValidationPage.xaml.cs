@@ -669,10 +669,12 @@ namespace WpfApp1.Views
             {
                 var pkColumns = GetSelectedPkColumns();
                 bool skipIntFormat = ChkSkipIntFormat.IsChecked == true;
+                bool skipUuidFormat = ChkSkipUuidFormat.IsChecked == true;
                 _lastResult = await ValidationEngine.RunAsync(
                     _targetColumns, _sourceData, _mappings,
                     pkColumns.Count > 0 ? pkColumns : null,
                     skipIntFormat,
+                    skipUuidFormat,
                     progress, _cts.Token);
             }
             catch (OperationCanceledException)

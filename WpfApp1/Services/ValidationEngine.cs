@@ -26,6 +26,7 @@ namespace WpfApp1.Services
             IReadOnlyList<DvMappingRow> mappings,
             IReadOnlyList<string>? primaryKeyColumns = null,
             bool skipIntegerFormatErrors = false,
+            bool skipGuidFormatErrors = false,
             IProgress<(int current, int total, int errors)>? progress = null,
             CancellationToken ct = default)
         {
@@ -94,7 +95,8 @@ namespace WpfApp1.Services
                     {
                         string? value = ci < row.Count ? row[ci] : null;
 
-                        foreach (var issue in ValidateCell(value, colMeta, rowNum, srcName, skipIntegerFormatErrors))
+                        foreach (var issue in ValidateCell(
+                            value, colMeta, rowNum, srcName, skipIntegerFormatErrors, skipGuidFormatErrors))
                         {
                             issue.PrimaryKeyDisplay = pkDisplay;
                             if (issue.Level == DvValidationLevel.Error) errorCount++;
@@ -143,7 +145,8 @@ namespace WpfApp1.Services
 
         private static IEnumerable<DvIssue> ValidateCell(
             string? value, DvTargetColumn col, int rowNum, string? srcCol,
-            bool skipIntegerFormatErrors = false)
+            bool skipIntegerFormatErrors = false,
+            bool skipGuidFormatErrors = false)
         {
             // 1. 空值检查
             bool isEmpty = string.IsNullOrWhiteSpace(value);
@@ -184,7 +187,10 @@ namespace WpfApp1.Services
                     foreach (var i in ValidateBoolean(value!, col, rowNum, srcCol)) yield return i;
                     break;
                 case DvNormalizedType.Guid:
-                    foreach (var i in ValidateGuid(value!, col, rowNum, srcCol)) yield return i;
+                    if (!skipGuidFormatErrors)
+                    {
+                        foreach (var i in ValidateGuid(value!, col, rowNum, srcCol)) yield return i;
+                    }
                     break;
                 case DvNormalizedType.Json:
                     foreach (var i in ValidateJson(value!, col, rowNum, srcCol)) yield return i;

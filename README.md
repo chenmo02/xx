@@ -1,14 +1,49 @@
-# CC 实施工具箱
+# CCToolbox
 
-Windows 桌面工具箱，面向实施、数据处理和日常办公辅助场景。
+面向 Windows 场景的数据处理与办公辅助工具箱，基于 WPF 构建，聚合了首页概览、数据导入、CSV 预览与对比、数据验证、JSON 处理、绘图辅助、票据打印与系统设置等能力。
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-blue?logo=dotnet)
 ![Platform](https://img.shields.io/badge/Platform-Windows_x64-0078d4?logo=windows)
-![Version](https://img.shields.io/badge/Version-1.8.2-4E6EF2)
+![Version](https://img.shields.io/badge/Version-2.0.0-1f6feb)
 
-## 项目简介
+## 项目概览
 
-`CCToolbox` 是一个基于 WPF 的桌面应用，当前聚合了这些核心能力：
+- 应用名称：`CCToolbox`
+- 技术栈：`.NET 10` + `WPF`
+- 目标框架：`net10.0-windows10.0.19041.0`
+- 运行平台：`Windows 10 / 11 x64`
+- 当前版本：`2.0.0`
+
+项目当前采用 `Page + code-behind + Service` 的结构组织方式，而不是 MVVM。`MainWindow` 负责左侧导航和主内容区切换，`Views` 负责页面交互，`Services` 负责解析、对比、校验、导出、打印和配置持久化等业务逻辑。
+
+## 页面与导航
+
+当前主界面分为左侧导航栏和右侧内容区两部分。
+
+左侧导航栏分组如下：
+
+- 数据工具：`首页概览`、`数据导入临时表`、`CSV 预览工具`、`CSV 对比工具`、`数据验证排查`
+- 开发工具：`JSON 处理工具`、`JSON 对比工具`、`Excalidraw 画板`
+- 办公工具：`发票打印工具`
+- 系统：`系统设置`
+
+首页概览不是单纯欢迎页，而是一个独立的主控入口页，负责：
+
+- 展示产品标题、副标题、作者信息和当前版本
+- 以快捷卡片形式汇总主要功能入口
+- 提供从首页直接跳转到各核心工具页的能力
+- 展示底部系统信息面板，包括版本号、运行环境和当前日期
+
+## 功能清单
+
+### 1. 首页概览
+
+- 默认启动后首先进入首页概览
+- 展示欢迎信息、版本徽标和作者信息
+- 通过快捷功能卡片直达核心业务页
+- 汇总展示系统信息，便于确认当前运行环境
+
+当前首页快捷入口覆盖：
 
 - 数据导入临时表
 - CSV 预览工具
@@ -17,118 +52,90 @@ Windows 桌面工具箱，面向实施、数据处理和日常办公辅助场景
 - JSON 对比工具
 - Excalidraw 画板
 - 发票打印工具
-- 系统设置与若干小工具
+- 数据验证排查
 
-当前主程序程序集名称为 `CCToolbox`，支持发布为 `win-x64` 自包含单文件 `exe`。
-
-## 当前版本
-
-- 应用版本：`1.8.2`
-- 目标框架：`.NET 10` / `net10.0-windows10.0.19041.0`
-- 主要运行平台：`Windows x64`
-
-## 功能说明
-
-### 1. 数据导入临时表
+### 2. 数据导入与 SQL 生成
 
 - 支持导入 `.xlsx`、`.xls`、`.csv`、`.dbf`
-- 支持 Excel 多 Sheet
-- CSV 自动识别编码和分隔符
-- DBF 支持切换编码
-- 支持在表格中直接编辑数据并重新生成 SQL
-- 支持导出当前数据为 `CSV` / `JSON`
+- Excel 支持多 Sheet 选择
+- CSV 自动识别编码与分隔符
+- DBF 支持切换编码并重新加载
+- 支持拖拽导入、表格预览与直接编辑
+- 支持生成 PostgreSQL、SQL Server、MySQL、Oracle 的建表与插入 SQL
+- 支持导出当前预览数据为 `CSV` / `JSON`
+- 设置页保存的默认导入参数会实时同步到本页
 
-当前 SQL 生成规则：
+### 3. CSV 预览工具
 
-- 支持 PostgreSQL、SQL Server、MySQL、Oracle
-- SQL Server 临时表名会自动规范为 `#TempTable`
-- Oracle 使用 `CREATE GLOBAL TEMPORARY TABLE`
-- Oracle 日期值使用 `TO_DATE(...)`
-- SQL Server 单批最大 `1000` 行
-- Oracle 批量插入生成 `INSERT ALL`
-- 勾选“限制文本字段长度”后，所有列统一按文本类型输出
-  - PostgreSQL / MySQL：`VARCHAR(1000)`
-  - SQL Server：`NVARCHAR(1000)`
-  - Oracle：`VARCHAR2(1000)`
+- 只读方式浏览 `CSV` / `TXT` / `TSV`
+- 自动识别编码与分隔符
+- 支持全文搜索、结果跳转与表格定位
+- 以共享读取方式打开文件，尽量减少文件占用冲突
 
-### 2. CSV 预览工具
+### 4. CSV 对比工具
 
-- 只读方式预览 CSV / TXT / TSV
-- 支持搜索、排序、基础浏览
-- 采用共享读取方式打开文件，尽量避免锁文件
-- 与 CSV 对比工具复用同一套分隔文本读取逻辑
+- 支持按行号对比
+- 支持按一个或多个公共字段组成复合键进行对比
+- 支持识别列新增、列删除、行新增、行删除、单元格修改
+- 主键模式下可先检测重复键并阻止错误对比
+- 支持筛选、分页、详情查看、复制报告、导出差异结果
+- 页面状态可在同一次程序运行期间跨菜单切换保留
 
-### 3. CSV 对比工具
+### 5. 数据验证排查
 
-- 支持两种对比模式
-  - 行号模式：第 N 行对第 N 行
-  - 主键模式：按一个或多个公共列组成复合主键
-- 支持表头差异识别
-  - 列新增
-  - 列删除
-- 支持行级差异识别
-  - 行新增
-  - 行删除
-  - 单元格修改
-- 结果区采用“汇总结果 + 明细结果”结构
-- 支持筛选、分页、复制报告、导出结果
-- 页面状态在同一次程序运行期间可跨菜单切换保留
+- 支持导入目标表结构 DDL
+- 支持从 Excel 导入目标结构和源数据
+- 支持解析 `INSERT` 语句作为源数据
+- 支持字段自动匹配与人工调整映射
+- 支持主键字段配置，用于去重统计与结果展示
+- 支持字符串长度、数值、日期、布尔、GUID、JSON、非空等规则校验
+- 支持进度显示、取消校验与导出 Excel 报告
 
-### 4. JSON 处理工具
+### 6. JSON 处理工具
 
 - 支持 JSON 美化、压缩、校验
-- 左侧原始 JSON 可编辑
-- 右侧以 GRID 方式展示嵌套结构
-- 支持导出 `JSON` / `CSV`
+- 左侧为原始 JSON 编辑区，右侧为自定义 GRID 结构视图
+- 支持左侧文本搜索和右侧结构搜索
+- 支持点击右侧节点反向定位左侧原始 JSON
+- 支持导入、导出与 `JSON -> CSV`
 
-当前搜索行为：
+### 7. JSON 对比工具
 
-- 左右两侧都支持搜索
-- 左右两侧都支持 `Aa` 大小写敏感
-- 左右两侧搜索规则已统一
-- 搜索范围覆盖：
-  - Key
-  - Value
-  - 表格列名
-  - 折叠节点标题
-  - 嵌套摘要
-- 右侧点击节点可联动定位左侧原始 JSON
+- 支持深度比较两个 JSON 文档
+- 可识别新增、删除、值变化、类型变化
+- 对对象按键比较，对数组按索引比较
+- 支持过滤结果、复制文本报告与导出差异结果
 
-### 5. JSON 对比工具
+### 8. Excalidraw 画板
 
-- 支持深度比较两个 JSON
-- 显示新增、删除、值变化、类型变化
-- 支持导入、美化和导出对比结果
-
-### 6. Excalidraw 画板
-
-- 基于 WebView2 嵌入 Excalidraw
-- 支持打开 `.excalidraw` / `.json`
-- 支持保存、导出 PNG、导出 SVG
-- 使用 Base64 传输数据，减少特殊字符转义问题
+- 基于 `WebView2` 嵌入 Excalidraw
+- 支持打开场景文件、保存场景、导出 `PNG` / `SVG`
+- 通过页面脚本与宿主应用通信，完成场景读取与导出
+- 支持刷新和在浏览器中打开
 
 说明：
 
-- 该页面依赖 `Microsoft Edge WebView2 Runtime`
-- 单文件 `exe` 可以正常发布
-- 但画板功能仍要求目标机器安装 `WebView2 Runtime`
+- 本功能依赖 `Microsoft Edge WebView2 Runtime`
+- 如果目标机器未安装 WebView2 Runtime，画板页将无法正常初始化
 
-### 7. 发票打印工具
+### 9. 发票打印工具
 
-- 支持 PDF / OFD / JPG / PNG / BMP / TIFF
-- 支持拖拽导入和目录递归导入
-- 支持预览、缩放、旋转、分页
-- 支持排版模板、打印设置、打印历史
+- 支持导入 `PDF`、`OFD`、`JPG`、`JPEG`、`PNG`、`BMP`、`TIF`、`TIFF`
+- 支持文件与目录递归导入
+- 自动按路径和文件内容哈希去重
+- 支持版式模板、边距、偏移、方向、画质、裁切线等参数配置
+- 支持预览全部导入文件、PDF 分页浏览与批量打印
+- 保存打印模板与打印历史
 
-### 8. 系统设置与小工具
+### 10. 系统设置与内置小工具
 
 系统设置当前支持保存这些默认项：
 
 - 默认数据库类型
 - 默认表名
 - 默认批量行数
-- 是否默认生成 DROP TABLE
-- 是否默认启用批量 INSERT
+- 是否默认生成 `DROP TABLE`
+- 是否默认启用批量插入
 - 是否默认限制字段长度
 - 默认导出路径
 
@@ -137,69 +144,184 @@ Windows 桌面工具箱，面向实施、数据处理和日常办公辅助场景
 - 身份信息生成
 - Base64 编解码
 - UUID / GUID 生成
-- 文本哈希计算
+- MD5 / SHA1 / SHA256 计算
 - URL 编解码
 - 正则测试
-- 文本对比
+- 纯文本逐行对比
+- 运行环境信息查看
+
+## 完整流程框架
+
+### 1. 应用主链路
+
+```mermaid
+flowchart TD
+    A["App 启动"] --> B["注册全局异常处理"]
+    B --> C["MainWindow 初始化"]
+    C --> D["默认进入 HomePage"]
+    D --> E["展示首页概览与快捷卡片"]
+    E --> F["左侧导航或首页卡片跳转"]
+    F --> G["各功能 Page"]
+    G --> H["Services 执行业务逻辑"]
+    H --> I["预览 / 比对 / 校验 / 导出 / 打印"]
+    H --> J["本地配置与运行时文件"]
+```
+
+对应代码入口：
+
+- `App.xaml.cs`：注册 UI 线程、后台线程、Task 的全局异常处理
+- `MainWindow.xaml.cs`：承载左侧导航与主 `Frame`
+- `Views/HomePage.xaml.cs`：首页快捷卡片与系统信息展示
+
+### 2. 页面结构
+
+```text
+主窗口
+├─ 左侧导航栏
+│  ├─ 数据工具
+│  ├─ 开发工具
+│  ├─ 办公工具
+│  └─ 系统
+└─ 右侧内容区
+   ├─ 首页概览
+   ├─ 数据导入临时表
+   ├─ CSV 预览工具
+   ├─ CSV 对比工具
+   ├─ 数据验证排查
+   ├─ JSON 处理工具
+   ├─ JSON 对比工具
+   ├─ Excalidraw 画板
+   ├─ 发票打印工具
+   └─ 系统设置
+```
+
+### 3. 首页概览流程
+
+```text
+程序启动
+-> MainWindow 创建
+-> Frame 默认加载 HomePage
+-> 首页展示版本/作者/环境信息
+-> 用户点击快捷卡片
+-> 跳转到对应功能页
+```
+
+### 4. 关键业务流程
+
+#### 数据导入页流程
+
+```text
+选择文件或拖拽导入
+-> 按文件类型解析
+-> 载入 DataTable
+-> 表格预览与编辑
+-> 生成 SQL
+-> 复制/保存 SQL 或导出 CSV/JSON
+```
+
+#### CSV 对比页流程
+
+```text
+加载左文件和右文件
+-> 选择对比模式
+-> 计算表头差异与行级差异
+-> 展示摘要、详情、分页结果
+-> 导出对比结果或复制报告
+```
+
+#### 数据验证页流程
+
+```text
+导入目标结构
+-> 导入源数据
+-> 自动匹配字段
+-> 人工确认映射与主键
+-> 执行校验
+-> 查看问题清单
+-> 导出 Excel 报告
+```
+
+#### JSON 工具页流程
+
+```text
+输入或导入 JSON
+-> 美化或压缩
+-> 解析为结构节点
+-> 左右联动搜索与定位
+-> 导出 JSON/CSV
+```
+
+#### 发票打印页流程
+
+```text
+导入文件或文件夹
+-> 去重与读取元信息
+-> 选择模板与打印参数
+-> 渲染预览页
+-> 执行打印
+-> 写入模板与历史记录
+```
 
 ## 目录结构
 
 ```text
 .
-├─ WpfApp1.slnx
 ├─ README.md
+├─ WpfApp1.slnx
 ├─ artifacts/
-│  └─ publish/
 ├─ publish/
 └─ WpfApp1/
+   ├─ App.xaml
+   ├─ App.xaml.cs
+   ├─ MainWindow.xaml
+   ├─ MainWindow.xaml.cs
    ├─ WpfApp1.csproj
+   ├─ Behaviors/
+   │  └─ ScrollViewerAssist.cs
+   ├─ Models/
    ├─ Services/
    ├─ Views/
-   ├─ Models/
-   ├─ App.xaml
-   └─ MainWindow.xaml
+   │  ├─ HomePage.xaml
+   │  ├─ DataImportPage.xaml
+   │  ├─ CsvViewerPage.xaml
+   │  ├─ CsvComparePage.xaml
+   │  ├─ DataValidationPage.xaml
+   │  ├─ JsonToolPage.xaml
+   │  ├─ JsonDiffPage.xaml
+   │  ├─ DrawBoardPage.xaml
+   │  ├─ InvoicePrintPage.xaml
+   │  └─ SettingsPage.xaml
+   └─ Properties/
+      ├─ launchSettings.json
+      └─ PublishProfiles/
 ```
 
 ## 开发环境
 
 - Windows 10 / 11 x64
 - .NET 10 SDK
-- Visual Studio 2022 或同等 .NET / WPF 开发环境
+- Visual Studio 2022 或支持 WPF 的 .NET 开发环境
 
 ## 本地运行
 
-### 命令行运行
+### 命令行
 
 ```powershell
 dotnet run --project .\WpfApp1\WpfApp1.csproj
 ```
 
-### 调试输出位置
+### 可执行文件位置
 
 - Debug：`WpfApp1\bin\Debug\net10.0-windows10.0.19041.0\CCToolbox.exe`
 - Release：`WpfApp1\bin\Release\net10.0-windows10.0.19041.0\CCToolbox.exe`
 
-## Visual Studio 启动配置
+### Visual Studio 启动配置
 
-当前默认只保留一个本地调试启动项：
+当前默认保留一个本地调试启动项：
 
 - `CCToolbox-DebugLocal`
-  - 用于日常开发和调试
-  - 启动的是本地最新 `Debug` 构建输出
 
-说明：
-
-- 如果要测试已发布单文件，请直接运行 `artifacts\publish\win-x64-single\CCToolbox.exe`
-- 这样可以避免在 Visual Studio 中误跑旧发布版
-- 如果 Visual Studio 下拉仍显示旧启动项，重开一次解决方案即可刷新
-
-## 页面滚动说明
-
-- 功能页的页面级滚动条默认隐藏，但保留鼠标滚轮滚动
-- 表格、编辑器、下拉列表等内部滚动区域仍保留各自的滚动行为
-- CSV 对比工具这类内容较长的页面，在非全屏窗口下也支持整页向下滚动查看完整内容
-
-## 打包单文件 EXE
+## 发布单文件 EXE
 
 项目内置发布配置：`SingleFile-win-x64`
 
@@ -209,13 +331,13 @@ dotnet run --project .\WpfApp1\WpfApp1.csproj
 dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
 ```
 
-输出文件：
+输出路径：
 
 ```text
 artifacts/publish/win-x64-single/CCToolbox.exe
 ```
 
-当前打包策略：
+当前发布策略：
 
 - `win-x64`
 - `Release`
@@ -227,34 +349,42 @@ artifacts/publish/win-x64-single/CCToolbox.exe
 
 ## 运行时文件
 
-程序运行后，可能会在 `exe` 同目录生成这些文件：
+程序运行后，可能会在可执行文件目录下生成这些文件：
 
 - `settings.json`
 - `invoice_templates.json`
 - `invoice_print_history.json`
 
-这是当前设计的一部分，用于绿色便携分发，不视为异常。
+这些文件用于保存用户配置、打印模板和打印历史。
 
-Excalidraw 的 WebView2 用户数据目录位于当前用户本地应用数据目录，不写入仓库。
+Excalidraw 使用的 WebView2 用户数据目录位于当前用户本地应用数据目录，不写入仓库。
 
-## 已知前置条件
+## 主要依赖
 
-- 主程序单文件 `exe` 不依赖额外安装 `.NET Desktop Runtime`
-- Excalidraw 页面依赖 `Microsoft Edge WebView2 Runtime`
+- `CsvHelper`
+- `EPPlus`
+- `ExcelDataReader`
+- `ExcelDataReader.DataSet`
+- `Microsoft.Data.SqlClient`
+- `Microsoft.Web.WebView2`
+- `Npgsql`
 
-如果目标机器未安装 `WebView2 Runtime`，画板页会初始化失败，并提示下载安装。
+## 已知说明
+
+- 当前主界面采用页面导航式架构，首页概览是默认入口页和统一分发页
+- `PgBackupPage` 已处于废弃占位状态，不再作为主流程页面
+- `DatabaseImportService.cs` 已迁移为兼容占位，实际导入 SQL 生成功能由 `SqlGeneratorService.cs` 承担
 
 ## 最近更新
 
-### 1.8.2
+### 2.0.0
 
-- 统一版本号为 `1.8.2`
-- 补全程序集版本、文件版本和信息版本
-- 更新 CSV 对比工具结果展示、分页与明细结构
-- 补充并整理 Visual Studio 启动配置说明
-- 页面级滚动条改为隐藏显示，保留鼠标滚轮滚动体验
-- 重写 README，使之与当前代码状态保持一致
+- 同步项目版本为 `2.0.0`
+- 将首页概览补充为正式功能模块写入 README
+- 更新左侧导航分组与首页快捷入口说明
+- 按当前代码结构重写流程框架与目录结构
+- 更新运行、发布、依赖与运行时文件说明
 
-## 许可
+## 许可证
 
 MIT

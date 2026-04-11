@@ -792,13 +792,14 @@
                 <DockPanel x:Name="Panel4" Visibility="Collapsed" LastChildFill="True">
 
                     <!-- 操作区 -->
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
                         <!-- 摘要 / 进度 -->
                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
@@ -857,11 +858,16 @@
                                   IsChecked="True"
                                   VerticalAlignment="Center" Margin="0,0,12,0"
                                   ToolTip="存储过程会做类型转换时可勾选，跳过整数/长整数格式校验"/>
-                        <Button x:Name="BtnRunValidation" Grid.Column="2"
+                        <CheckBox x:Name="ChkSkipUuidFormat" Grid.Column="2"
+                                  Content="忽略 UUID 格式错误" FontSize="12" Foreground="#374151"
+                                  IsChecked="False"
+                                  VerticalAlignment="Center" Margin="0,0,12,0"
+                                  ToolTip="勾选后将跳过 UUID / UNIQUEIDENTIFIER 字段的格式错误校验"/>
+                        <Button x:Name="BtnRunValidation" Grid.Column="3"
                                 Content="▶ 开始校验" Style="{StaticResource PrimaryBtn}"
                                 Padding="16,9" Margin="0,0,8,0"
                                 Click="BtnRunValidation_Click"/>
-                        <Button x:Name="BtnExportReport" Grid.Column="3"
+                        <Button x:Name="BtnExportReport" Grid.Column="4"
                                 Content="导出 Excel 报告" Style="{StaticResource GreenBtn}"
                                 Padding="16,9" Visibility="Collapsed"
                                 Click="BtnExportReport_Click"/>
