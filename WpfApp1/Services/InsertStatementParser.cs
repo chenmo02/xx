@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 
 namespace WpfApp1.Services
 {
-    /// <summary>解析 INSERT INTO 语句，提取字段列表和数据行。</summary>
+    /// <summary>
+    /// 解析 INSERT INTO 语句，提取字段列表和数据行。
+    /// 支持多条 INSERT、批量 VALUES、字符串中的逗号/括号/关键字，以及 SQL 注释。
+    /// </summary>
     public static class InsertStatementParser
     {
         public static (List<string> Headers, List<IReadOnlyList<string?>> Rows, string? Warning) Parse(string sql)
@@ -12,56 +14,27 @@ namespace WpfApp1.Services
             if (string.IsNullOrWhiteSpace(sql))
                 throw new InvalidOperationException("SQL 语句为空。");
 
-            // 去掉注释
-            sql = Regex.Replace(sql, @"--[^\r\n]*", " ");
-            sql = Regex.Replace(sql, @"/\*.*?\*/", " ", RegexOptions.Singleline);
-
-            // 提取第一条 INSERT 的字段列表
-            var headerMatch = Regex.Match(sql,
-                @"\bINSERT\s+INTO\s+[\w\.\[\]`""]+\s*\(([^)]+)\)\s*VALUES?\b",
-                RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-            if (!headerMatch.Success)
-                throw new InvalidOperationException("未找到有效的 INSERT INTO 语句（需要显式字段列表）。");
-
-            var headers = ParseIdentifierList(headerMatch.Groups[1].Value);
-            if (headers.Count == 0)
-                throw new InvalidOperationException("字段列表解析结果为空。");
-
-            // 找所有 VALUES 后的元组
+            List<string>? headers = null;
             var rows = new List<IReadOnlyList<string?>>();
             string? warning = null;
-            bool firstMatch = true;
 
-            // 逐条处理每个 INSERT INTO ... VALUES (...)
-            var allInserts = Regex.Matches(sql,
-                @"\bINSERT\s+INTO\s+[\w\.\[\]`""]+\s*\(([^)]+)\)\s*VALUES?\s*([\s\S]+?)(?=;|\bINSERT\b|$)",
-                RegexOptions.IgnoreCase);
-
-            foreach (Match m in allInserts)
+            int index = 0;
+            while (TryReadNextInsert(sql, ref index, out var currentHeaders, out var currentRows))
             {
-                var colsPart = m.Groups[1].Value;
-                var valuesPart = m.Groups[2].Value.Trim().TrimEnd(';').Trim();
-
-                if (!firstMatch)
+                if (headers == null)
                 {
-                    var thisHeaders = ParseIdentifierList(colsPart);
-                    if (!HeadersMatch(headers, thisHeaders) && warning == null)
-                        warning = "检测到多条 INSERT 字段列表不一致，将以第一条为准。";
-                    firstMatch = false;
+                    headers = currentHeaders;
                 }
-                else
+                else if (!HeadersMatch(headers, currentHeaders) && warning == null)
                 {
-                    firstMatch = false;
+                    warning = "检测到多条 INSERT 的字段列表不一致，当前按第一条字段顺序解析。";
                 }
 
-                // valuesPart 可能是多个 (v1,v2,...), (v3,v4,...) 用逗号或换行分隔
-                foreach (var tuple in ExtractTuples(valuesPart))
-                {
-                    var vals = ParseTuple(tuple, headers.Count);
-                    rows.Add(vals);
-                }
+                rows.AddRange(currentRows);
             }
+
+            if (headers == null || headers.Count == 0)
+                throw new InvalidOperationException("未找到有效的 INSERT INTO 语句（需要显式字段列表）。");
 
             if (rows.Count == 0)
                 throw new InvalidOperationException("未解析到任何数据行，请检查 VALUES 部分格式。");
@@ -69,111 +42,621 @@ namespace WpfApp1.Services
             return (headers, rows, warning);
         }
 
-        // ── 解析以逗号分隔的标识符列表 ─────────────────────────
-        private static List<string> ParseIdentifierList(string s)
+        private static bool TryReadNextInsert(string sql, ref int searchIndex, out List<string> headers, out List<IReadOnlyList<string?>> rows)
+        {
+            headers = [];
+            rows = [];
+
+            while (true)
+            {
+                int insertIndex = FindKeyword(sql, "INSERT", searchIndex);
+                if (insertIndex < 0)
+                    return false;
+
+                int cursor = insertIndex + "INSERT".Length;
+                if (!TryConsumeKeyword(sql, ref cursor, "INTO"))
+                {
+                    searchIndex = insertIndex + "INSERT".Length;
+                    continue;
+                }
+
+                if (!TryFindNextChar(sql, ref cursor, '(', out int columnsStart))
+                {
+                    searchIndex = cursor;
+                    continue;
+                }
+
+                cursor = columnsStart;
+                string columnsText = ReadBalanced(sql, ref cursor, '(', ')');
+                headers = ParseIdentifierList(columnsText);
+                if (headers.Count == 0)
+                {
+                    searchIndex = cursor;
+                    continue;
+                }
+
+                if (!TryConsumeKeyword(sql, ref cursor, "VALUES") &&
+                    !TryConsumeKeyword(sql, ref cursor, "VALUE"))
+                {
+                    searchIndex = cursor;
+                    continue;
+                }
+
+                rows = ReadValues(sql, ref cursor, headers.Count);
+                searchIndex = cursor;
+                return true;
+            }
+        }
+
+        private static List<IReadOnlyList<string?>> ReadValues(string sql, ref int cursor, int expectedCount)
+        {
+            var rows = new List<IReadOnlyList<string?>>();
+
+            while (cursor < sql.Length)
+            {
+                SkipTrivia(sql, ref cursor);
+                while (cursor < sql.Length && sql[cursor] == ',')
+                {
+                    cursor++;
+                    SkipTrivia(sql, ref cursor);
+                }
+
+                if (cursor >= sql.Length)
+                    break;
+
+                if (sql[cursor] == ';')
+                {
+                    cursor++;
+                    break;
+                }
+
+                if (IsAtKeyword(sql, cursor, "INSERT"))
+                    break;
+
+                if (sql[cursor] != '(')
+                {
+                    cursor++;
+                    continue;
+                }
+
+                string tuple = ReadBalanced(sql, ref cursor, '(', ')');
+                rows.Add(ParseTuple(tuple, expectedCount));
+            }
+
+            return rows;
+        }
+
+        private static List<string> ParseIdentifierList(string value)
         {
             var result = new List<string>();
-            foreach (var part in s.Split(','))
+            foreach (var item in SplitTopLevel(value))
             {
-                var name = part.Trim().Trim('`', '"', '[', ']');
-                if (!string.IsNullOrEmpty(name))
+                var name = item.Trim();
+                if (string.IsNullOrEmpty(name))
+                    continue;
+
+                if (name.StartsWith("[", StringComparison.Ordinal) && name.EndsWith("]", StringComparison.Ordinal))
+                    name = name[1..^1].Replace("]]", "]");
+                else if (name.StartsWith("\"", StringComparison.Ordinal) && name.EndsWith("\"", StringComparison.Ordinal))
+                    name = name[1..^1].Replace("\"\"", "\"");
+                else if (name.StartsWith("`", StringComparison.Ordinal) && name.EndsWith("`", StringComparison.Ordinal))
+                    name = name[1..^1].Replace("``", "`");
+
+                if (!string.IsNullOrWhiteSpace(name))
                     result.Add(name);
             }
+
             return result;
         }
 
-        // ── 从 VALUES 段提取所有括号内的元组 ─────────────────────
-        private static IEnumerable<string> ExtractTuples(string valuesPart)
-        {
-            int i = 0;
-            while (i < valuesPart.Length)
-            {
-                // 找下一个 (
-                while (i < valuesPart.Length && valuesPart[i] != '(') i++;
-                if (i >= valuesPart.Length) break;
-
-                int start = i + 1;
-                int depth = 1;
-                i++;
-                bool inStr = false;
-                while (i < valuesPart.Length && depth > 0)
-                {
-                    char c = valuesPart[i];
-                    if (c == '\'' && !inStr) inStr = true;
-                    else if (c == '\'' && inStr)
-                    {
-                        // 检查转义 ''
-                        if (i + 1 < valuesPart.Length && valuesPart[i + 1] == '\'')
-                            i++; // skip ''
-                        else
-                            inStr = false;
-                    }
-                    else if (!inStr)
-                    {
-                        if (c == '(') depth++;
-                        else if (c == ')') depth--;
-                    }
-                    i++;
-                }
-
-                if (depth == 0)
-                    yield return valuesPart.Substring(start, i - start - 1);
-            }
-        }
-
-        // ── 解析单个元组内的值列表 ────────────────────────────
         private static List<string?> ParseTuple(string tuple, int expectedCount)
         {
             var result = new List<string?>();
-            int i = 0;
-            while (i <= tuple.Length)
+
+            foreach (var item in SplitTopLevel(tuple))
             {
-                // 跳过前导空白
-                while (i < tuple.Length && char.IsWhiteSpace(tuple[i])) i++;
-                if (i >= tuple.Length) break;
-
-                if (tuple[i] == '\'')
+                var raw = item.Trim();
+                if (raw.Equals("NULL", StringComparison.OrdinalIgnoreCase))
                 {
-                    // 字符串值
-                    i++;
-                    var sb = new System.Text.StringBuilder();
-                    while (i < tuple.Length)
-                    {
-                        if (tuple[i] == '\'')
-                        {
-                            if (i + 1 < tuple.Length && tuple[i + 1] == '\'')
-                            {
-                                sb.Append('\'');
-                                i += 2;
-                            }
-                            else { i++; break; }
-                        }
-                        else { sb.Append(tuple[i]); i++; }
-                    }
-                    result.Add(sb.ToString());
-                }
-                else
-                {
-                    // 非字符串值（数字、NULL、布尔等）
-                    int start = i;
-                    while (i < tuple.Length && tuple[i] != ',') i++;
-                    var raw = tuple.Substring(start, i - start).Trim();
-                    result.Add(raw.Equals("NULL", StringComparison.OrdinalIgnoreCase) ? null : raw);
+                    result.Add(null);
+                    continue;
                 }
 
-                // 跳过逗号
-                while (i < tuple.Length && char.IsWhiteSpace(tuple[i])) i++;
-                if (i < tuple.Length && tuple[i] == ',') i++;
+                if (raw.Length >= 2 && raw[0] == '\'' && raw[^1] == '\'')
+                {
+                    result.Add(UnescapeSqlString(raw[1..^1]));
+                    continue;
+                }
+
+                if (raw.Length >= 3 &&
+                    (raw[0] == 'N' || raw[0] == 'n') &&
+                    raw[1] == '\'' &&
+                    raw[^1] == '\'')
+                {
+                    result.Add(UnescapeSqlString(raw[2..^1]));
+                    continue;
+                }
+
+                result.Add(raw);
             }
+
+            while (result.Count < expectedCount)
+                result.Add(null);
+
             return result;
         }
 
-        private static bool HeadersMatch(List<string> a, List<string> b)
+        private static string UnescapeSqlString(string value)
         {
-            if (a.Count != b.Count) return false;
-            for (int i = 0; i < a.Count; i++)
-                if (!string.Equals(a[i], b[i], StringComparison.OrdinalIgnoreCase))
+            return value.Replace("''", "'");
+        }
+
+        private static List<string> SplitTopLevel(string text)
+        {
+            var parts = new List<string>();
+            int segmentStart = 0;
+            int nestedParentheses = 0;
+            bool inSingleQuote = false;
+            bool inDoubleQuote = false;
+            bool inBracketIdentifier = false;
+            bool inBacktickIdentifier = false;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char current = text[i];
+
+                if (inSingleQuote)
+                {
+                    if (current == '\'')
+                    {
+                        if (i + 1 < text.Length && text[i + 1] == '\'')
+                            i++;
+                        else
+                            inSingleQuote = false;
+                    }
+
+                    continue;
+                }
+
+                if (inDoubleQuote)
+                {
+                    if (current == '"')
+                    {
+                        if (i + 1 < text.Length && text[i + 1] == '"')
+                            i++;
+                        else
+                            inDoubleQuote = false;
+                    }
+
+                    continue;
+                }
+
+                if (inBracketIdentifier)
+                {
+                    if (current == ']')
+                    {
+                        if (i + 1 < text.Length && text[i + 1] == ']')
+                            i++;
+                        else
+                            inBracketIdentifier = false;
+                    }
+
+                    continue;
+                }
+
+                if (inBacktickIdentifier)
+                {
+                    if (current == '`')
+                    {
+                        if (i + 1 < text.Length && text[i + 1] == '`')
+                            i++;
+                        else
+                            inBacktickIdentifier = false;
+                    }
+
+                    continue;
+                }
+
+                switch (current)
+                {
+                    case '\'':
+                        inSingleQuote = true;
+                        break;
+                    case '"':
+                        inDoubleQuote = true;
+                        break;
+                    case '[':
+                        inBracketIdentifier = true;
+                        break;
+                    case '`':
+                        inBacktickIdentifier = true;
+                        break;
+                    case '(':
+                        nestedParentheses++;
+                        break;
+                    case ')':
+                        if (nestedParentheses > 0)
+                            nestedParentheses--;
+                        break;
+                    case ',':
+                        if (nestedParentheses == 0)
+                        {
+                            parts.Add(text.Substring(segmentStart, i - segmentStart));
+                            segmentStart = i + 1;
+                        }
+                        break;
+                }
+            }
+
+            parts.Add(text.Substring(segmentStart));
+            return parts;
+        }
+
+        private static string ReadBalanced(string text, ref int cursor, char openChar, char closeChar)
+        {
+            if (cursor >= text.Length || text[cursor] != openChar)
+                throw new InvalidOperationException($"缺少 '{openChar}'。");
+
+            int start = cursor + 1;
+            int depth = 1;
+            cursor++;
+
+            bool inSingleQuote = false;
+            bool inDoubleQuote = false;
+            bool inBracketIdentifier = false;
+            bool inBacktickIdentifier = false;
+
+            while (cursor < text.Length)
+            {
+                char current = text[cursor];
+
+                if (inSingleQuote)
+                {
+                    if (current == '\'')
+                    {
+                        if (cursor + 1 < text.Length && text[cursor + 1] == '\'')
+                            cursor++;
+                        else
+                            inSingleQuote = false;
+                    }
+
+                    cursor++;
+                    continue;
+                }
+
+                if (inDoubleQuote)
+                {
+                    if (current == '"')
+                    {
+                        if (cursor + 1 < text.Length && text[cursor + 1] == '"')
+                            cursor++;
+                        else
+                            inDoubleQuote = false;
+                    }
+
+                    cursor++;
+                    continue;
+                }
+
+                if (inBracketIdentifier)
+                {
+                    if (current == ']')
+                    {
+                        if (cursor + 1 < text.Length && text[cursor + 1] == ']')
+                            cursor++;
+                        else
+                            inBracketIdentifier = false;
+                    }
+
+                    cursor++;
+                    continue;
+                }
+
+                if (inBacktickIdentifier)
+                {
+                    if (current == '`')
+                    {
+                        if (cursor + 1 < text.Length && text[cursor + 1] == '`')
+                            cursor++;
+                        else
+                            inBacktickIdentifier = false;
+                    }
+
+                    cursor++;
+                    continue;
+                }
+
+                if (current == '\'')
+                {
+                    inSingleQuote = true;
+                    cursor++;
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    inDoubleQuote = true;
+                    cursor++;
+                    continue;
+                }
+
+                if (current == '[')
+                {
+                    inBracketIdentifier = true;
+                    cursor++;
+                    continue;
+                }
+
+                if (current == '`')
+                {
+                    inBacktickIdentifier = true;
+                    cursor++;
+                    continue;
+                }
+
+                if (current == openChar)
+                    depth++;
+                else if (current == closeChar)
+                    depth--;
+
+                cursor++;
+                if (depth == 0)
+                    return text.Substring(start, cursor - start - 1);
+            }
+
+            throw new InvalidOperationException($"未找到匹配的 '{closeChar}'。");
+        }
+
+        private static int FindKeyword(string text, string keyword, int startIndex)
+        {
+            int index = startIndex;
+            while (index < text.Length)
+            {
+                SkipTrivia(text, ref index);
+                if (index >= text.Length)
+                    break;
+
+                char current = text[index];
+                if (current == '\'')
+                {
+                    SkipSingleQuotedString(text, ref index);
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    SkipDoubleQuotedText(text, ref index);
+                    continue;
+                }
+
+                if (current == '[')
+                {
+                    SkipBracketIdentifier(text, ref index);
+                    continue;
+                }
+
+                if (current == '`')
+                {
+                    SkipBacktickIdentifier(text, ref index);
+                    continue;
+                }
+
+                if (IsAtKeyword(text, index, keyword))
+                    return index;
+
+                index++;
+            }
+
+            return -1;
+        }
+
+        private static bool TryConsumeKeyword(string text, ref int cursor, string keyword)
+        {
+            SkipTrivia(text, ref cursor);
+            if (!IsAtKeyword(text, cursor, keyword))
+                return false;
+
+            cursor += keyword.Length;
+            return true;
+        }
+
+        private static bool TryFindNextChar(string text, ref int cursor, char target, out int position)
+        {
+            while (cursor < text.Length)
+            {
+                SkipTrivia(text, ref cursor);
+                if (cursor >= text.Length)
+                    break;
+
+                char current = text[cursor];
+                if (current == '\'')
+                {
+                    SkipSingleQuotedString(text, ref cursor);
+                    continue;
+                }
+
+                if (current == '"')
+                {
+                    SkipDoubleQuotedText(text, ref cursor);
+                    continue;
+                }
+
+                if (current == '[')
+                {
+                    SkipBracketIdentifier(text, ref cursor);
+                    continue;
+                }
+
+                if (current == '`')
+                {
+                    SkipBacktickIdentifier(text, ref cursor);
+                    continue;
+                }
+
+                if (current == target)
+                {
+                    position = cursor;
+                    return true;
+                }
+
+                cursor++;
+            }
+
+            position = -1;
+            return false;
+        }
+
+        private static void SkipTrivia(string text, ref int cursor)
+        {
+            while (cursor < text.Length)
+            {
+                if (char.IsWhiteSpace(text[cursor]))
+                {
+                    cursor++;
+                    continue;
+                }
+
+                if (cursor + 1 < text.Length && text[cursor] == '-' && text[cursor + 1] == '-')
+                {
+                    cursor += 2;
+                    while (cursor < text.Length && text[cursor] != '\r' && text[cursor] != '\n')
+                        cursor++;
+                    continue;
+                }
+
+                if (cursor + 1 < text.Length && text[cursor] == '/' && text[cursor + 1] == '*')
+                {
+                    cursor += 2;
+                    while (cursor + 1 < text.Length && !(text[cursor] == '*' && text[cursor + 1] == '/'))
+                        cursor++;
+
+                    if (cursor + 1 < text.Length)
+                        cursor += 2;
+
+                    continue;
+                }
+
+                break;
+            }
+        }
+
+        private static void SkipSingleQuotedString(string text, ref int cursor)
+        {
+            cursor++;
+            while (cursor < text.Length)
+            {
+                if (text[cursor] == '\'')
+                {
+                    if (cursor + 1 < text.Length && text[cursor + 1] == '\'')
+                        cursor += 2;
+                    else
+                    {
+                        cursor++;
+                        break;
+                    }
+                }
+                else
+                {
+                    cursor++;
+                }
+            }
+        }
+
+        private static void SkipDoubleQuotedText(string text, ref int cursor)
+        {
+            cursor++;
+            while (cursor < text.Length)
+            {
+                if (text[cursor] == '"')
+                {
+                    if (cursor + 1 < text.Length && text[cursor + 1] == '"')
+                        cursor += 2;
+                    else
+                    {
+                        cursor++;
+                        break;
+                    }
+                }
+                else
+                {
+                    cursor++;
+                }
+            }
+        }
+
+        private static void SkipBracketIdentifier(string text, ref int cursor)
+        {
+            cursor++;
+            while (cursor < text.Length)
+            {
+                if (text[cursor] == ']')
+                {
+                    if (cursor + 1 < text.Length && text[cursor + 1] == ']')
+                        cursor += 2;
+                    else
+                    {
+                        cursor++;
+                        break;
+                    }
+                }
+                else
+                {
+                    cursor++;
+                }
+            }
+        }
+
+        private static void SkipBacktickIdentifier(string text, ref int cursor)
+        {
+            cursor++;
+            while (cursor < text.Length)
+            {
+                if (text[cursor] == '`')
+                {
+                    if (cursor + 1 < text.Length && text[cursor + 1] == '`')
+                        cursor += 2;
+                    else
+                    {
+                        cursor++;
+                        break;
+                    }
+                }
+                else
+                {
+                    cursor++;
+                }
+            }
+        }
+
+        private static bool IsAtKeyword(string text, int index, string keyword)
+        {
+            if (index < 0 || index + keyword.Length > text.Length)
+                return false;
+
+            if (!text.AsSpan(index, keyword.Length).Equals(keyword, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            bool leftBoundary = index == 0 || !IsIdentifierChar(text[index - 1]);
+            bool rightBoundary = index + keyword.Length >= text.Length || !IsIdentifierChar(text[index + keyword.Length]);
+            return leftBoundary && rightBoundary;
+        }
+
+        private static bool IsIdentifierChar(char value)
+        {
+            return char.IsLetterOrDigit(value) || value == '_';
+        }
+
+        private static bool HeadersMatch(List<string> left, List<string> right)
+        {
+            if (left.Count != right.Count)
+                return false;
+
+            for (int i = 0; i < left.Count; i++)
+            {
+                if (!string.Equals(left[i], right[i], StringComparison.OrdinalIgnoreCase))
                     return false;
+            }
+
             return true;
         }
     }

@@ -27,6 +27,7 @@ namespace WpfApp1.Services
             IReadOnlyList<string>? primaryKeyColumns = null,
             bool skipIntegerFormatErrors = false,
             bool skipGuidFormatErrors = false,
+            bool skipDateTimeFormatErrors = false,
             IProgress<(int current, int total, int errors)>? progress = null,
             CancellationToken ct = default)
         {
@@ -96,7 +97,8 @@ namespace WpfApp1.Services
                         string? value = ci < row.Count ? row[ci] : null;
 
                         foreach (var issue in ValidateCell(
-                            value, colMeta, rowNum, srcName, skipIntegerFormatErrors, skipGuidFormatErrors))
+                            value, colMeta, rowNum, srcName,
+                            skipIntegerFormatErrors, skipGuidFormatErrors, skipDateTimeFormatErrors))
                         {
                             issue.PrimaryKeyDisplay = pkDisplay;
                             if (issue.Level == DvValidationLevel.Error) errorCount++;
@@ -146,7 +148,8 @@ namespace WpfApp1.Services
         private static IEnumerable<DvIssue> ValidateCell(
             string? value, DvTargetColumn col, int rowNum, string? srcCol,
             bool skipIntegerFormatErrors = false,
-            bool skipGuidFormatErrors = false)
+            bool skipGuidFormatErrors = false,
+            bool skipDateTimeFormatErrors = false)
         {
             // 1. 空值检查
             bool isEmpty = string.IsNullOrWhiteSpace(value);
@@ -181,7 +184,8 @@ namespace WpfApp1.Services
                     foreach (var i in ValidateDate(value!, col, rowNum, srcCol)) yield return i;
                     break;
                 case DvNormalizedType.DateTime:
-                    foreach (var i in ValidateDateTime(value!, col, rowNum, srcCol)) yield return i;
+                    if (!skipDateTimeFormatErrors)
+                        foreach (var i in ValidateDateTime(value!, col, rowNum, srcCol)) yield return i;
                     break;
                 case DvNormalizedType.Boolean:
                     foreach (var i in ValidateBoolean(value!, col, rowNum, srcCol)) yield return i;

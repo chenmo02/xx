@@ -74,6 +74,43 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="RefreshBtn" TargetType="Button">
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#3F5AE0"/>
+            <Setter Property="Background" Value="#F8FAFF"/>
+            <Setter Property="BorderBrush" Value="#C9D4FF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#EDF2FF"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#AFC0FF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2EAFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.65"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="LabelText" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Foreground" Value="#333"/>
@@ -83,6 +120,44 @@
         <Style x:Key="SubLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Foreground" Value="#999"/>
+        </Style>
+        <Style x:Key="RoundedTextBox" TargetType="TextBox">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="#F7F8FA"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4E6EF2"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4E6EF2"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#F8F9FF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- ═══ 美化 ComboBox 下拉框 ═══ -->
@@ -293,6 +368,25 @@
                     <ComboBox x:Name="CmbTemplate" Margin="0,0,0,14"
                               SelectionChanged="CmbTemplate_SelectionChanged"/>
 
+                    <TextBlock Text="打印机" Style="{StaticResource LabelText}"/>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CmbPrinter"
+                                  Grid.Column="0"
+                                  DisplayMemberPath="Name"
+                                  VerticalContentAlignment="Center"
+                                  MinHeight="34"/>
+                        <Button Grid.Column="2"
+                                Content="↻ 刷新"
+                                Style="{StaticResource RefreshBtn}"
+                                MinWidth="84"
+                                Click="BtnRefreshPrinters_Click"/>
+                    </Grid>
+
                     <!-- 打印份数 + 纸张大小 -->
                     <Grid Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
@@ -302,7 +396,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="打印份数" Style="{StaticResource LabelText}"/>
-                            <TextBox x:Name="TxtCopies" Text="1" Padding="8,6" FontSize="12.5" Background="#F7F8FA" BorderBrush="#D1D5DB"/>
+                            <TextBox x:Name="TxtCopies" Text="1" Style="{StaticResource RoundedTextBox}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="纸张大小" Style="{StaticResource LabelText}"/>
@@ -413,19 +507,19 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="上" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginTop" Text="10" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginTop" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
                             <TextBlock Text="下" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginBottom" Text="10" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginBottom" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="0">
                             <TextBlock Text="左" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginLeft" Text="10" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginLeft" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="2">
                             <TextBlock Text="右" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginRight" Text="10" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginRight" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                     </Grid>
 
@@ -461,11 +555,12 @@
 
                     <!-- 操作按钮 -->
                     <Button Content="🖨️ 开始打印" Style="{StaticResource PrimaryBtn}" FontSize="14"
-                            FontWeight="SemiBold" Padding="16,11" Click="BtnPrint_Click"/>
+                            FontWeight="SemiBold" Padding="16,11" Click="BtnPrint_Click2"/>
                     <Button Content="💾 保存为模板" Style="{StaticResource SecBtn}" Click="BtnSaveTemplate_Click"/>
                     <Button Content="🗑️ 删除模板" Style="{StaticResource SecBtn}" Click="BtnDeleteTemplate_Click"/>
 
                     <!-- 状态栏 -->
+                    <Button Content="打印机预览" Style="{StaticResource SecBtn}" Click="BtnPrinterPreview_Click"/>
                     <Border Background="#F0F4FF" CornerRadius="6" Padding="10,8" Margin="0,14,0,0">
                         <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="12" Foreground="#4E6EF2" TextWrapping="Wrap"/>
                     </Border>

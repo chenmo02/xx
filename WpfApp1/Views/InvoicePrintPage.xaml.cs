@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Printing;
 using WpfApp1.Services;
 
 namespace WpfApp1.Views
@@ -26,18 +27,96 @@ namespace WpfApp1.Views
 
         private readonly InvoicePrintService _service = new();
         private readonly ObservableCollection<InvoiceFileItem> _fileItems = new();
+        private readonly ObservableCollection<PrinterOption> _printers = new();
         private List<PrintTemplate> _templates = new();
         private double _zoomLevel = 1.0;
         private bool _isInitialized = false;
         private int _selectedLayout = 1; // 1, 2, 4
 
+        private sealed class PrinterOption
+        {
+            public string Name { get; init; } = string.Empty;
+            public string FullName { get; init; } = string.Empty;
+        }
+
         public InvoicePrintPage()
         {
             InitializeComponent();
             FileListBox.ItemsSource = _fileItems;
+            CmbPrinter.ItemsSource = _printers;
+            LoadPrinters();
             LoadTemplates();
             UpdateLayoutCardSelection();
             _isInitialized = true;
+        }
+
+        private void LoadPrinters()
+        {
+            string? selectedName = (CmbPrinter.SelectedItem as PrinterOption)?.FullName;
+
+            _printers.Clear();
+
+            try
+            {
+                var server = new LocalPrintServer();
+                var queues = server
+                    .GetPrintQueues(new[]
+                    {
+                        EnumeratedPrintQueueTypes.Local,
+                        EnumeratedPrintQueueTypes.Connections
+                    })
+                    .OrderBy(q => q.Name)
+                    .ToList();
+
+                foreach (var queue in queues)
+                {
+                    _printers.Add(new PrinterOption
+                    {
+                        Name = queue.Name,
+                        FullName = queue.FullName
+                    });
+                }
+
+                string? defaultName = server.DefaultPrintQueue?.FullName;
+                var preferred = _printers.FirstOrDefault(p => string.Equals(p.FullName, selectedName, StringComparison.OrdinalIgnoreCase))
+                    ?? _printers.FirstOrDefault(p => string.Equals(p.FullName, defaultName, StringComparison.OrdinalIgnoreCase))
+                    ?? _printers.FirstOrDefault();
+
+                if (preferred != null)
+                    CmbPrinter.SelectedItem = preferred;
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"打印机列表加载失败: {ex.Message}");
+            }
+        }
+
+        private PrintQueue? GetSelectedPrinterQueue()
+        {
+            var selected = CmbPrinter.SelectedItem as PrinterOption;
+            if (selected == null)
+                return null;
+
+            var server = new LocalPrintServer();
+            return server
+                .GetPrintQueues(new[]
+                {
+                    EnumeratedPrintQueueTypes.Local,
+                    EnumeratedPrintQueueTypes.Connections
+                })
+                .FirstOrDefault(q =>
+                    string.Equals(q.FullName, selected.FullName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(q.Name, selected.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void BtnRefreshPrinters_Click(object sender, RoutedEventArgs e)
+        {
+            LoadPrinters();
+
+            if (_printers.Count > 0)
+                SetStatus($"已刷新打印机列表，当前打印机：{((PrinterOption?)CmbPrinter.SelectedItem)?.Name}");
+            else
+                SetStatus("未找到可用的打印机。");
         }
 
         // ═══════════════════════════════════════
@@ -105,6 +184,18 @@ namespace WpfApp1.Views
         private void LoadTemplates()
         {
             _templates = _service.LoadTemplates();
+            var templateFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "invoice_templates.json");
+            if (!File.Exists(templateFile))
+            {
+                foreach (var template in _templates)
+                {
+                    template.MarginTop = 0;
+                    template.MarginBottom = 0;
+                    template.MarginLeft = 0;
+                    template.MarginRight = 0;
+                }
+            }
+
             CmbTemplate.Items.Clear();
             foreach (var t in _templates)
                 CmbTemplate.Items.Add(new ComboBoxItem { Content = t.Name, Tag = t });
@@ -398,8 +489,11 @@ namespace WpfApp1.Views
             int perPage = template.PaperMode == "Invoice" ? 1 : _selectedLayout;
             int cols = perPage == 4 ? 2 : 1;
             int rows = perPage >= 2 ? 2 : 1;
-            double cellW = contentW / cols, cellH = contentH / rows;
             double gap = 3 * mmToWpf;
+            double totalGapW = gap * Math.Max(0, cols - 1);
+            double totalGapH = gap * Math.Max(0, rows - 1);
+            double cellW = Math.Max(0, (contentW - totalGapW) / cols);
+            double cellH = Math.Max(0, (contentH - totalGapH) / rows);
 
             // 如果没有文件，渲染一页空白模板
             int totalPages = items.Count == 0 ? 1 : (int)Math.Ceiling((double)items.Count / perPage);
@@ -422,10 +516,10 @@ namespace WpfApp1.Views
                 {
                     int globalIdx = pageIdx * perPage + j; // 全局文件索引
                     int col = j % cols, row = j / cols;
-                    double x = ml + col * cellW + ox;
-                    double y = mt + row * cellH + oy;
-                    double w = cellW - (cols > 1 ? gap / 2 : 0);
-                    double h = cellH - (rows > 1 ? gap / 2 : 0);
+                    double x = ml + col * (cellW + gap) + ox;
+                    double y = mt + row * (cellH + gap) + oy;
+                    double w = cellW;
+                    double h = cellH;
 
                     // 槽位背景
                     var slotPen = new Pen(new SolidColorBrush(Color.FromArgb(60, 150, 150, 150)), 1) { DashStyle = DashStyles.Dot };
@@ -462,7 +556,7 @@ namespace WpfApp1.Views
                     // 水平裁剪线（2张或4张时，中间横线）
                     if (rows == 2)
                     {
-                        double cy = mt + cellH;
+                        double cy = mt + cellH + gap / 2;
                         dc.DrawLine(cutPen, new Point(0, cy), new Point(paperW, cy));
                         // 剪刀符号
                         var ft = new FormattedText("✂", System.Globalization.CultureInfo.CurrentCulture,
@@ -474,7 +568,7 @@ namespace WpfApp1.Views
                     // 垂直裁剪线（4张时，中间竖线）
                     if (cols == 2)
                     {
-                        double cx = ml + cellW;
+                        double cx = ml + cellW + gap / 2;
                         dc.DrawLine(cutPen, new Point(cx, 0), new Point(cx, paperH));
                         var ft = new FormattedText("✂", System.Globalization.CultureInfo.CurrentCulture,
                             FlowDirection.LeftToRight, new Typeface("Segoe UI Symbol"), scissorSize, scissorBrush,
@@ -596,6 +690,183 @@ namespace WpfApp1.Views
         // ═══════════════════════════════════════
         // 工具方法
         // ═══════════════════════════════════════
+
+        private void BtnPrint_Click2(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!TryPreparePrintJob(showDialog: false, out var printItems, out var pages, out var copies, out var context))
+                    return;
+
+                var printerName = context.PrintQueue?.Name ?? "当前打印机";
+                var confirm = MessageBox.Show(
+                    $"将按当前页面设置发送到打印机“{printerName}”，共 {pages.Count} 页 × {copies} 份。是否继续？",
+                    "确认打印",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirm != MessageBoxResult.Yes)
+                {
+                    SetStatus("已取消当前打印。");
+                    return;
+                }
+
+                bool ok = InvoicePrintService.PrintPages(pages, copies, context);
+                if (ok)
+                {
+                    foreach (var it in printItems) it.IsPrinted = true;
+                    _service.RecordPrintHistory(printItems);
+                    SetStatus($"打印完成，共 {pages.Count} 页 x {copies} 份。");
+                }
+                else
+                {
+                    SetStatus("打印失败。");
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"打印出错: {ex.Message}");
+                MessageBox.Show($"打印失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnPrinterPreview_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!TryPreparePrintJob(showDialog: false, out _, out var pages, out _, out var context))
+                    return;
+
+                var doc = InvoicePrintService.BuildFixedDocument(pages, context);
+                ShowPrinterPreviewWindow(doc, context, pages.Count);
+                SetStatus($"已生成打印机预览，共 {pages.Count} 页。");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"预览出错: {ex.Message}");
+                MessageBox.Show($"打印机预览失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private bool TryPreparePrintJob(
+            bool showDialog,
+            out List<InvoiceFileItem> printItems,
+            out List<DrawingVisual> pages,
+            out int copies,
+            out InvoicePrintService.PrintLayoutContext context)
+        {
+            printItems = _fileItems.ToList();
+            pages = new List<DrawingVisual>();
+            context = new InvoicePrintService.PrintLayoutContext();
+
+            if (printItems.Count == 0)
+            {
+                MessageBox.Show("请先导入发票文件", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                copies = 0;
+                return false;
+            }
+
+            if (!int.TryParse(TxtCopies.Text.Trim(), out copies) || copies < 1)
+                copies = 1;
+            if (copies > 99)
+                copies = 99;
+
+            var template = GetCurrentTemplate();
+            SetStatus(showDialog ? "正在准备打印..." : "正在准备打印机预览...");
+
+            var dlg = CreateConfiguredPrintDialog();
+            if (showDialog && dlg.ShowDialog() != true)
+            {
+                SetStatus("已取消当前操作。");
+                return false;
+            }
+
+            context = InvoicePrintService.CreatePrintLayoutContext(dlg, template, IsLandscape);
+            pages = InvoicePrintService.BuildPrintPages(printItems, template, context.ContentSize);
+
+            if (pages.Count == 0)
+            {
+                SetStatus("没有可输出的页面内容。");
+                return false;
+            }
+
+            return true;
+        }
+
+        private PrintDialog CreateConfiguredPrintDialog()
+        {
+            var dlg = new PrintDialog();
+            var selectedQueue = GetSelectedPrinterQueue();
+            if (selectedQueue == null)
+                throw new InvalidOperationException("请先选择可用的打印机。");
+
+            dlg.PrintQueue = selectedQueue;
+            dlg.PrintTicket = selectedQueue.DefaultPrintTicket ?? new PrintTicket();
+
+            dlg.PrintTicket.PageOrientation = IsLandscape
+                ? PageOrientation.Landscape
+                : PageOrientation.Portrait;
+
+            return dlg;
+        }
+
+        private void ShowPrinterPreviewWindow(FixedDocument document, InvoicePrintService.PrintLayoutContext context, int pageCount)
+        {
+            var toolbar = new DockPanel
+            {
+                Margin = new Thickness(16, 12, 16, 12),
+                LastChildFill = false
+            };
+
+            var info = new TextBlock
+            {
+                Text = $"{context.PrintQueue?.Name ?? "当前打印机"} · {pageCount} 页 · {(IsLandscape ? "横向" : "纵向")}",
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            DockPanel.SetDock(info, Dock.Left);
+            toolbar.Children.Add(info);
+
+            var closeButton = new Button
+            {
+                Content = "关闭",
+                Padding = new Thickness(18, 6, 18, 6),
+                Margin = new Thickness(8, 0, 0, 0),
+                MinWidth = 88
+            };
+
+            var viewer = new DocumentViewer
+            {
+                Document = document,
+                Margin = new Thickness(16, 0, 16, 16),
+                Background = new SolidColorBrush(Color.FromRgb(241, 245, 249))
+            };
+
+            var layout = new DockPanel();
+            DockPanel.SetDock(toolbar, Dock.Top);
+            layout.Children.Add(toolbar);
+            layout.Children.Add(viewer);
+
+            var win = new Window
+            {
+                Title = "打印机预览",
+                Width = 1100,
+                Height = 780,
+                MinWidth = 860,
+                MinHeight = 620,
+                Content = layout,
+                Owner = Application.Current.MainWindow,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = Brushes.White
+            };
+
+            closeButton.Click += (_, _) => win.Close();
+            toolbar.Children.Add(closeButton);
+
+            win.ShowDialog();
+        }
 
         private void SetStatus(string text) => TxtStatus.Text = text;
 

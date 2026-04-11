@@ -4,6 +4,8 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -34,15 +36,23 @@ namespace WpfApp1.Views
         private static readonly Brush GridSearchCurrentBg = MakeBrush("#7C3AED");
         private static readonly Brush GridSearchCurrentFg = Brushes.White;
         private static readonly Brush ClickHighlightBg = MakeBrush("#34D399");
+        private static readonly Brush SummaryBg = MakeBrush("#EFF6FF");
+        private static readonly Brush SummaryAccentBg = MakeBrush("#DBEAFE");
+        private static readonly Brush SummaryTextColor = MakeBrush("#1D4ED8");
+        private static readonly Brush EditorBorderBrush = MakeBrush("#93C5FD");
 
         // 左侧搜索
         private List<TextRange> _searchMatches = new();
         private int _currentMatchIndex = -1;
         private bool _isUpdatingText = false;
+        private bool _isGridFullscreen = false;
+        private bool _isGridEditMode = false;
+        private GridLength _leftPanelWidthBeforeFullscreen = new(2, GridUnitType.Star);
+        private GridLength _rightPanelWidthBeforeFullscreen = new(3, GridUnitType.Star);
 
         // GRID 节点追踪
         private ObservableCollection<JsonGridNode>? _currentNodes;
-        private readonly Dictionary<string, (TextBlock header, FrameworkElement content, JsonGridNode node)> _gridSections = new();
+        private readonly Dictionary<string, (TextBlock header, FrameworkElement content, JsonGridNode node, bool isTable)> _gridSections = new();
 
         // 右侧 GRID 搜索
         private List<TextBlock> _gridSearchMatches = new();
@@ -77,6 +87,12 @@ namespace WpfApp1.Views
             public required List<EditorTextSegment> Segments { get; init; }
         }
 
+        private sealed class JsonPathSegment
+        {
+            public string? PropertyName { get; init; }
+            public int? ArrayIndex { get; init; }
+        }
+
         public JsonToolPage()
         {
             InitializeComponent();
@@ -93,6 +109,98 @@ namespace WpfApp1.Views
             Focusable = true;
             Focus();
         }
+
+        private void BtnToggleGridFullscreen_Click(object sender, RoutedEventArgs e)
+        {
+            _isGridFullscreen = !_isGridFullscreen;
+
+            if (_isGridFullscreen)
+            {
+                _leftPanelWidthBeforeFullscreen = LeftPanelColumn.Width;
+                _rightPanelWidthBeforeFullscreen = RightPanelColumn.Width;
+                JsonEditorPanel.Visibility = Visibility.Collapsed;
+                JsonToolSplitter.Visibility = Visibility.Collapsed;
+                LeftPanelColumn.Width = new GridLength(0);
+                SplitterColumn.Width = new GridLength(0);
+                RightPanelColumn.Width = new GridLength(1, GridUnitType.Star);
+                BtnToggleGridFullscreen.Content = "\u9000\u51fa\u5168\u5c4f";
+                SetStatus("GRID \u5df2\u8fdb\u5165\u5168\u5c4f\u89c6\u56fe");
+            }
+            else
+            {
+                JsonEditorPanel.Visibility = Visibility.Visible;
+                JsonToolSplitter.Visibility = Visibility.Visible;
+                LeftPanelColumn.Width = _leftPanelWidthBeforeFullscreen;
+                SplitterColumn.Width = new GridLength(8);
+                RightPanelColumn.Width = _rightPanelWidthBeforeFullscreen;
+                BtnToggleGridFullscreen.Content = "\u5168\u5c4f";
+                SetStatus("\u5df2\u9000\u51fa GRID \u5168\u5c4f\u89c6\u56fe");
+            }
+        }
+
+        private void BtnToggleGridEdit_Click(object sender, RoutedEventArgs e)
+        {
+            _isGridEditMode = !_isGridEditMode;
+            BtnToggleGridEdit.Content = _isGridEditMode ? "\u7ed3\u675f\u7f16\u8f91" : "\u5f00\u542f\u7f16\u8f91";
+            RefreshGridPreservingState();
+            SetStatus(_isGridEditMode
+                ? "\u8868\u683c\u7f16\u8f91\u6a21\u5f0f\u5df2\u5f00\u542f"
+                : "\u8868\u683c\u7f16\u8f91\u6a21\u5f0f\u5df2\u5173\u95ed");
+        }
+
+        private void RefreshGridPreservingState()
+        {
+            var expandedSectionKeys = CollectExpandedSectionKeys();
+            RebuildGrid();
+            RestoreExpandedSections(expandedSectionKeys);
+        }
+
+        private HashSet<string> CollectExpandedSectionKeys()
+        {
+            var expanded = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var section in _gridSections.Values)
+            {
+                if (section.content.Visibility == Visibility.Visible)
+                {
+                    expanded.Add(GetSectionStateKey(section.isTable, section.node));
+                }
+            }
+            return expanded;
+        }
+
+        private void RestoreExpandedSections(HashSet<string> expandedSectionKeys)
+        {
+            if (expandedSectionKeys.Count == 0)
+            {
+                return;
+            }
+
+            bool expandedInPass;
+            int guard = 0;
+            do
+            {
+                expandedInPass = false;
+                foreach (var section in _gridSections.Values.ToList())
+                {
+                    if (section.content.Visibility == Visibility.Visible)
+                    {
+                        continue;
+                    }
+
+                    if (!expandedSectionKeys.Contains(GetSectionStateKey(section.isTable, section.node)))
+                    {
+                        continue;
+                    }
+
+                    ExpandGridSection(section.header, section.content, section.node);
+                    expandedInPass = true;
+                }
+            }
+            while (expandedInPass && ++guard < 50);
+        }
+
+        private static string GetSectionStateKey(bool isTable, JsonGridNode node)
+            => $"{(isTable ? "tbl" : "obj")}::{node.JsonPath}";
 
         // ==================== RichTextBox 文本辅助 ====================
 
@@ -406,7 +514,7 @@ namespace WpfApp1.Views
             // 只高亮已展开的节点标题，不强制展开
             foreach (var kvp in _gridSections.ToList())
             {
-                var (header, content, node) = kvp.Value;
+                var (header, content, node, _) = kvp.Value;
                 if (NodeContainsKeyword(node, keyword, comparison))
                 {
                     header.Background = NodeHighlightBg;
@@ -469,7 +577,7 @@ namespace WpfApp1.Views
                         return;
                     }
 
-                    var (header, content, node) = kvp.Value;
+                    var (header, content, node, _) = kvp.Value;
                     if (content.Visibility != Visibility.Collapsed || !NodeContainsKeyword(node, keyword, comparison))
                     {
                         continue;
@@ -540,7 +648,7 @@ namespace WpfApp1.Views
         {
             foreach (var kvp in _gridSections.ToList())
             {
-                var (header, _, _) = kvp.Value;
+                var (header, _, _, _) = kvp.Value;
                 header.Background = Brushes.Transparent;
                 header.FontWeight = FontWeights.SemiBold;
             }
@@ -686,7 +794,7 @@ namespace WpfApp1.Views
                     foreach (var kvp in _gridSections.ToList())
                     {
                         if (token.IsCancellationRequested) return;
-                        var (header, content, node) = kvp.Value;
+                        var (header, content, node, _) = kvp.Value;
                         if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword, comparison))
                             toExpand.Add((header, content, node));
                     }
@@ -754,7 +862,7 @@ namespace WpfApp1.Views
             foreach (var kvp in _gridSections.ToList())
             {
                 if (token.IsCancellationRequested) return;
-                var (header, content, node) = kvp.Value;
+                var (header, content, node, _) = kvp.Value;
                 if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword, comparison))
                 {
                     header.Background = NodeHighlightBg;
@@ -858,7 +966,7 @@ namespace WpfApp1.Views
             // 清除折叠节点标题高亮
             foreach (var kvp in _gridSections.ToList())
             {
-                var (header, _, _) = kvp.Value;
+                var (header, _, _, _) = kvp.Value;
                 if (header.Background == NodeHighlightBg)
                 {
                     header.Background = Brushes.Transparent;
@@ -994,8 +1102,8 @@ namespace WpfApp1.Views
             };
 
             var contentPanel = new StackPanel { Visibility = Visibility.Collapsed };
-            string sectionKey = $"obj_{node.JsonPath}_{_gridSections.Count}";
-            _gridSections[sectionKey] = (headerText, contentPanel, node);
+            string sectionKey = GetSectionStateKey(false, node);
+            _gridSections[sectionKey] = (headerText, contentPanel, node, false);
             _allGridValueTextBlocks.Add(headerText);
 
             headerText.MouseLeftButtonUp += (s, e) =>
@@ -1038,8 +1146,8 @@ namespace WpfApp1.Views
             };
 
             var contentPanel = new StackPanel { Visibility = Visibility.Collapsed };
-            string sectionKey = $"tbl_{node.JsonPath}_{_gridSections.Count}";
-            _gridSections[sectionKey] = (headerText, contentPanel, node);
+            string sectionKey = GetSectionStateKey(true, node);
+            _gridSections[sectionKey] = (headerText, contentPanel, node, true);
             _allGridValueTextBlocks.Add(headerText);
 
             headerText.MouseLeftButtonUp += (s, e) =>
@@ -1075,7 +1183,7 @@ namespace WpfApp1.Views
                 var snapshot = _gridSections.ToList();
                 foreach (var kvp in snapshot)
                 {
-                    var (header, content, node) = kvp.Value;
+                    var (header, content, node, _) = kvp.Value;
                     if (content.Visibility == Visibility.Collapsed)
                     {
                         hasCollapsed = true;
@@ -1097,7 +1205,7 @@ namespace WpfApp1.Views
         {
             foreach (var kvp in _gridSections.ToList())
             {
-                var (header, content, _) = kvp.Value;
+                var (header, content, _, _) = kvp.Value;
                 content.Visibility = Visibility.Collapsed;
                 header.Text = header.Text.Replace("[-]", "[+]");
             }
@@ -1182,7 +1290,7 @@ namespace WpfApp1.Views
 
         // ==================== 表格渲染 ====================
 
-        private void RenderTable(JsonGridNode node, Panel container, int depth)
+        private void RenderTable_Legacy(JsonGridNode node, Panel container, int depth)
         {
             if (node.TableColumns.Count == 0 || node.TableRows.Count == 0) return;
 
@@ -1311,6 +1419,616 @@ namespace WpfApp1.Views
 
             tableBorder.Child = tableGrid;
             container.Children.Add(tableBorder);
+        }
+
+        private void RenderTable(JsonGridNode node, Panel container, int depth)
+        {
+            if (node.TableColumns.Count == 0 || node.TableRows.Count == 0) return;
+
+            var tableHost = new StackPanel
+            {
+                Margin = new Thickness(depth * 20, 2, 4, 8),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+
+            if (_isGridEditMode)
+                tableHost.Children.Add(CreateEditModeBanner());
+
+            bool[] summableColumns = node.TableColumns
+                .Select((_, index) => ColumnHasNumericValues(node, index))
+                .ToArray();
+            bool hasSummaryRow = summableColumns.Any(x => x);
+
+            var tableBorder = new Border
+            {
+                BorderBrush = MakeBrush("#CBD5E1"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Background = Brushes.White
+            };
+
+            var tableGrid = new Grid();
+            tableGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            foreach (var _ in node.TableColumns)
+                tableGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 100 });
+            tableGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            foreach (var _ in node.TableRows)
+                tableGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            if (hasSummaryRow)
+                tableGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var menuBtn = CreateHeaderCell("···");
+            menuBtn.Cursor = Cursors.Hand;
+            menuBtn.MouseLeftButtonUp += (s, e) => ExportNodeToCsv(node);
+            menuBtn.ToolTip = "导出此表格为 CSV";
+            Grid.SetRow(menuBtn, 0);
+            Grid.SetColumn(menuBtn, 0);
+            tableGrid.Children.Add(menuBtn);
+
+            for (int c = 0; c < node.TableColumns.Count; c++)
+            {
+                var headerCell = CreateHeaderCell(node.TableColumns[c]);
+                Grid.SetRow(headerCell, 0);
+                Grid.SetColumn(headerCell, c + 1);
+                tableGrid.Children.Add(headerCell);
+
+                if (headerCell.Child is TextBlock headerTb)
+                    _allGridValueTextBlocks.Add(headerTb);
+            }
+
+            var summaryCells = new List<TextBlock?>(node.TableColumns.Count);
+            Action refreshSummary = () => UpdateTableSummary(node, summaryCells);
+
+            for (int r = 0; r < node.TableRows.Count; r++)
+            {
+                var row = node.TableRows[r];
+                int gridRow = r + 1;
+
+                var rowNum = new Border
+                {
+                    Background = RowNumBg,
+                    BorderBrush = BorderColor,
+                    BorderThickness = new Thickness(0, 0, 1, 1),
+                    Padding = new Thickness(8, 4, 8, 4),
+                    Child = new TextBlock
+                    {
+                        Text = row.Index.ToString(),
+                        Foreground = Brushes.Gray,
+                        FontSize = 12,
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    }
+                };
+                Grid.SetRow(rowNum, gridRow);
+                Grid.SetColumn(rowNum, 0);
+                tableGrid.Children.Add(rowNum);
+
+                for (int c = 0; c < row.Cells.Count; c++)
+                {
+                    var cell = row.Cells[c];
+                    var cellBorder = new Border
+                    {
+                        BorderBrush = BorderColor,
+                        BorderThickness = new Thickness(0, 0, 1, 1),
+                        Padding = cell.IsNested || !_isGridEditMode ? new Thickness(8, 4, 8, 4) : new Thickness(6, 3, 6, 3),
+                        MinWidth = 100,
+                        Background = r % 2 == 0 ? EvenRowBg : Brushes.White
+                    };
+
+                    if (cell.IsNested)
+                    {
+                        var nestedPanel = new StackPanel();
+                        var summaryBtn = new TextBlock
+                        {
+                            Text = cell.NestedSummary,
+                            Foreground = LinkColor,
+                            FontWeight = FontWeights.SemiBold,
+                            FontSize = 12,
+                            Cursor = Cursors.Hand
+                        };
+                        var nestedContainer = new StackPanel { Visibility = Visibility.Collapsed };
+                        summaryBtn.MouseLeftButtonUp += (s, e) =>
+                        {
+                            if (nestedContainer.Visibility == Visibility.Collapsed)
+                            {
+                                nestedContainer.Visibility = Visibility.Visible;
+                                summaryBtn.Text = summaryBtn.Text.Replace("[+]", "[-]");
+                                if (nestedContainer.Children.Count == 0)
+                                {
+                                    foreach (var nestedChild in cell.NestedChildren)
+                                        RenderNestedContent(nestedChild, nestedContainer);
+                                }
+                            }
+                            else
+                            {
+                                nestedContainer.Visibility = Visibility.Collapsed;
+                                summaryBtn.Text = summaryBtn.Text.Replace("[-]", "[+]");
+                            }
+                            e.Handled = true;
+                        };
+                        nestedPanel.Children.Add(summaryBtn);
+                        nestedPanel.Children.Add(nestedContainer);
+                        cellBorder.Child = nestedPanel;
+                    }
+                    else if (_isGridEditMode)
+                    {
+                        cellBorder.Child = CreateEditableCellTextBox(cell, refreshSummary);
+                    }
+                    else
+                    {
+                        cellBorder.Child = CreateReadOnlyCellTextBlock(cell);
+                    }
+
+                    Grid.SetRow(cellBorder, gridRow);
+                    Grid.SetColumn(cellBorder, c + 1);
+                    tableGrid.Children.Add(cellBorder);
+                }
+            }
+
+            if (hasSummaryRow)
+            {
+                int summaryRowIndex = node.TableRows.Count + 1;
+
+                var summaryTitle = new Border
+                {
+                    Background = SummaryAccentBg,
+                    BorderBrush = BorderColor,
+                    BorderThickness = new Thickness(0, 0, 1, 0),
+                    Padding = new Thickness(8, 5, 8, 5),
+                    Child = new TextBlock
+                    {
+                        Text = "Σ",
+                        Foreground = SummaryTextColor,
+                        FontWeight = FontWeights.Bold,
+                        FontSize = 13,
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    }
+                };
+                Grid.SetRow(summaryTitle, summaryRowIndex);
+                Grid.SetColumn(summaryTitle, 0);
+                tableGrid.Children.Add(summaryTitle);
+
+                for (int c = 0; c < node.TableColumns.Count; c++)
+                {
+                    var summaryText = new TextBlock
+                    {
+                        FontSize = 12,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = SummaryTextColor,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+
+                    var summaryBorder = new Border
+                    {
+                        Background = SummaryBg,
+                        BorderBrush = BorderColor,
+                        BorderThickness = new Thickness(0, 0, 1, 0),
+                        Padding = new Thickness(8, 5, 8, 5),
+                        Child = summaryText
+                    };
+
+                    if (summableColumns[c])
+                    {
+                        summaryCells.Add(summaryText);
+                    }
+                    else
+                    {
+                        summaryText.Text = "—";
+                        summaryText.Opacity = 0.45;
+                        summaryCells.Add(null);
+                    }
+
+                    Grid.SetRow(summaryBorder, summaryRowIndex);
+                    Grid.SetColumn(summaryBorder, c + 1);
+                    tableGrid.Children.Add(summaryBorder);
+                }
+
+                refreshSummary();
+            }
+
+            tableBorder.Child = tableGrid;
+            tableHost.Children.Add(tableBorder);
+            container.Children.Add(tableHost);
+        }
+
+        private Border CreateEditModeBanner()
+        {
+            return new Border
+            {
+                Background = MakeBrush("#FEF3C7"),
+                BorderBrush = MakeBrush("#FCD34D"),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 6, 10, 6),
+                Margin = new Thickness(0, 0, 0, 6),
+                Child = new TextBlock
+                {
+                    Text = "编辑模式已开启：修改单元格后按 Enter 或移开焦点保存，Esc 可撤销当前编辑。",
+                    Foreground = MakeBrush("#92400E"),
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap
+                }
+            };
+        }
+
+        private TextBlock CreateReadOnlyCellTextBlock(JsonGridCell cell)
+        {
+            var valTb = new TextBlock
+            {
+                Text = cell.Value,
+                Foreground = MakeBrush(cell.ValueColor),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 280,
+                Cursor = Cursors.Hand,
+                ToolTip = "点击定位到左侧 JSON"
+            };
+
+            valTb.MouseLeftButtonUp += (s, e) =>
+            {
+                OnGridValueClicked(cell.Value);
+                e.Handled = true;
+            };
+
+            _allGridValueTextBlocks.Add(valTb);
+            return valTb;
+        }
+
+        private TextBox CreateEditableCellTextBox(JsonGridCell cell, Action refreshSummary)
+        {
+            var editor = new TextBox
+            {
+                Text = cell.Value,
+                MinWidth = 110,
+                MaxWidth = 320,
+                Padding = new Thickness(6, 3, 6, 3),
+                FontSize = 12,
+                BorderBrush = EditorBorderBrush,
+                BorderThickness = new Thickness(1),
+                Background = Brushes.White,
+                Foreground = MakeBrush(cell.ValueColor),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                ToolTip = "回车或失去焦点时保存，Esc 撤销当前单元格改动"
+            };
+
+            string committedValue = cell.Value;
+            bool isInternalUpdate = false;
+
+            void SetEditorTextSafely(string value)
+            {
+                isInternalUpdate = true;
+                editor.Text = value;
+                editor.CaretIndex = editor.Text.Length;
+                isInternalUpdate = false;
+            }
+
+            void RestoreCommittedValue()
+            {
+                cell.Value = committedValue;
+                SetEditorTextSafely(committedValue);
+                refreshSummary();
+            }
+
+            void CommitEdit()
+            {
+                if (isInternalUpdate)
+                    return;
+
+                string pendingValue = editor.Text;
+                if (pendingValue == committedValue)
+                    return;
+
+                if (!TryApplyCellEditToEditor(cell, pendingValue, out var normalizedValue, out var errorMessage))
+                {
+                    MessageBox.Show(errorMessage, "保存失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    RestoreCommittedValue();
+                    return;
+                }
+
+                committedValue = normalizedValue;
+                cell.Value = normalizedValue;
+
+                if (!string.Equals(editor.Text, normalizedValue, StringComparison.Ordinal))
+                    SetEditorTextSafely(normalizedValue);
+
+                refreshSummary();
+            }
+
+            editor.TextChanged += (s, e) =>
+            {
+                if (isInternalUpdate)
+                    return;
+
+                cell.Value = editor.Text;
+                refreshSummary();
+            };
+
+            editor.LostKeyboardFocus += (s, e) => CommitEdit();
+            editor.PreviewKeyDown += (s, e) =>
+            {
+                if (e.Key == Key.Enter)
+                {
+                    CommitEdit();
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.Escape)
+                {
+                    RestoreCommittedValue();
+                    e.Handled = true;
+                }
+            };
+
+            return editor;
+        }
+
+        private void UpdateTableSummary(JsonGridNode node, IReadOnlyList<TextBlock?> summaryCells)
+        {
+            for (int c = 0; c < summaryCells.Count; c++)
+            {
+                var summaryText = summaryCells[c];
+                if (summaryText == null)
+                    continue;
+
+                decimal total = 0m;
+                bool hasValue = false;
+
+                foreach (var row in node.TableRows)
+                {
+                    if (c >= row.Cells.Count)
+                        continue;
+
+                    if (TryParseDecimalValue(row.Cells[c], out var value))
+                    {
+                        total += value;
+                        hasValue = true;
+                    }
+                }
+
+                summaryText.Text = hasValue
+                    ? total.ToString("0.############################", CultureInfo.InvariantCulture)
+                    : "0";
+            }
+        }
+
+        private static bool ColumnHasNumericValues(JsonGridNode node, int columnIndex)
+        {
+            bool hasNumber = false;
+
+            foreach (var row in node.TableRows)
+            {
+                if (columnIndex >= row.Cells.Count)
+                    continue;
+
+                var cell = row.Cells[columnIndex];
+                if (cell.IsNested)
+                    return false;
+
+                if (cell.NodeType == "Number")
+                {
+                    hasNumber = true;
+                    continue;
+                }
+
+                if (cell.NodeType == "Null" || string.IsNullOrWhiteSpace(cell.Value) || string.Equals(cell.Value, "null", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return false;
+            }
+
+            return hasNumber;
+        }
+
+        private bool TryApplyCellEditToEditor(JsonGridCell cell, string newValue, out string normalizedValue, out string errorMessage)
+        {
+            normalizedValue = newValue;
+            errorMessage = "";
+
+            JsonNode? rootNode;
+            try
+            {
+                rootNode = JsonNode.Parse(GetEditorText());
+            }
+            catch (JsonException ex)
+            {
+                errorMessage = $"左侧 JSON 当前格式无效，无法保存表格编辑：{ex.Message}";
+                return false;
+            }
+
+            if (rootNode == null)
+            {
+                errorMessage = "左侧 JSON 为空，无法保存当前编辑。";
+                return false;
+            }
+
+            var valueNode = CreateJsonNodeForCellInput(cell, newValue, out normalizedValue, out errorMessage);
+            if (errorMessage.Length > 0)
+                return false;
+
+            if (!TrySetJsonValueByPath(rootNode, cell.JsonPath, valueNode))
+            {
+                errorMessage = $"未能定位到 JSON 路径：{cell.JsonPath}";
+                return false;
+            }
+
+            SetEditorText(rootNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            SetStatus($"✅ 已更新单元格：{cell.ColumnName}");
+            Dispatcher.BeginInvoke(new Action(RefreshGridPreservingState), DispatcherPriority.Background);
+            return true;
+        }
+
+        private JsonNode? CreateJsonNodeForCellInput(JsonGridCell cell, string newValue, out string normalizedValue, out string errorMessage)
+        {
+            normalizedValue = newValue;
+            errorMessage = "";
+            string trimmed = newValue.Trim();
+
+            switch (cell.NodeType)
+            {
+                case "Number":
+                    if (!decimal.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                    {
+                        errorMessage = $"列“{cell.ColumnName}”要求数值格式。";
+                        return null;
+                    }
+                    normalizedValue = trimmed;
+                    return JsonNode.Parse(trimmed);
+
+                case "True":
+                case "False":
+                    if (!bool.TryParse(trimmed, out var boolValue))
+                    {
+                        errorMessage = $"列“{cell.ColumnName}”要求布尔值 true 或 false。";
+                        return null;
+                    }
+                    normalizedValue = boolValue ? "true" : "false";
+                    return JsonValue.Create(boolValue);
+
+                case "Null":
+                    if (string.IsNullOrWhiteSpace(trimmed) || string.Equals(trimmed, "null", StringComparison.OrdinalIgnoreCase))
+                    {
+                        normalizedValue = "null";
+                        return null;
+                    }
+
+                    if (bool.TryParse(trimmed, out var nullAsBool))
+                    {
+                        normalizedValue = nullAsBool ? "true" : "false";
+                        return JsonValue.Create(nullAsBool);
+                    }
+
+                    if (decimal.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                    {
+                        normalizedValue = trimmed;
+                        return JsonNode.Parse(trimmed);
+                    }
+
+                    normalizedValue = newValue;
+                    return JsonValue.Create(newValue);
+
+                default:
+                    normalizedValue = newValue;
+                    return JsonValue.Create(newValue);
+            }
+        }
+
+        private static bool TrySetJsonValueByPath(JsonNode rootNode, string jsonPath, JsonNode? newValue)
+        {
+            var segments = ParseJsonPath(jsonPath);
+            if (segments.Count == 0)
+                return false;
+
+            JsonNode? current = rootNode;
+            for (int i = 0; i < segments.Count - 1; i++)
+            {
+                current = TryGetChildNode(current, segments[i]);
+                if (current == null)
+                    return false;
+            }
+
+            var last = segments[^1];
+            if (last.PropertyName != null && current is JsonObject jsonObject)
+            {
+                jsonObject[last.PropertyName] = newValue;
+                return true;
+            }
+
+            if (last.ArrayIndex.HasValue && current is JsonArray jsonArray && last.ArrayIndex.Value >= 0 && last.ArrayIndex.Value < jsonArray.Count)
+            {
+                jsonArray[last.ArrayIndex.Value] = newValue;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static JsonNode? TryGetChildNode(JsonNode? current, JsonPathSegment segment)
+        {
+            if (current == null)
+                return null;
+
+            if (segment.PropertyName != null && current is JsonObject jsonObject)
+                return jsonObject[segment.PropertyName];
+
+            if (segment.ArrayIndex.HasValue && current is JsonArray jsonArray)
+            {
+                int index = segment.ArrayIndex.Value;
+                if (index >= 0 && index < jsonArray.Count)
+                    return jsonArray[index];
+            }
+
+            return null;
+        }
+
+        private static List<JsonPathSegment> ParseJsonPath(string jsonPath)
+        {
+            var segments = new List<JsonPathSegment>();
+            if (string.IsNullOrWhiteSpace(jsonPath))
+                return segments;
+
+            string path = jsonPath.StartsWith("root", StringComparison.Ordinal)
+                ? jsonPath.Substring(4)
+                : jsonPath;
+
+            if (path.StartsWith(".", StringComparison.Ordinal))
+                path = path.Substring(1);
+
+            int index = 0;
+            while (index < path.Length)
+            {
+                if (path[index] == '.')
+                {
+                    index++;
+                    continue;
+                }
+
+                if (path[index] == '[')
+                {
+                    int closeIndex = path.IndexOf(']', index + 1);
+                    if (closeIndex <= index)
+                        break;
+
+                    string numberText = path.Substring(index + 1, closeIndex - index - 1);
+                    if (int.TryParse(numberText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var arrayIndex))
+                        segments.Add(new JsonPathSegment { ArrayIndex = arrayIndex });
+
+                    index = closeIndex + 1;
+                    continue;
+                }
+
+                int nextDot = path.IndexOf('.', index);
+                int nextBracket = path.IndexOf('[', index);
+                int endIndex;
+
+                if (nextDot < 0 && nextBracket < 0)
+                    endIndex = path.Length;
+                else if (nextDot < 0)
+                    endIndex = nextBracket;
+                else if (nextBracket < 0)
+                    endIndex = nextDot;
+                else
+                    endIndex = Math.Min(nextDot, nextBracket);
+
+                string propertyName = path.Substring(index, endIndex - index);
+                if (!string.IsNullOrEmpty(propertyName))
+                    segments.Add(new JsonPathSegment { PropertyName = propertyName });
+
+                index = endIndex;
+            }
+
+            return segments;
+        }
+
+        private static bool TryParseDecimalValue(JsonGridCell cell, out decimal value)
+        {
+            value = 0m;
+            if (cell.IsNested)
+                return false;
+
+            if (cell.NodeType != "Number" && !decimal.TryParse(cell.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                return false;
+
+            return decimal.TryParse(cell.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
         private void RenderNestedContent(JsonGridNode nested, Panel container)

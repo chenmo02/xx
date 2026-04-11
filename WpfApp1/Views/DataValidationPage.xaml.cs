@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using ExcelDataReader;
 using Microsoft.Win32;
@@ -45,6 +46,153 @@ namespace WpfApp1.Views
             // 拦截大文本粘贴，显示遮罩
             DataObject.AddPastingHandler(TxtDdl, OnDdlPasting);
             DataObject.AddPastingHandler(TxtInsert, OnInsertPasting);
+        }
+
+        private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (sender is not DataGrid grid) return;
+            if (Keyboard.Modifiers != ModifierKeys.Control || e.Key != Key.C) return;
+
+            e.Handled = CopyCurrentCell(grid) || CopyCurrentRow(grid);
+        }
+
+        private void DataGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not DataGrid grid) return;
+            if (e.OriginalSource is not DependencyObject source) return;
+
+            var cell = FindVisualParent<DataGridCell>(source);
+            if (cell != null)
+            {
+                var row = FindVisualParent<DataGridRow>(cell);
+                if (row != null)
+                {
+                    grid.SelectedItem = row.Item;
+                    grid.CurrentCell = new DataGridCellInfo(row.Item, cell.Column);
+                    cell.Focus();
+                }
+                return;
+            }
+
+            var dataGridRow = FindVisualParent<DataGridRow>(source);
+            if (dataGridRow != null)
+            {
+                grid.SelectedItem = dataGridRow.Item;
+                dataGridRow.Focus();
+            }
+        }
+
+        private void CopyCurrentCellMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (TryGetContextMenuGrid(sender, out var grid))
+                CopyCurrentCell(grid);
+        }
+
+        private void CopyCurrentRowMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (TryGetContextMenuGrid(sender, out var grid))
+                CopyCurrentRow(grid);
+        }
+
+        private bool TryGetContextMenuGrid(object sender, out DataGrid grid)
+        {
+            grid = null!;
+            if (sender is not FrameworkElement element) return false;
+            if (element.Parent is not ContextMenu menu) return false;
+            if (menu.PlacementTarget is not DataGrid dataGrid) return false;
+            grid = dataGrid;
+            return true;
+        }
+
+        private bool CopyCurrentCell(DataGrid grid)
+        {
+            if (grid.CurrentCell.Column == null || grid.CurrentCell.Item == null)
+            {
+                SetStatus("请先选中要复制的单元格", true);
+                return false;
+            }
+
+            string text = GetCellText(grid, grid.CurrentCell.Item, grid.CurrentCell.Column);
+            Clipboard.SetText(text);
+            SetStatus($"已复制单元格内容：{grid.CurrentCell.Column.Header}");
+            return true;
+        }
+
+        private bool CopyCurrentRow(DataGrid grid)
+        {
+            var item = grid.SelectedItem ?? grid.CurrentCell.Item;
+            if (item == null)
+            {
+                SetStatus("请先选中要复制的行", true);
+                return false;
+            }
+
+            var orderedColumns = grid.Columns.OrderBy(c => c.DisplayIndex).ToList();
+            string rowText = string.Join("\t", orderedColumns.Select(c => GetCellText(grid, item, c)));
+            Clipboard.SetText(rowText);
+            SetStatus("已复制当前行");
+            return true;
+        }
+
+        private string GetCellText(DataGrid grid, object item, DataGridColumn column)
+        {
+            if (grid == DgMapping && item is DvMappingRow mapping)
+                return GetMappingCellText(mapping, column.DisplayIndex);
+
+            if (grid == DgIssues && item is DvIssue issue)
+                return GetIssueCellText(issue, column.DisplayIndex);
+
+            return string.Empty;
+        }
+
+        private static string GetMappingCellText(DvMappingRow mapping, int columnIndex)
+        {
+            return columnIndex switch
+            {
+                0 => mapping.RowIndex.ToString(),
+                1 => mapping.TargetColumnName,
+                2 => mapping.TargetDisplayType,
+                3 => mapping.IsRequired ? "是" : "否",
+                4 => mapping.MappingTypeStr,
+                5 => mapping.MappingType switch
+                {
+                    DvMappingType.Source => mapping.SourceColumnName ?? string.Empty,
+                    DvMappingType.Constant => mapping.ConstantValue ?? string.Empty,
+                    _ => string.Empty
+                },
+                6 => mapping.MatchMethodText,
+                7 => mapping.ConfidenceText,
+                8 => mapping.IsConfirmed ? "是" : "否",
+                _ => string.Empty
+            };
+        }
+
+        private static string GetIssueCellText(DvIssue issue, int columnIndex)
+        {
+            return columnIndex switch
+            {
+                0 => issue.RowNumber.ToString(),
+                1 => issue.PrimaryKeyDisplay ?? string.Empty,
+                2 => issue.SourceColumnName ?? string.Empty,
+                3 => issue.TargetColumnName,
+                4 => issue.TargetDataType,
+                5 => issue.LevelText,
+                6 => issue.ErrorType,
+                7 => issue.ActualValue ?? string.Empty,
+                8 => issue.Message,
+                _ => string.Empty
+            };
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T target) return target;
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
         }
 
         // ══════════════════════════════════════════════════════════
@@ -332,14 +480,14 @@ namespace WpfApp1.Views
                     UpdateStructQuery();
                 }
 
-                TxtDdlStatus.Text = $"✓ 已解析 {_targetColumns.Count} 个字段";
+                TxtDdlStatus.Text = $"⌛️ 已解析 {_targetColumns.Count} 个字段";
                 TxtDdlStatus.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 SetStatus($"DDL 解析成功，共 {_targetColumns.Count} 个字段" +
                     (!string.IsNullOrEmpty(extractedName) ? $"，表名：{extractedName}" : ""));
             }
             catch (Exception ex)
             {
-                TxtDdlStatus.Text = $"✗ 解析失败: {ex.Message}";
+                TxtDdlStatus.Text = $"⌛️ 解析失败: {ex.Message}";
                 TxtDdlStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 _targetColumns.Clear();
             }
@@ -357,7 +505,7 @@ namespace WpfApp1.Views
             {
                 var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 _targetColumns = ReadStructExcel(dlg.FileName, dbType);
-                TxtStructExcelInfo.Text = $"✓ {Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
+                TxtStructExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
                 SetStatus($"结构 Excel 导入成功，共 {_targetColumns.Count} 个字段");
             }
             catch (Exception ex)
@@ -462,13 +610,13 @@ namespace WpfApp1.Views
             var sql = TxtInsert.Text;
             if (string.IsNullOrWhiteSpace(sql))
             {
-                TxtInsertStatus.Text = "✗ SQL 语句为空";
+                TxtInsertStatus.Text = "⌛️ SQL 语句为空";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 return;
             }
 
             BtnNext.IsEnabled = false;
-            TxtInsertStatus.Text = "⏳ 解析中...";
+            TxtInsertStatus.Text = "⌛️ 解析中...";
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139));
 
             try
@@ -476,7 +624,7 @@ namespace WpfApp1.Views
                 var (headers, rows, warning) = await Task.Run(() => InsertStatementParser.Parse(sql));
                 _sourceData = new DvSourceData { Headers = headers, Rows = rows };
                 SourceHeaders = [.. headers];
-                TxtInsertStatus.Text = $"✓ 已解析 {rows.Count} 行 × {headers.Count} 列";
+                TxtInsertStatus.Text = $"⌛️ 已解析 {rows.Count} 行 × {headers.Count} 列";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 if (warning != null)
                     SetStatus($"注意：{warning}");
@@ -485,7 +633,7 @@ namespace WpfApp1.Views
             }
             catch (Exception ex)
             {
-                TxtInsertStatus.Text = $"✗ 解析失败: {ex.Message}";
+                TxtInsertStatus.Text = $"? 解析失败: {ex.Message}";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 _sourceData = null;
             }
@@ -507,7 +655,7 @@ namespace WpfApp1.Views
             {
                 _sourceData = ReadDataExcel(dlg.FileName);
                 SourceHeaders = [.. _sourceData.Headers];
-                TxtDataExcelInfo.Text = $"✓ {Path.GetFileName(dlg.FileName)} — {_sourceData.RowCount} 行 × {_sourceData.Headers.Count} 列";
+                TxtDataExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — {_sourceData.RowCount} 行 × {_sourceData.Headers.Count} 列";
                 SetStatus($"数据 Excel 导入成功，共 {_sourceData.RowCount} 行");
             }
             catch (Exception ex)
@@ -632,8 +780,8 @@ namespace WpfApp1.Views
             int autoGen = _mappings.Count(m => m.IsAutoGenCandidate && m.MappingType == DvMappingType.Ignore);
             RunMappingInfo.Text =
                 $"  共 {_mappings.Count} 个字段，已映射 {mapped}，已确认 {confirmed}" +
-                (autoGen > 0 ? $"，🔑 {autoGen} 个自动生成字段已忽略" : "") +
-                (required > 0 ? $"，⚠ {required} 个必填未映射" : "");
+                (autoGen > 0 ? $"，?? {autoGen} 个自动生成字段已忽略" : "") +
+                (required > 0 ? $"，? {required} 个必填未映射" : "");
         }
 
         // ══════════════════════════════════════════════════════════
@@ -670,11 +818,13 @@ namespace WpfApp1.Views
                 var pkColumns = GetSelectedPkColumns();
                 bool skipIntFormat = ChkSkipIntFormat.IsChecked == true;
                 bool skipUuidFormat = ChkSkipUuidFormat.IsChecked == true;
+                bool skipDateTimeFormat = ChkSkipDateTimeFormat.IsChecked == true;
                 _lastResult = await ValidationEngine.RunAsync(
                     _targetColumns, _sourceData, _mappings,
                     pkColumns.Count > 0 ? pkColumns : null,
                     skipIntFormat,
                     skipUuidFormat,
+                    skipDateTimeFormat,
                     progress, _cts.Token);
             }
             catch (OperationCanceledException)
@@ -688,24 +838,25 @@ namespace WpfApp1.Views
                 ProgressPanel.Visibility = Visibility.Collapsed;
             }
 
-            if (_lastResult == null) return;
+            var lastResult = _lastResult;
+            if (lastResult == null) return;
 
             // 显示摘要
-            TxtTotalRows.Text = _lastResult.TotalRows.ToString("N0");
-            TxtErrorCount.Text = _lastResult.ErrorCount.ToString("N0");
-            TxtWarningCount.Text = _lastResult.WarningCount.ToString("N0");
-            TxtElapsed.Text = $"{_lastResult.Elapsed.TotalSeconds:F1}s";
+            TxtTotalRows.Text = lastResult.TotalRows.ToString("N0");
+            TxtErrorCount.Text = lastResult.ErrorCount.ToString("N0");
+            TxtRawErrorCount.Text = lastResult.RawErrorCount.ToString("N0");
+            TxtWarningCount.Text = lastResult.WarningCount.ToString("N0");
+            TxtElapsed.Text = $"{lastResult.Elapsed.TotalSeconds:F1}s";
             SummaryCard.Visibility = Visibility.Visible;
 
             // 显示错误列表
-            DgIssues.ItemsSource = _lastResult.Issues;
+            DgIssues.ItemsSource = lastResult.Issues;
 
-            BtnExportReport.Visibility = _lastResult.Issues.Count > 0
-                ? Visibility.Visible : Visibility.Collapsed;
+            BtnExportReport.Visibility = Visibility.Visible;
 
-            SetStatus(_lastResult.ErrorCount == 0 && _lastResult.WarningCount == 0
-                ? "✓ 校验通过，无错误无警告"
-                : $"校验完成：{_lastResult.ErrorCount} 条记录有错误（共 {_lastResult.RawErrorCount} 个错误），{_lastResult.WarningCount} 条记录有警告");
+            SetStatus(lastResult.ErrorCount == 0 && lastResult.WarningCount == 0
+                ? "校验通过，无错误无警告"
+                : $"校验完成：{lastResult.ErrorCount} 条异常记录，{lastResult.RawErrorCount} 项错误，{lastResult.WarningCount} 条警告记录");
         }
 
         private void BtnCancelValidation_Click(object sender, RoutedEventArgs e)
@@ -717,7 +868,8 @@ namespace WpfApp1.Views
 
         private void BtnExportReport_Click(object sender, RoutedEventArgs e)
         {
-            if (_lastResult == null) return;
+            var lastResult = _lastResult;
+            if (lastResult == null) return;
             var dlg = new SaveFileDialog
             {
                 Filter = "Excel 文件|*.xlsx",
@@ -729,7 +881,7 @@ namespace WpfApp1.Views
             {
                 var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 ValidationReportService.Generate(
-                    _lastResult, _targetColumns, _mappings,
+                    lastResult, _targetColumns, _mappings,
                     dbType, TxtTableName.Text, dlg.FileName);
                 SetStatus($"报告已导出：{dlg.FileName}");
                 // 询问是否打开
@@ -753,3 +905,4 @@ namespace WpfApp1.Views
         }
     }
 }
+

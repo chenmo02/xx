@@ -79,6 +79,7 @@ namespace WpfApp1.Services
     public class JsonGridCell : INotifyPropertyChanged
     {
         public string ColumnName { get; set; } = "";
+        public string JsonPath { get; set; } = "";
         private string _value = "";
         public string Value
         {
@@ -191,6 +192,7 @@ namespace WpfApp1.Services
                 var cell = new JsonGridCell
                 {
                     ColumnName = key,
+                    JsonPath = $"{parentPath}[{idx - 1}]",
                     NodeType = item.ValueKind.ToString()
                 };
 
@@ -243,7 +245,11 @@ namespace WpfApp1.Services
 
                 foreach (var colName in colSet)
                 {
-                    var cell = new JsonGridCell { ColumnName = colName };
+                    var cell = new JsonGridCell
+                    {
+                        ColumnName = colName,
+                        JsonPath = $"{parentPath}[{rowIdx - 1}].{colName}"
+                    };
 
                     if (item.TryGetProperty(colName, out var val))
                     {

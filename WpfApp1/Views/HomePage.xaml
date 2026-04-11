@@ -69,7 +69,7 @@
                                        FontSize="11"
                                        Foreground="#6366F1"/>
                             <TextBlock x:Name="TxtVersionBadge"
-                                       Text="v2.0.0"
+                                       Text="v2.1.0"
                                        FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="#4338CA"
@@ -331,7 +331,7 @@
 
                     <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                         <TextBlock Text="版本" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="TxtVersion" Text="v2.0.0" FontSize="18" FontWeight="Bold"
+                        <TextBlock x:Name="TxtVersion" Text="v2.1.0" FontSize="18" FontWeight="Bold"
                                    Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     </StackPanel>
 

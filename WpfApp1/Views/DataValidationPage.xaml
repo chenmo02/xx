@@ -1,4 +1,4 @@
-<Page x:Class="WpfApp1.Views.DataValidationPage"
+﻿<Page x:Class="WpfApp1.Views.DataValidationPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:local="clr-namespace:WpfApp1.Views"
@@ -46,6 +46,131 @@
         </Style>
         <Style x:Key="GreenBtn" TargetType="Button" BasedOn="{StaticResource PrimaryBtn}">
             <Setter Property="Background" Value="#059669"/>
+        </Style>
+
+        <Style x:Key="GridContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D8E1F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="HasDropShadow" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.14" Color="#0F172A"/>
+                            </Border.Effect>
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GridContextMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#EEF2FF"/>
+                                <Setter Property="Foreground" Value="#3152E0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ItemBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ValidationOptionChip" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="ChipBorder"
+                                Background="White"
+                                BorderBrush="#DCE5F3"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="14,12"
+                                Margin="0,0,12,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border x:Name="Dot"
+                                        Width="10"
+                                        Height="10"
+                                        CornerRadius="5"
+                                        Background="#CBD5E1"
+                                        VerticalAlignment="Center"/>
+
+                                <ContentPresenter Grid.Column="1"
+                                                  Margin="10,0,12,0"
+                                                  VerticalAlignment="Center"/>
+
+                                <Border x:Name="StateBadge"
+                                        Grid.Column="2"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E5E7EB"
+                                        BorderThickness="1"
+                                        CornerRadius="999"
+                                        Padding="8,3"
+                                        VerticalAlignment="Center">
+                                    <TextBlock x:Name="StateText"
+                                               Text="未启用"
+                                               FontSize="11"
+                                               Foreground="#94A3B8"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ChipBorder" Property="BorderBrush" Value="#BFD0F6"/>
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#FAFCFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ChipBorder" Property="BorderBrush" Value="#6D7CF6"/>
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#F3F6FF"/>
+                                <Setter TargetName="Dot" Property="Background" Value="#5B6EF5"/>
+                                <Setter TargetName="StateBadge" Property="Background" Value="#E7EDFF"/>
+                                <Setter TargetName="StateBadge" Property="BorderBrush" Value="#C7D2FE"/>
+                                <Setter TargetName="StateText" Property="TextBlock.Text" Value="已启用"/>
+                                <Setter TargetName="StateText" Property="Foreground" Value="#3F56E8"/>
+                                <Setter Property="Foreground" Value="#3749D8"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ChipBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- ── 卡片 ───────────────────────────────────────────── -->
@@ -707,7 +832,19 @@
                                   SelectionMode="Single"
                                   SelectionUnit="FullRow"
                                   VerticalScrollBarVisibility="Auto"
-                                  FontSize="12">
+                                  FontSize="12"
+                                  PreviewKeyDown="DataGrid_PreviewKeyDown"
+                                  PreviewMouseRightButtonDown="DataGrid_PreviewMouseRightButtonDown">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu Style="{StaticResource GridContextMenu}">
+                                    <MenuItem Header="复制当前单元格"
+                                              Style="{StaticResource GridContextMenuItem}"
+                                              Click="CopyCurrentCellMenu_Click"/>
+                                    <MenuItem Header="复制当前行"
+                                              Style="{StaticResource GridContextMenuItem}"
+                                              Click="CopyCurrentRowMenu_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
                             <DataGrid.Columns>
 
                                 <!-- 序号 -->
@@ -792,85 +929,179 @@
                 <DockPanel x:Name="Panel4" Visibility="Collapsed" LastChildFill="True">
 
                     <!-- 操作区 -->
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                        <!-- 摘要 / 进度 -->
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                            <!-- 摘要卡片 -->
-                            <Border x:Name="SummaryCard" Visibility="Collapsed"
-                                    Background="#F0FDF4" CornerRadius="8" Padding="14,8">
-                                <StackPanel Orientation="Horizontal">
-                                    <StackPanel Margin="0,0,20,0">
-                                        <TextBlock Text="总行数" FontSize="11" Foreground="#6B7280"/>
-                                        <TextBlock x:Name="TxtTotalRows" Text="0" FontSize="18"
-                                                   FontWeight="Bold" Foreground="#1F2937"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,20,0">
-                                        <TextBlock Text="错误记录" FontSize="11" Foreground="#6B7280"/>
-                                        <TextBlock x:Name="TxtErrorCount" Text="0" FontSize="18"
-                                                   FontWeight="Bold" Foreground="#DC2626"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,20,0">
-                                        <TextBlock Text="警告记录" FontSize="11" Foreground="#6B7280"/>
-                                        <TextBlock x:Name="TxtWarningCount" Text="0" FontSize="18"
-                                                   FontWeight="Bold" Foreground="#D97706"/>
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <TextBlock Text="耗时" FontSize="11" Foreground="#6B7280"/>
-                                        <TextBlock x:Name="TxtElapsed" Text="-" FontSize="18"
-                                                   FontWeight="Bold" Foreground="#1F2937"/>
-                                    </StackPanel>
+                        <Border Grid.Row="0"
+                                Background="White"
+                                BorderBrush="#E4EAF3"
+                                BorderThickness="1"
+                                CornerRadius="16"
+                                Padding="18,16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <DockPanel LastChildFill="True">
+                                        <TextBlock Text="结果概览"
+                                                   FontSize="15"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#111827"/>
+                                        <TextBlock Text="校验完成后可在此快速查看摘要并按需放宽规则。"
+                                                   Margin="12,1,0,0"
+                                                   FontSize="12"
+                                                   Foreground="#94A3B8"/>
+                                    </DockPanel>
+
+                                    <Border x:Name="SummaryCard"
+                                            Visibility="Collapsed"
+                                            Background="#F8FBFF"
+                                            BorderBrush="#E5ECF7"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14,12"
+                                            Margin="0,14,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                                                <TextBlock Text="总行数" FontSize="11.5" Foreground="#6B7280"/>
+                                                <TextBlock x:Name="TxtTotalRows" Text="0" Margin="0,7,0,0"
+                                                           FontSize="20" FontWeight="Bold" Foreground="#1F2937"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="14,0,14,0">
+                                                <TextBlock Text="异常记录" FontSize="11.5" Foreground="#6B7280"/>
+                                                <TextBlock x:Name="TxtErrorCount" Text="0" Margin="0,7,0,0"
+                                                           FontSize="20" FontWeight="Bold" Foreground="#DC2626"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Margin="14,0,14,0">
+                                                <TextBlock Text="错误项数" FontSize="11.5" Foreground="#6B7280"/>
+                                                <TextBlock x:Name="TxtRawErrorCount" Text="0" Margin="0,7,0,0"
+                                                           FontSize="20" FontWeight="Bold" Foreground="#2563EB"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="3" Margin="14,0,14,0">
+                                                <TextBlock Text="警告记录" FontSize="11.5" Foreground="#6B7280"/>
+                                                <TextBlock x:Name="TxtWarningCount" Text="0" Margin="0,7,0,0"
+                                                           FontSize="20" FontWeight="Bold" Foreground="#D97706"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="4" Margin="14,0,0,0">
+                                                <TextBlock Text="耗时" FontSize="11.5" Foreground="#6B7280"/>
+                                                <TextBlock x:Name="TxtElapsed" Text="0.0s" Margin="0,7,0,0"
+                                                           FontSize="20" FontWeight="Bold" Foreground="#1F2937"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Background="#FBFCFE"
+                                            BorderBrush="#E7EDF5"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="16,14"
+                                            Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <DockPanel LastChildFill="True">
+                                                <TextBlock Text="校验规则"
+                                                           FontSize="13.5"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#1F2937"/>
+                                                <TextBlock Text="仅影响格式校验，适合在明确了解数据来源时临时放宽。"
+                                                           Margin="12,1,0,0"
+                                                           FontSize="12"
+                                                           Foreground="#94A3B8"/>
+                                            </DockPanel>
+                                            <UniformGrid Columns="3" Margin="0,12,0,0">
+                                                <CheckBox x:Name="ChkSkipIntFormat"
+                                                          Style="{StaticResource ValidationOptionChip}"
+                                                          Content="忽略整数格式错误"
+                                                          IsChecked="True"
+                                                          ToolTip="存储过程会做类型转换时可勾选，跳过整数/长整数格式校验"/>
+                                                <CheckBox x:Name="ChkSkipUuidFormat"
+                                                          Style="{StaticResource ValidationOptionChip}"
+                                                          Content="忽略 UUID 格式错误"
+                                                          IsChecked="False"
+                                                          ToolTip="勾选后将跳过 UUID / UNIQUEIDENTIFIER 字段的格式错误校验"/>
+                                                <CheckBox x:Name="ChkSkipDateTimeFormat"
+                                                          Style="{StaticResource ValidationOptionChip}"
+                                                          Content="忽略日期时间格式错误"
+                                                          IsChecked="False"
+                                                          ToolTip="勾选后将跳过 datetime / timestamp 等字段的日期时间格式错误校验"/>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                            </Border>
 
-                            <!-- 进度条 -->
-                            <Border x:Name="ProgressPanel" Visibility="Collapsed"
-                                    Background="#EEF2FF" CornerRadius="8" Padding="16,10">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock x:Name="TxtProgress" Text="校验中..." FontSize="13"
-                                                   Foreground="#1E3A8A" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                                        <ProgressBar x:Name="PbProgress" Height="8" Value="0" Maximum="100"
-                                                     Background="#CBD5E1" Foreground="#4E6EF2"/>
-                                    </StackPanel>
-                                    <Button x:Name="BtnCancelValidation" Grid.Column="1"
-                                            Content="取消" Style="{StaticResource GhostBtn}"
-                                            Padding="14,6" FontSize="12" Margin="12,0,0,0"
-                                            VerticalAlignment="Center"
-                                            Click="BtnCancelValidation_Click"/>
-                                </Grid>
-                            </Border>
-                        </StackPanel>
+                                <StackPanel Grid.Column="1"
+                                            Margin="18,32,0,0"
+                                            VerticalAlignment="Top">
+                                    <Button x:Name="BtnRunValidation"
+                                            Content="▶ 开始校验"
+                                            Style="{StaticResource PrimaryBtn}"
+                                            Padding="20,11"
+                                            MinWidth="148"
+                                            Margin="0,0,0,10"
+                                            Click="BtnRunValidation_Click"/>
+                                    <Button x:Name="BtnExportReport"
+                                            Content="导出 Excel 报告"
+                                            Style="{StaticResource GreenBtn}"
+                                            Padding="20,11"
+                                            MinWidth="148"
+                                            Visibility="Collapsed"
+                                            Click="BtnExportReport_Click"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
 
-                        <CheckBox x:Name="ChkSkipIntFormat" Grid.Column="1"
-                                  Content="忽略整数格式错误" FontSize="12" Foreground="#374151"
-                                  IsChecked="True"
-                                  VerticalAlignment="Center" Margin="0,0,12,0"
-                                  ToolTip="存储过程会做类型转换时可勾选，跳过整数/长整数格式校验"/>
-                        <CheckBox x:Name="ChkSkipUuidFormat" Grid.Column="2"
-                                  Content="忽略 UUID 格式错误" FontSize="12" Foreground="#374151"
-                                  IsChecked="False"
-                                  VerticalAlignment="Center" Margin="0,0,12,0"
-                                  ToolTip="勾选后将跳过 UUID / UNIQUEIDENTIFIER 字段的格式错误校验"/>
-                        <Button x:Name="BtnRunValidation" Grid.Column="3"
-                                Content="▶ 开始校验" Style="{StaticResource PrimaryBtn}"
-                                Padding="16,9" Margin="0,0,8,0"
-                                Click="BtnRunValidation_Click"/>
-                        <Button x:Name="BtnExportReport" Grid.Column="4"
-                                Content="导出 Excel 报告" Style="{StaticResource GreenBtn}"
-                                Padding="16,9" Visibility="Collapsed"
-                                Click="BtnExportReport_Click"/>
+                        <Border x:Name="ProgressPanel"
+                                Grid.Row="1"
+                                Visibility="Collapsed"
+                                Background="#EEF2FF"
+                                BorderBrush="#DDE5FF"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="16,12"
+                                Margin="0,12,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock x:Name="TxtProgress"
+                                               Text="校验中..."
+                                               FontSize="13"
+                                               Foreground="#1E3A8A"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,8"/>
+                                    <ProgressBar x:Name="PbProgress"
+                                                 Height="8"
+                                                 Value="0"
+                                                 Maximum="100"
+                                                 Background="#CBD5E1"
+                                                 Foreground="#4E6EF2"/>
+                                </StackPanel>
+                                <Button x:Name="BtnCancelValidation"
+                                        Grid.Column="1"
+                                        Content="取消"
+                                        Style="{StaticResource GhostBtn}"
+                                        Padding="14,6"
+                                        FontSize="12"
+                                        Margin="14,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Click="BtnCancelValidation_Click"/>
+                            </Grid>
+                        </Border>
                     </Grid>
 
                     <!-- 错误列表 DataGrid -->
@@ -894,7 +1125,19 @@
                                   SelectionMode="Single"
                                   SelectionUnit="FullRow"
                                   VerticalScrollBarVisibility="Auto"
-                                  FontSize="12">
+                                  FontSize="12"
+                                  PreviewKeyDown="DataGrid_PreviewKeyDown"
+                                  PreviewMouseRightButtonDown="DataGrid_PreviewMouseRightButtonDown">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu Style="{StaticResource GridContextMenu}">
+                                    <MenuItem Header="复制当前单元格"
+                                              Style="{StaticResource GridContextMenuItem}"
+                                              Click="CopyCurrentCellMenu_Click"/>
+                                    <MenuItem Header="复制当前行"
+                                              Style="{StaticResource GridContextMenuItem}"
+                                              Click="CopyCurrentRowMenu_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="#" Binding="{Binding RowNumber}" Width="52"/>
                                 <DataGridTextColumn Header="主键" Binding="{Binding PrimaryKeyDisplay}" Width="180"/>
@@ -922,3 +1165,4 @@
         </Border>
     </DockPanel>
 </Page>
+
