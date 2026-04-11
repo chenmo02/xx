@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Globalization;
@@ -49,6 +50,20 @@ namespace WpfApp1.Views
         private bool _isGridEditMode = false;
         private GridLength _leftPanelWidthBeforeFullscreen = new(2, GridUnitType.Star);
         private GridLength _rightPanelWidthBeforeFullscreen = new(3, GridUnitType.Star);
+        private double _leftPanelMinWidthBeforeFullscreen = 250;
+        private double _rightPanelMinWidthBeforeFullscreen = 350;
+        private Thickness _rootLayoutMarginBeforeFullscreen = new(16, 14, 16, 14);
+        private Visibility _pageHeaderVisibilityBeforeFullscreen = Visibility.Visible;
+        private int _gridPanelColumnBeforeFullscreen = 2;
+        private int _gridPanelColumnSpanBeforeFullscreen = 1;
+        private CornerRadius _gridPanelCornerRadiusBeforeFullscreen = new(8);
+        private Thickness _gridScrollViewerPaddingBeforeFullscreen = new(10, 6, 10, 6);
+
+        private static readonly JsonSerializerOptions EditorJsonOptions = new()
+        {
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
 
         // GRID 节点追踪
         private ObservableCollection<JsonGridNode>? _currentNodes;
@@ -118,11 +133,28 @@ namespace WpfApp1.Views
             {
                 _leftPanelWidthBeforeFullscreen = LeftPanelColumn.Width;
                 _rightPanelWidthBeforeFullscreen = RightPanelColumn.Width;
+                _leftPanelMinWidthBeforeFullscreen = LeftPanelColumn.MinWidth;
+                _rightPanelMinWidthBeforeFullscreen = RightPanelColumn.MinWidth;
+                _rootLayoutMarginBeforeFullscreen = RootLayout.Margin;
+                _pageHeaderVisibilityBeforeFullscreen = PageHeader.Visibility;
+                _gridPanelColumnBeforeFullscreen = Grid.GetColumn(GridPanel);
+                _gridPanelColumnSpanBeforeFullscreen = Grid.GetColumnSpan(GridPanel);
+                _gridPanelCornerRadiusBeforeFullscreen = GridPanel.CornerRadius;
+                _gridScrollViewerPaddingBeforeFullscreen = GridScrollViewer.Padding;
+
                 JsonEditorPanel.Visibility = Visibility.Collapsed;
                 JsonToolSplitter.Visibility = Visibility.Collapsed;
+                PageHeader.Visibility = Visibility.Collapsed;
+                RootLayout.Margin = new Thickness(0);
+                LeftPanelColumn.MinWidth = 0;
+                RightPanelColumn.MinWidth = 0;
                 LeftPanelColumn.Width = new GridLength(0);
                 SplitterColumn.Width = new GridLength(0);
                 RightPanelColumn.Width = new GridLength(1, GridUnitType.Star);
+                Grid.SetColumn(GridPanel, 0);
+                Grid.SetColumnSpan(GridPanel, 3);
+                GridPanel.CornerRadius = new CornerRadius(0);
+                GridScrollViewer.Padding = new Thickness(6, 4, 6, 4);
                 BtnToggleGridFullscreen.Content = "\u9000\u51fa\u5168\u5c4f";
                 SetStatus("GRID \u5df2\u8fdb\u5165\u5168\u5c4f\u89c6\u56fe");
             }
@@ -130,9 +162,17 @@ namespace WpfApp1.Views
             {
                 JsonEditorPanel.Visibility = Visibility.Visible;
                 JsonToolSplitter.Visibility = Visibility.Visible;
+                PageHeader.Visibility = _pageHeaderVisibilityBeforeFullscreen;
+                RootLayout.Margin = _rootLayoutMarginBeforeFullscreen;
+                LeftPanelColumn.MinWidth = _leftPanelMinWidthBeforeFullscreen;
+                RightPanelColumn.MinWidth = _rightPanelMinWidthBeforeFullscreen;
                 LeftPanelColumn.Width = _leftPanelWidthBeforeFullscreen;
                 SplitterColumn.Width = new GridLength(8);
                 RightPanelColumn.Width = _rightPanelWidthBeforeFullscreen;
+                Grid.SetColumn(GridPanel, _gridPanelColumnBeforeFullscreen);
+                Grid.SetColumnSpan(GridPanel, _gridPanelColumnSpanBeforeFullscreen);
+                GridPanel.CornerRadius = _gridPanelCornerRadiusBeforeFullscreen;
+                GridScrollViewer.Padding = _gridScrollViewerPaddingBeforeFullscreen;
                 BtnToggleGridFullscreen.Content = "\u5168\u5c4f";
                 SetStatus("\u5df2\u9000\u51fa GRID \u5168\u5c4f\u89c6\u56fe");
             }
@@ -140,12 +180,30 @@ namespace WpfApp1.Views
 
         private void BtnToggleGridEdit_Click(object sender, RoutedEventArgs e)
         {
-            _isGridEditMode = !_isGridEditMode;
-            BtnToggleGridEdit.Content = _isGridEditMode ? "\u7ed3\u675f\u7f16\u8f91" : "\u5f00\u542f\u7f16\u8f91";
+            if (_isGridEditMode)
+                ExitGridEditMode();
+            else
+                EnterGridEditMode();
+        }
+
+        private void EnterGridEditMode()
+        {
+            _isGridEditMode = true;
+            BtnToggleGridEdit.Content = "\u7ed3\u675f\u7f16\u8f91";
             RefreshGridPreservingState();
-            SetStatus(_isGridEditMode
-                ? "\u8868\u683c\u7f16\u8f91\u6a21\u5f0f\u5df2\u5f00\u542f"
-                : "\u8868\u683c\u7f16\u8f91\u6a21\u5f0f\u5df2\u5173\u95ed");
+            SetStatus("\u8868\u683c\u7f16\u8f91\u6a21\u5f0f\u5df2\u5f00\u542f");
+        }
+
+        private void ExitGridEditMode()
+        {
+            if (!_isGridEditMode)
+                return;
+
+            _isGridEditMode = false;
+            BtnToggleGridEdit.Content = "\u5f00\u542f\u7f16\u8f91";
+            RefreshGridPreservingState();
+            Focus();
+            SetStatus("\u8868\u683c\u7f16\u8f91\u6a21\u5f0f\u5df2\u5173\u95ed");
         }
 
         private void RefreshGridPreservingState()
@@ -243,6 +301,8 @@ namespace WpfApp1.Views
                 ToggleGridSearchPanel(false);
             else if (SearchPanel.Visibility == Visibility.Visible)
                 ToggleSearchPanel(false);
+            else if (_isGridEditMode)
+                ExitGridEditMode();
         }
 
         private bool IsGridFocused()
@@ -1434,10 +1494,8 @@ namespace WpfApp1.Views
             if (_isGridEditMode)
                 tableHost.Children.Add(CreateEditModeBanner());
 
-            bool[] summableColumns = node.TableColumns
-                .Select((_, index) => ColumnHasNumericValues(node, index))
-                .ToArray();
-            bool hasSummaryRow = summableColumns.Any(x => x);
+            bool[] summableColumns = Array.Empty<bool>();
+            bool hasSummaryRow = false;
 
             var tableBorder = new Border
             {
@@ -1476,8 +1534,8 @@ namespace WpfApp1.Views
                     _allGridValueTextBlocks.Add(headerTb);
             }
 
-            var summaryCells = new List<TextBlock?>(node.TableColumns.Count);
-            Action refreshSummary = () => UpdateTableSummary(node, summaryCells);
+            var summaryCells = new List<TextBlock?>();
+            Action refreshSummary = static () => { };
 
             for (int r = 0; r < node.TableRows.Count; r++)
             {
@@ -1755,6 +1813,7 @@ namespace WpfApp1.Views
                 else if (e.Key == Key.Escape)
                 {
                     RestoreCommittedValue();
+                    ExitGridEditMode();
                     e.Handled = true;
                 }
             };
@@ -1851,7 +1910,7 @@ namespace WpfApp1.Views
                 return false;
             }
 
-            SetEditorText(rootNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            SetEditorText(rootNode.ToJsonString(EditorJsonOptions));
             SetStatus($"✅ 已更新单元格：{cell.ColumnName}");
             Dispatcher.BeginInvoke(new Action(RefreshGridPreservingState), DispatcherPriority.Background);
             return true;

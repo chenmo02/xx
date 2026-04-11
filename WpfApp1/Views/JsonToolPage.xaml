@@ -72,14 +72,14 @@
         </Style>
     </Page.Resources>
 
-    <Grid Margin="16,14">
+    <Grid x:Name="RootLayout" Margin="16,14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- 标题栏 -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+        <DockPanel x:Name="PageHeader" Grid.Row="0" Margin="0,0,0,10">
             <StackPanel DockPanel.Dock="Left">
                 <TextBlock Text="🔧 JSON 处理工具" FontSize="20" FontWeight="Bold" Foreground="#1A2332"/>
             </StackPanel>
@@ -94,7 +94,7 @@
         </DockPanel>
 
         <!-- 主内容：左 JSON 编辑器 + 右 GRID -->
-        <Grid Grid.Row="1">
+        <Grid x:Name="ContentLayout" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="LeftPanelColumn" Width="2*" MinWidth="250"/>
                 <ColumnDefinition x:Name="SplitterColumn" Width="8"/>

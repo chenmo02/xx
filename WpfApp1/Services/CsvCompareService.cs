@@ -1,4 +1,6 @@
 using System.Data;
+using System.Globalization;
+using System.Text;
 
 namespace WpfApp1.Services
 {
@@ -20,63 +22,35 @@ namespace WpfApp1.Services
 
     public sealed class CsvDiffItem
     {
-        public CsvDiffType DiffType { get; init; }
-
-        public string DiffTypeText { get; init; } = "";
-
-        public string Locator { get; init; } = "";
-
-        public string LocatorKey { get; init; } = "";
-
-        public string ColumnName { get; init; } = "";
-
-        public string LeftValue { get; init; } = "";
-
-        public string RightValue { get; init; } = "";
-
-        public string Message { get; init; } = "";
-
+        public required CsvDiffType DiffType { get; init; }
+        public required string DiffTypeText { get; init; }
+        public required string Locator { get; init; }
+        public required string LocatorKey { get; init; }
+        public string ColumnName { get; init; } = string.Empty;
+        public string LeftValue { get; init; } = string.Empty;
+        public string RightValue { get; init; } = string.Empty;
+        public string Message { get; init; } = string.Empty;
         public int? RowNumber { get; init; }
-
         public int GroupSortOrder { get; init; }
-
-        public string LeftRowPreview { get; init; } = "";
-
-        public string RightRowPreview { get; init; } = "";
+        public string LeftRowPreview { get; init; } = string.Empty;
+        public string RightRowPreview { get; init; } = string.Empty;
     }
 
     public sealed class CsvCompareResult
     {
         public required IReadOnlyList<CsvDiffItem> DiffItems { get; init; }
-
         public required IReadOnlyList<string> ValidationErrors { get; init; }
-
         public int ColumnAddedCount { get; init; }
-
         public int ColumnRemovedCount { get; init; }
-
         public int RowAddedCount { get; init; }
-
         public int RowRemovedCount { get; init; }
-
         public int CellModifiedCount { get; init; }
-
         public int DuplicateKeyCount { get; init; }
-
         public bool HasValidationErrors => ValidationErrors.Count > 0;
     }
 
     public static class CsvCompareService
     {
-        private sealed class ColumnPair
-        {
-            public required string DisplayName { get; init; }
-
-            public required string LeftName { get; init; }
-
-            public required string RightName { get; init; }
-        }
-
         public static CsvCompareResult Compare(
             DataTable leftTable,
             DataTable rightTable,
@@ -85,42 +59,21 @@ namespace WpfApp1.Services
         {
             var diffItems = new List<CsvDiffItem>();
             var validationErrors = new List<string>();
-            var leftColumns = leftTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToList();
-            var rightColumns = rightTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToList();
-            var commonColumns = BuildCommonColumns(leftColumns, rightColumns);
 
-            var leftLookup = leftColumns.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var rightLookup = rightColumns.ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            foreach (string leftOnlyColumn in leftColumns.Where(column => !rightLookup.Contains(column)))
-            {
-                diffItems.Add(CreateDiffItem(
-                    CsvDiffType.ColumnRemoved,
-                    "表头",
-                    $"HEADER:{leftOnlyColumn}",
-                    leftOnlyColumn,
-                    leftOnlyColumn,
-                    "",
-                    "该列仅存在于文件 A",
-                    groupSortOrder: GetGroupSortOrder(CsvDiffType.ColumnRemoved)));
-            }
-
-            foreach (string rightOnlyColumn in rightColumns.Where(column => !leftLookup.Contains(column)))
-            {
-                diffItems.Add(CreateDiffItem(
-                    CsvDiffType.ColumnAdded,
-                    "表头",
-                    $"HEADER:{rightOnlyColumn}",
-                    rightOnlyColumn,
-                    "",
-                    rightOnlyColumn,
-                    "该列仅存在于文件 B",
-                    groupSortOrder: GetGroupSortOrder(CsvDiffType.ColumnAdded)));
-            }
+            var commonColumns = BuildCommonColumns(leftTable, rightTable);
+            AppendHeaderDifferences(leftTable, rightTable, diffItems);
 
             if (mode == CsvCompareMode.ByKeyColumns)
             {
-                CompareByKeyColumns(leftTable, rightTable, commonColumns, keyColumns ?? [], diffItems, validationErrors);
+                var normalizedKeyColumns = (keyColumns ?? [])
+                    .Where(column => !string.IsNullOrWhiteSpace(column))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (normalizedKeyColumns.Count > 0)
+                {
+                    CompareByKeyColumns(leftTable, rightTable, commonColumns, normalizedKeyColumns, diffItems, validationErrors);
+                }
             }
             else
             {
@@ -130,80 +83,127 @@ namespace WpfApp1.Services
             return BuildResult(diffItems, validationErrors);
         }
 
+        private static void AppendHeaderDifferences(DataTable leftTable, DataTable rightTable, List<CsvDiffItem> diffItems)
+        {
+            var rightColumns = new HashSet<string>(rightTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName), StringComparer.OrdinalIgnoreCase);
+            var leftColumns = new HashSet<string>(leftTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName), StringComparer.OrdinalIgnoreCase);
+
+            foreach (DataColumn column in leftTable.Columns)
+            {
+                if (!rightColumns.Contains(column.ColumnName))
+                {
+                    diffItems.Add(CreateDiffItem(
+                        CsvDiffType.ColumnRemoved,
+                        "\u8868\u5934",
+                        "HEADER",
+                        column.ColumnName,
+                        column.ColumnName,
+                        string.Empty,
+                        $"\u8be5\u5b57\u6bb5\u4ec5\u5b58\u5728\u4e8e A \u8868\uff0cB \u8868\u7f3a\u5931\uff1a{column.ColumnName}",
+                        null,
+                        string.Empty,
+                        string.Empty));
+                }
+            }
+
+            foreach (DataColumn column in rightTable.Columns)
+            {
+                if (!leftColumns.Contains(column.ColumnName))
+                {
+                    diffItems.Add(CreateDiffItem(
+                        CsvDiffType.ColumnAdded,
+                        "\u8868\u5934",
+                        "HEADER",
+                        column.ColumnName,
+                        string.Empty,
+                        column.ColumnName,
+                        $"\u8be5\u5b57\u6bb5\u4ec5\u5b58\u5728\u4e8e B \u8868\uff0cA \u8868\u7f3a\u5931\uff1a{column.ColumnName}",
+                        null,
+                        string.Empty,
+                        string.Empty));
+                }
+            }
+        }
+
+        private static List<string> BuildCommonColumns(DataTable leftTable, DataTable rightTable)
+        {
+            var rightColumns = new HashSet<string>(rightTable.Columns.Cast<DataColumn>().Select(column => column.ColumnName), StringComparer.OrdinalIgnoreCase);
+            return leftTable.Columns.Cast<DataColumn>()
+                .Select(column => column.ColumnName)
+                .Where(rightColumns.Contains)
+                .ToList();
+        }
+
         private static void CompareByRowNumber(
             DataTable leftTable,
             DataTable rightTable,
-            IReadOnlyList<ColumnPair> commonColumns,
+            IReadOnlyList<string> commonColumns,
             List<CsvDiffItem> diffItems)
         {
-            int maxRows = Math.Max(leftTable.Rows.Count, rightTable.Rows.Count);
+            int maxRowCount = Math.Max(leftTable.Rows.Count, rightTable.Rows.Count);
 
-            for (int rowIndex = 0; rowIndex < maxRows; rowIndex++)
+            for (int rowIndex = 0; rowIndex < maxRowCount; rowIndex++)
             {
                 int rowNumber = rowIndex + 1;
-                string locator = $"第 {rowNumber} 行";
-                string locatorKey = $"ROW:{rowNumber}";
+                bool hasLeftRow = rowIndex < leftTable.Rows.Count;
+                bool hasRightRow = rowIndex < rightTable.Rows.Count;
 
-                if (rowIndex >= leftTable.Rows.Count)
-                {
-                    DataRow rightRow = rightTable.Rows[rowIndex];
-                    diffItems.Add(CreateDiffItem(
-                        CsvDiffType.RowAdded,
-                        locator,
-                        locatorKey,
-                        "",
-                        "",
-                        "",
-                        "该行仅存在于文件 B",
-                        rowNumber,
-                        GetGroupSortOrder(CsvDiffType.RowAdded),
-                        rightRowPreview: BuildRowPreview(rightRow, commonColumns, useLeftColumns: false)));
-                    continue;
-                }
-
-                if (rowIndex >= rightTable.Rows.Count)
+                if (hasLeftRow && !hasRightRow)
                 {
                     DataRow leftRow = leftTable.Rows[rowIndex];
                     diffItems.Add(CreateDiffItem(
                         CsvDiffType.RowRemoved,
-                        locator,
-                        locatorKey,
-                        "",
-                        "",
-                        "",
-                        "该行仅存在于文件 A",
+                        $"\u7b2c {rowNumber} \u884c",
+                        $"ROW:{rowNumber}",
+                        string.Empty,
+                        BuildRowPreview(leftRow, leftTable.Columns),
+                        string.Empty,
+                        "\u8be5\u884c\u4ec5\u5b58\u5728\u4e8e A \u8868\uff0cB \u8868\u7f3a\u5931",
                         rowNumber,
-                        GetGroupSortOrder(CsvDiffType.RowRemoved),
-                        leftRowPreview: BuildRowPreview(leftRow, commonColumns, useLeftColumns: true)));
+                        BuildRowPreview(leftRow, leftTable.Columns),
+                        string.Empty));
                     continue;
                 }
 
-                DataRow currentLeftRow = leftTable.Rows[rowIndex];
-                DataRow currentRightRow = rightTable.Rows[rowIndex];
-                string leftPreview = BuildRowPreview(currentLeftRow, commonColumns, useLeftColumns: true);
-                string rightPreview = BuildRowPreview(currentRightRow, commonColumns, useLeftColumns: false);
-
-                foreach (ColumnPair columnPair in commonColumns)
+                if (!hasLeftRow && hasRightRow)
                 {
-                    string leftValue = GetCellText(currentLeftRow, columnPair.LeftName);
-                    string rightValue = GetCellText(currentRightRow, columnPair.RightName);
-                    if (string.Equals(leftValue, rightValue, StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
+                    DataRow rightRow = rightTable.Rows[rowIndex];
                     diffItems.Add(CreateDiffItem(
-                        CsvDiffType.CellModified,
-                        locator,
-                        locatorKey,
-                        columnPair.DisplayName,
-                        leftValue,
-                        rightValue,
-                        "同一行同一列的值不同",
+                        CsvDiffType.RowAdded,
+                        $"\u7b2c {rowNumber} \u884c",
+                        $"ROW:{rowNumber}",
+                        string.Empty,
+                        string.Empty,
+                        BuildRowPreview(rightRow, rightTable.Columns),
+                        "\u8be5\u884c\u4ec5\u5b58\u5728\u4e8e B \u8868\uff0cA \u8868\u7f3a\u5931",
                         rowNumber,
-                        GetGroupSortOrder(CsvDiffType.CellModified),
-                        leftPreview,
-                        rightPreview));
+                        string.Empty,
+                        BuildRowPreview(rightRow, rightTable.Columns)));
+                    continue;
+                }
+
+                DataRow leftDataRow = leftTable.Rows[rowIndex];
+                DataRow rightDataRow = rightTable.Rows[rowIndex];
+
+                foreach (string columnName in commonColumns)
+                {
+                    string leftValue = GetCellText(leftDataRow, columnName);
+                    string rightValue = GetCellText(rightDataRow, columnName);
+
+                    if (!string.Equals(leftValue, rightValue, StringComparison.Ordinal))
+                    {
+                        diffItems.Add(CreateDiffItem(
+                            CsvDiffType.CellModified,
+                            $"\u7b2c {rowNumber} \u884c",
+                            $"ROW:{rowNumber}",
+                            columnName,
+                            leftValue,
+                            rightValue,
+                            "\u540c\u4e00\u884c\u540c\u4e00\u5217\u7684\u503c\u4e0d\u4e00\u81f4",
+                            rowNumber,
+                            BuildRowPreview(leftDataRow, leftTable.Columns),
+                            BuildRowPreview(rightDataRow, rightTable.Columns)));
+                    }
                 }
             }
         }
@@ -211,249 +211,204 @@ namespace WpfApp1.Services
         private static void CompareByKeyColumns(
             DataTable leftTable,
             DataTable rightTable,
-            IReadOnlyList<ColumnPair> commonColumns,
-            IReadOnlyList<string> selectedKeyColumns,
+            IReadOnlyList<string> commonColumns,
+            IReadOnlyList<string> keyColumns,
             List<CsvDiffItem> diffItems,
             List<string> validationErrors)
         {
-            var selectedPairs = commonColumns
-                .Where(pair => selectedKeyColumns.Contains(pair.DisplayName, StringComparer.OrdinalIgnoreCase))
+            var comparableColumns = commonColumns
+                .Where(column => !keyColumns.Contains(column, StringComparer.OrdinalIgnoreCase))
                 .ToList();
 
-            if (selectedPairs.Count == 0)
+            var leftLookup = BuildKeyLookup(leftTable, keyColumns, validationErrors, "A", diffItems);
+            var rightLookup = BuildKeyLookup(rightTable, keyColumns, validationErrors, "B", diffItems);
+
+            var allKeys = leftLookup.Keys
+                .Concat(rightLookup.Keys)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(key => key, StringComparer.Ordinal)
+                .ToList();
+
+            foreach (string key in allKeys)
             {
-                validationErrors.Add("主键模式至少需要选择一个公共列。");
-                return;
-            }
+                bool hasLeft = leftLookup.TryGetValue(key, out var leftRows);
+                bool hasRight = rightLookup.TryGetValue(key, out var rightRows);
 
-            Dictionary<string, DataRow> leftRows = BuildKeyLookup(leftTable, commonColumns, selectedPairs, true, diffItems, validationErrors);
-            Dictionary<string, DataRow> rightRows = BuildKeyLookup(rightTable, commonColumns, selectedPairs, false, diffItems, validationErrors);
-
-            if (validationErrors.Count > 0)
-            {
-                return;
-            }
-
-            var leftKeys = leftRows.Keys.ToHashSet(StringComparer.Ordinal);
-            var rightKeys = rightRows.Keys.ToHashSet(StringComparer.Ordinal);
-
-            foreach (string removedKey in leftKeys.Except(rightKeys, StringComparer.Ordinal))
-            {
-                DataRow row = leftRows[removedKey];
-                diffItems.Add(CreateDiffItem(
-                    CsvDiffType.RowRemoved,
-                    BuildKeyLocator(row, selectedPairs, useLeftColumns: true),
-                    $"KEY:{removedKey}",
-                    "",
-                    "",
-                    "",
-                    "该主键仅存在于文件 A",
-                    groupSortOrder: GetGroupSortOrder(CsvDiffType.RowRemoved),
-                    leftRowPreview: BuildRowPreview(row, commonColumns, useLeftColumns: true)));
-            }
-
-            foreach (string addedKey in rightKeys.Except(leftKeys, StringComparer.Ordinal))
-            {
-                DataRow row = rightRows[addedKey];
-                diffItems.Add(CreateDiffItem(
-                    CsvDiffType.RowAdded,
-                    BuildKeyLocator(row, selectedPairs, useLeftColumns: false),
-                    $"KEY:{addedKey}",
-                    "",
-                    "",
-                    "",
-                    "该主键仅存在于文件 B",
-                    groupSortOrder: GetGroupSortOrder(CsvDiffType.RowAdded),
-                    rightRowPreview: BuildRowPreview(row, commonColumns, useLeftColumns: false)));
-            }
-
-            var keyDisplayNames = selectedPairs
-                .Select(pair => pair.DisplayName)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            foreach (string commonKey in leftKeys.Intersect(rightKeys, StringComparer.Ordinal))
-            {
-                DataRow leftRow = leftRows[commonKey];
-                DataRow rightRow = rightRows[commonKey];
-                string locator = BuildKeyLocator(leftRow, selectedPairs, useLeftColumns: true);
-                string leftPreview = BuildRowPreview(leftRow, commonColumns, useLeftColumns: true);
-                string rightPreview = BuildRowPreview(rightRow, commonColumns, useLeftColumns: false);
-
-                foreach (ColumnPair columnPair in commonColumns)
+                if (hasLeft && !hasRight && leftRows != null)
                 {
-                    if (keyDisplayNames.Contains(columnPair.DisplayName))
-                    {
-                        continue;
-                    }
-
-                    string leftValue = GetCellText(leftRow, columnPair.LeftName);
-                    string rightValue = GetCellText(rightRow, columnPair.RightName);
-                    if (string.Equals(leftValue, rightValue, StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
+                    var leftEntry = leftRows[0];
                     diffItems.Add(CreateDiffItem(
-                        CsvDiffType.CellModified,
-                        locator,
-                        $"KEY:{commonKey}",
-                        columnPair.DisplayName,
-                        leftValue,
-                        rightValue,
-                        "相同主键下该列的值不同",
-                        groupSortOrder: GetGroupSortOrder(CsvDiffType.CellModified),
-                        leftRowPreview: leftPreview,
-                        rightRowPreview: rightPreview));
+                        CsvDiffType.RowRemoved,
+                        BuildKeyLocator(keyColumns, leftEntry.Row),
+                        $"KEY:{key}",
+                        string.Empty,
+                        BuildRowPreview(leftEntry.Row, leftTable.Columns),
+                        string.Empty,
+                        "\u8be5\u4e3b\u952e\u4ec5\u5b58\u5728\u4e8e A \u8868\uff0cB \u8868\u7f3a\u5931",
+                        leftEntry.RowNumber,
+                        BuildRowPreview(leftEntry.Row, leftTable.Columns),
+                        string.Empty));
+                    continue;
                 }
-            }
-        }
 
-        private static Dictionary<string, DataRow> BuildKeyLookup(
-            DataTable table,
-            IReadOnlyList<ColumnPair> previewColumns,
-            IReadOnlyList<ColumnPair> keyColumns,
-            bool isLeftSide,
-            List<CsvDiffItem> diffItems,
-            List<string> validationErrors)
-        {
-            var rowsByKey = new Dictionary<string, List<int>>(StringComparer.Ordinal);
-            var firstRowsByKey = new Dictionary<string, DataRow>(StringComparer.Ordinal);
-
-            for (int rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
-            {
-                DataRow row = table.Rows[rowIndex];
-                string compositeKey = BuildCompositeKey(row, keyColumns, isLeftSide);
-
-                if (!rowsByKey.TryGetValue(compositeKey, out List<int>? indexes))
+                if (!hasLeft && hasRight && rightRows != null)
                 {
-                    indexes = [];
-                    rowsByKey[compositeKey] = indexes;
-                    firstRowsByKey[compositeKey] = row;
+                    var rightEntry = rightRows[0];
+                    diffItems.Add(CreateDiffItem(
+                        CsvDiffType.RowAdded,
+                        BuildKeyLocator(keyColumns, rightEntry.Row),
+                        $"KEY:{key}",
+                        string.Empty,
+                        string.Empty,
+                        BuildRowPreview(rightEntry.Row, rightTable.Columns),
+                        "\u8be5\u4e3b\u952e\u4ec5\u5b58\u5728\u4e8e B \u8868\uff0cA \u8868\u7f3a\u5931",
+                        rightEntry.RowNumber,
+                        string.Empty,
+                        BuildRowPreview(rightEntry.Row, rightTable.Columns)));
+                    continue;
                 }
 
-                indexes.Add(rowIndex + 1);
-            }
-
-            foreach ((string compositeKey, List<int> rowIndexes) in rowsByKey.Where(item => item.Value.Count > 1))
-            {
-                DataRow sampleRow = firstRowsByKey[compositeKey];
-                string sideLabel = isLeftSide ? "A" : "B";
-                string locator = BuildKeyLocator(sampleRow, keyColumns, isLeftSide);
-                string rowsText = string.Join(", ", rowIndexes);
-                string leftPreview = isLeftSide ? BuildRowPreview(sampleRow, previewColumns, useLeftColumns: true) : "";
-                string rightPreview = isLeftSide ? "" : BuildRowPreview(sampleRow, previewColumns, useLeftColumns: false);
-
-                validationErrors.Add($"{sideLabel} 文件存在重复主键：{locator}，重复行号：{rowsText}");
-                diffItems.Add(CreateDiffItem(
-                    CsvDiffType.DuplicateKey,
-                    locator,
-                    $"DUP:{sideLabel}:{compositeKey}",
-                    "",
-                    isLeftSide ? rowsText : "",
-                    isLeftSide ? "" : rowsText,
-                    $"{sideLabel} 文件存在重复主键",
-                    groupSortOrder: GetGroupSortOrder(CsvDiffType.DuplicateKey),
-                    leftRowPreview: leftPreview,
-                    rightRowPreview: rightPreview));
-            }
-
-            if (validationErrors.Count > 0)
-            {
-                return new Dictionary<string, DataRow>(StringComparer.Ordinal);
-            }
-
-            return firstRowsByKey;
-        }
-
-        private static IReadOnlyList<ColumnPair> BuildCommonColumns(
-            IReadOnlyList<string> leftColumns,
-            IReadOnlyList<string> rightColumns)
-        {
-            var rightColumnsByName = rightColumns.ToDictionary(column => column, StringComparer.OrdinalIgnoreCase);
-            var columnPairs = new List<ColumnPair>();
-
-            foreach (string leftColumn in leftColumns)
-            {
-                if (!rightColumnsByName.TryGetValue(leftColumn, out string? rightColumn))
+                if (leftRows == null || rightRows == null || leftRows.Count != 1 || rightRows.Count != 1)
                 {
                     continue;
                 }
 
-                columnPairs.Add(new ColumnPair
+                var leftItem = leftRows[0];
+                var rightItem = rightRows[0];
+                string locator = BuildKeyLocator(keyColumns, leftItem.Row);
+                string locatorKey = $"KEY:{key}";
+
+                foreach (string columnName in comparableColumns)
                 {
-                    DisplayName = leftColumn,
-                    LeftName = leftColumn,
-                    RightName = rightColumn
-                });
+                    string leftValue = GetCellText(leftItem.Row, columnName);
+                    string rightValue = GetCellText(rightItem.Row, columnName);
+
+                    if (!string.Equals(leftValue, rightValue, StringComparison.Ordinal))
+                    {
+                        diffItems.Add(CreateDiffItem(
+                            CsvDiffType.CellModified,
+                            locator,
+                            locatorKey,
+                            columnName,
+                            leftValue,
+                            rightValue,
+                            "\u76f8\u540c\u4e3b\u952e\u4e0b\u8be5\u5217\u7684\u503c\u4e0d\u4e00\u81f4",
+                            leftItem.RowNumber,
+                            BuildRowPreview(leftItem.Row, leftTable.Columns),
+                            BuildRowPreview(rightItem.Row, rightTable.Columns)));
+                    }
+                }
+            }
+        }
+
+        private static Dictionary<string, List<RowEntry>> BuildKeyLookup(
+            DataTable table,
+            IReadOnlyList<string> keyColumns,
+            List<string> validationErrors,
+            string sideLabel,
+            List<CsvDiffItem> diffItems)
+        {
+            var lookup = new Dictionary<string, List<RowEntry>>(StringComparer.Ordinal);
+
+            for (int rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
+            {
+                DataRow row = table.Rows[rowIndex];
+                string key = BuildCompositeKey(keyColumns, row);
+
+                if (!lookup.TryGetValue(key, out var entries))
+                {
+                    entries = [];
+                    lookup[key] = entries;
+                }
+
+                entries.Add(new RowEntry(row, rowIndex + 1));
             }
 
-            return columnPairs;
-        }
-
-        private static string BuildCompositeKey(DataRow row, IReadOnlyList<ColumnPair> keyColumns, bool useLeftColumns)
-        {
-            return string.Join("\u001F", keyColumns.Select(pair => GetCellText(row, useLeftColumns ? pair.LeftName : pair.RightName)));
-        }
-
-        private static string BuildKeyLocator(DataRow row, IReadOnlyList<ColumnPair> keyColumns, bool useLeftColumns)
-        {
-            return string.Join(" | ", keyColumns.Select(pair =>
+            foreach ((string key, List<RowEntry> entries) in lookup.Where(pair => pair.Value.Count > 1))
             {
-                string value = GetCellText(row, useLeftColumns ? pair.LeftName : pair.RightName);
-                return $"{pair.DisplayName}={FormatLocatorValue(value)}";
-            }));
+                string duplicatedRows = string.Join("\u3001", entries.Select(entry => entry.RowNumber.ToString(CultureInfo.InvariantCulture)));
+                string message = $"{sideLabel} \u8868\u5b58\u5728\u91cd\u590d\u4e3b\u952e\uff1a{FormatLocatorValue(key)}\uff0c\u91cd\u590d\u884c\u53f7\uff1a{duplicatedRows}";
+                validationErrors.Add(message);
+
+                foreach (RowEntry entry in entries)
+                {
+                    diffItems.Add(CreateDiffItem(
+                        CsvDiffType.DuplicateKey,
+                        BuildKeyLocator(keyColumns, entry.Row),
+                        $"DUP:{sideLabel}:{key}",
+                        string.Empty,
+                        sideLabel == "A" ? BuildRowPreview(entry.Row, table.Columns) : string.Empty,
+                        sideLabel == "B" ? BuildRowPreview(entry.Row, table.Columns) : string.Empty,
+                        message,
+                        entry.RowNumber,
+                        sideLabel == "A" ? BuildRowPreview(entry.Row, table.Columns) : string.Empty,
+                        sideLabel == "B" ? BuildRowPreview(entry.Row, table.Columns) : string.Empty));
+                }
+            }
+
+            return lookup;
+        }
+
+        private static string BuildCompositeKey(IReadOnlyList<string> keyColumns, DataRow row)
+        {
+            var parts = keyColumns
+                .Select(column => $"{column}={GetCellText(row, column)}")
+                .ToArray();
+
+            return string.Join("\u001f", parts);
+        }
+
+        private static string BuildKeyLocator(IReadOnlyList<string> keyColumns, DataRow row)
+        {
+            var parts = keyColumns
+                .Select(column => $"{column}={FormatLocatorValue(GetCellText(row, column))}")
+                .ToArray();
+
+            return string.Join("\u3001", parts);
         }
 
         private static string FormatLocatorValue(string value)
-            => string.IsNullOrEmpty(value) ? "(空)" : value;
-
-        private static string BuildRowPreview(DataRow row, IReadOnlyList<ColumnPair> columnPairs, bool useLeftColumns)
         {
-            IEnumerable<(string DisplayName, string ColumnName)> previewColumns;
-            if (columnPairs.Count > 0)
+            return string.IsNullOrWhiteSpace(value) ? "(\u7a7a)" : value;
+        }
+
+        private static string BuildRowPreview(DataRow row, DataColumnCollection columns)
+        {
+            var parts = new List<string>();
+
+            for (int index = 0; index < columns.Count && index < 4; index++)
             {
-                previewColumns = columnPairs.Select(pair => (pair.DisplayName, useLeftColumns ? pair.LeftName : pair.RightName));
-            }
-            else
-            {
-                previewColumns = row.Table.Columns.Cast<DataColumn>().Select(column => (column.ColumnName, column.ColumnName));
+                string columnName = columns[index].ColumnName;
+                parts.Add($"{columnName}={FormatPreviewValue(GetCellText(row, columnName))}");
             }
 
-            var pairs = previewColumns.Take(4).ToList();
-            if (pairs.Count == 0)
-            {
-                return "(空行)";
-            }
-
-            var segments = new List<string>(pairs.Count);
-            foreach ((string displayName, string columnName) in pairs)
-            {
-                segments.Add($"{displayName}={FormatPreviewValue(GetCellText(row, columnName))}");
-            }
-
-            if (previewColumns.Skip(4).Any())
-            {
-                segments.Add("…");
-            }
-
-            return string.Join("；", segments);
+            return string.Join(" | ", parts);
         }
 
         private static string FormatPreviewValue(string value)
         {
-            if (string.IsNullOrEmpty(value))
+            if (string.IsNullOrWhiteSpace(value))
             {
-                return "(空)";
+                return "(\u7a7a)";
             }
 
-            const int maxLength = 24;
-            return value.Length <= maxLength ? value : $"{value[..maxLength]}…";
+            if (value.Length <= 28)
+            {
+                return value;
+            }
+
+            return $"{value[..25]}...";
         }
 
         private static string GetCellText(DataRow row, string columnName)
         {
-            object? value = row[columnName];
-            return value == DBNull.Value ? string.Empty : value?.ToString() ?? string.Empty;
+            if (!row.Table.Columns.Contains(columnName))
+            {
+                return string.Empty;
+            }
+
+            object value = row[columnName];
+            return value == DBNull.Value ? string.Empty : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         private static CsvDiffItem CreateDiffItem(
@@ -464,10 +419,9 @@ namespace WpfApp1.Services
             string leftValue,
             string rightValue,
             string message,
-            int? rowNumber = null,
-            int groupSortOrder = 0,
-            string leftRowPreview = "",
-            string rightRowPreview = "")
+            int? rowNumber,
+            string leftRowPreview,
+            string rightRowPreview)
         {
             return new CsvDiffItem
             {
@@ -480,40 +434,46 @@ namespace WpfApp1.Services
                 RightValue = rightValue,
                 Message = message,
                 RowNumber = rowNumber,
-                GroupSortOrder = groupSortOrder,
+                GroupSortOrder = GetGroupSortOrder(diffType),
                 LeftRowPreview = leftRowPreview,
                 RightRowPreview = rightRowPreview
             };
         }
 
-        private static int GetGroupSortOrder(CsvDiffType diffType) => diffType switch
+        private static int GetGroupSortOrder(CsvDiffType diffType)
         {
-            CsvDiffType.DuplicateKey => 0,
-            CsvDiffType.ColumnRemoved => 10,
-            CsvDiffType.ColumnAdded => 11,
-            CsvDiffType.RowRemoved => 20,
-            CsvDiffType.RowAdded => 30,
-            CsvDiffType.CellModified => 40,
-            _ => 99
-        };
+            return diffType switch
+            {
+                CsvDiffType.ColumnRemoved => 1,
+                CsvDiffType.ColumnAdded => 2,
+                CsvDiffType.DuplicateKey => 3,
+                CsvDiffType.RowRemoved => 4,
+                CsvDiffType.RowAdded => 5,
+                CsvDiffType.CellModified => 6,
+                _ => 99
+            };
+        }
 
-        private static string GetDiffTypeText(CsvDiffType diffType) => diffType switch
+        private static string GetDiffTypeText(CsvDiffType diffType)
         {
-            CsvDiffType.ColumnAdded => "列新增",
-            CsvDiffType.ColumnRemoved => "列删除",
-            CsvDiffType.RowAdded => "行新增",
-            CsvDiffType.RowRemoved => "行删除",
-            CsvDiffType.CellModified => "单元格修改",
-            CsvDiffType.DuplicateKey => "主键重复",
-            _ => "未知差异"
-        };
+            return diffType switch
+            {
+                CsvDiffType.ColumnAdded => "\u5b57\u6bb5\u65b0\u589e",
+                CsvDiffType.ColumnRemoved => "\u5b57\u6bb5\u7f3a\u5931",
+                CsvDiffType.RowAdded => "\u884c\u65b0\u589e",
+                CsvDiffType.RowRemoved => "\u884c\u7f3a\u5931",
+                CsvDiffType.CellModified => "\u5355\u5143\u683c\u5dee\u5f02",
+                CsvDiffType.DuplicateKey => "\u4e3b\u952e\u91cd\u590d",
+                _ => string.Empty
+            };
+        }
 
-        private static CsvCompareResult BuildResult(IReadOnlyList<CsvDiffItem> diffItems, IReadOnlyList<string> validationErrors)
+        private static CsvCompareResult BuildResult(List<CsvDiffItem> diffItems, List<string> validationErrors)
         {
             return new CsvCompareResult
             {
-                DiffItems = diffItems.ToList(),
-                ValidationErrors = validationErrors.ToList(),
+                DiffItems = diffItems,
+                ValidationErrors = validationErrors,
                 ColumnAddedCount = diffItems.Count(item => item.DiffType == CsvDiffType.ColumnAdded),
                 ColumnRemovedCount = diffItems.Count(item => item.DiffType == CsvDiffType.ColumnRemoved),
                 RowAddedCount = diffItems.Count(item => item.DiffType == CsvDiffType.RowAdded),
@@ -522,5 +482,7 @@ namespace WpfApp1.Services
                 DuplicateKeyCount = diffItems.Count(item => item.DiffType == CsvDiffType.DuplicateKey)
             };
         }
+
+        private readonly record struct RowEntry(DataRow Row, int RowNumber);
     }
 }

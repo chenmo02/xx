@@ -68,7 +68,7 @@
                 <Border DockPanel.Dock="Top" Height="1" Background="#EBEBEB" Margin="14,0"/>
 
                 <Border DockPanel.Dock="Bottom" Padding="14,10">
-                    <TextBlock Text="v2.1.0  ©2026 CC Team" FontSize="10" Foreground="#BBB" HorizontalAlignment="Center"/>
+                    <TextBlock Text="v2.1.2  ©2026 CC Team" FontSize="10" Foreground="#BBB" HorizontalAlignment="Center"/>
                 </Border>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">

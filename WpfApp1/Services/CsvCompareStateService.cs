@@ -4,6 +4,7 @@ namespace WpfApp1.Services
 {
     public sealed class CsvCompareCachedFile
     {
+        public required string FilePath { get; init; }
         public required string FileName { get; init; }
         public required long FileSize { get; init; }
         public required string Delimiter { get; init; }

@@ -26,6 +26,10 @@ namespace WpfApp1.Views
         private ObservableCollection<DvMappingRow> _mappings = [];
         private DvValidationResult? _lastResult;
 
+        // true = 目标表结构发生了变化（DDL 重新解析或重新导入），需要重建字段映射
+        // false = 仅源数据变化，保留已有映射
+        private bool _structureChanged = true;
+
         // ── 异步校验 ─────────────────────────────────────────────
         private CancellationTokenSource? _cts;
 
@@ -46,6 +50,9 @@ namespace WpfApp1.Views
             // 拦截大文本粘贴，显示遮罩
             DataObject.AddPastingHandler(TxtDdl, OnDdlPasting);
             DataObject.AddPastingHandler(TxtInsert, OnInsertPasting);
+
+            // INSERT 文本变动后立刻使旧解析结果失效，防止用旧数据继续走流程
+            TxtInsert.TextChanged += TxtInsert_TextChanged;
         }
 
         private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -199,15 +206,41 @@ namespace WpfApp1.Views
         //  步骤导航
         // ══════════════════════════════════════════════════════════
 
-        private void BtnNext_Click(object sender, RoutedEventArgs e)
+        private async void BtnNext_Click(object sender, RoutedEventArgs e)
         {
+            // Step 2 → Step 3：始终重新解析当前 INSERT 文本，保证源数据是最新的
+            if (_step == 2 && RbInsertMode.IsChecked == true)
+            {
+                if (string.IsNullOrWhiteSpace(TxtInsert.Text))
+                {
+                    SetStatus("请先输入 INSERT INTO 语句", true);
+                    return;
+                }
+                bool ok = await TryParseInsertAsync();
+                if (!ok) return;
+            }
+
             if (!CanGoNext(out string? err))
             {
                 SetStatus(err ?? "请先完成当前步骤", true);
                 return;
             }
             _step++;
-            if (_step == 3) BuildMappings();
+
+            if (_step == 3)
+            {
+                if (_structureChanged || _mappings.Count == 0)
+                {
+                    // 目标表结构变了（或首次进入）→ 重建字段映射
+                    BuildMappings();
+                }
+                else
+                {
+                    // 结构未变，只是换了一批源数据 → 保留用户已确认的映射，仅刷新辅助信息
+                    RefreshMappingSourceDropdowns();
+                }
+            }
+
             UpdateStepUI();
             SetStatus("");
         }
@@ -471,6 +504,7 @@ namespace WpfApp1.Views
                 }
 
                 _targetColumns = DdlParser.Parse(TxtDdl.Text, dbType);
+                _structureChanged = true; // 目标表结构已变更，下次进入 Step3 需重建映射
 
                 // 自动提取表名
                 var extractedName = DdlParser.ExtractTableName(TxtDdl.Text);
@@ -505,6 +539,7 @@ namespace WpfApp1.Views
             {
                 var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 _targetColumns = ReadStructExcel(dlg.FileName, dbType);
+                _structureChanged = true; // 目标表结构已变更，下次进入 Step3 需重建映射
                 TxtStructExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
                 SetStatus($"结构 Excel 导入成功，共 {_targetColumns.Count} 个字段");
             }
@@ -596,26 +631,50 @@ namespace WpfApp1.Views
             DataExcelInner.BorderThickness = new Thickness(isInsert ? 1 : 0);
         }
 
+        private void TxtInsert_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            // INSERT 文本内容变动 → 旧解析结果失效，强制用户重新解析
+            // _sourceData == null 说明本来就没解析过，无需处理
+            if (_sourceData == null) return;
+
+            _sourceData = null;
+            SourceHeaders = [];
+            TxtInsertStatus.Text = "内容已修改，请重新点击「解析 INSERT」";
+            TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
+        }
+
         private void BtnClearInsert_Click(object sender, RoutedEventArgs e)
         {
-            TxtInsert.Clear();
-            TxtInsertStatus.Text = "";
-            _sourceData = null;
+            TxtInsert.Clear();           // 触发 TxtInsert_TextChanged，自动清 _sourceData
+            TxtInsertStatus.Text = "";   // 清空按钮本身再把提示抹掉
+            TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139));
             SourceHeaders = [];
             SetStatus("");
         }
 
         private async void BtnParseInsert_Click(object sender, RoutedEventArgs e)
         {
-            var sql = TxtInsert.Text;
-            if (string.IsNullOrWhiteSpace(sql))
+            if (string.IsNullOrWhiteSpace(TxtInsert.Text))
             {
                 TxtInsertStatus.Text = "⌛️ SQL 语句为空";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 return;
             }
+            await TryParseInsertAsync();
+        }
+
+        /// <summary>
+        /// 解析当前 TxtInsert 内容，更新 _sourceData 和 SourceHeaders。
+        /// 返回 true 表示解析成功。
+        /// BtnParseInsert_Click 和 BtnNext_Click（Step2→3）均调用此方法，
+        /// 保证每次进入字段映射步骤使用的都是最新数据。
+        /// </summary>
+        private async Task<bool> TryParseInsertAsync()
+        {
+            var sql = TxtInsert.Text;
 
             BtnNext.IsEnabled = false;
+            BtnBack.IsEnabled = false;
             TxtInsertStatus.Text = "⌛️ 解析中...";
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139));
 
@@ -630,16 +689,21 @@ namespace WpfApp1.Views
                     SetStatus($"注意：{warning}");
                 else
                     SetStatus($"INSERT 解析成功，共 {rows.Count} 行");
+                return true;
             }
             catch (Exception ex)
             {
-                TxtInsertStatus.Text = $"? 解析失败: {ex.Message}";
+                TxtInsertStatus.Text = $"解析失败: {ex.Message}";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 _sourceData = null;
+                SourceHeaders = [];
+                SetStatus("INSERT 解析失败，请检查语句格式", true);
+                return false;
             }
             finally
             {
                 BtnNext.IsEnabled = true;
+                BtnBack.IsEnabled = true;
             }
         }
 
@@ -698,16 +762,50 @@ namespace WpfApp1.Views
             _mappings = new ObservableCollection<DvMappingRow>(
                 FieldMatcherService.AutoMap(_targetColumns, _sourceData!.Headers));
             DgMapping.ItemsSource = _mappings;
+            _structureChanged = false; // 映射已基于当前结构重建，标志复位
 
-            // 填充主键下拉选项
+            RefreshMappingPkDropdowns(resetSelection: true); // 结构变了，主键选择也重置
+            UpdateMappingInfo();
+        }
+
+        /// <summary>
+        /// 保留 _mappings 里的映射数据，但强制 DataGrid 重新生成所有行。
+        /// 必须这样做：SourceHeaders 没有 INotifyPropertyChanged，
+        /// 直接替换列表引用后既有行的 ComboBox 不会自动读到新列表，
+        /// 重置 ItemsSource 才能让新 ComboBox 实例绑定到最新的 SourceHeaders。
+        /// </summary>
+        private void RefreshMappingSourceDropdowns()
+        {
+            DgMapping.ItemsSource = null;
+            DgMapping.ItemsSource = _mappings;   // _mappings 对象不变，映射数据全部保留
+
+            RefreshMappingPkDropdowns();
+            UpdateMappingInfo();
+        }
+
+        private void RefreshMappingPkDropdowns(bool resetSelection = false)
+        {
+            // 记录刷新前的选择
+            string? prevPk1 = CbPk1.SelectedItem as string;
+            string? prevPk2 = CbPk2.SelectedItem as string;
+
             var pkOptions = new List<string> { "(无)" };
             pkOptions.AddRange(SourceHeaders);
             CbPk1.ItemsSource = pkOptions;
             CbPk2.ItemsSource = pkOptions;
-            CbPk1.SelectedIndex = 0;
-            CbPk2.SelectedIndex = 0;
 
-            UpdateMappingInfo();
+            if (resetSelection)
+            {
+                // 结构重建时才重置（首次或 DDL 变更）
+                CbPk1.SelectedIndex = 0;
+                CbPk2.SelectedIndex = 0;
+            }
+            else
+            {
+                // 保留之前选中的主键列；若新批次没有该列则退回"(无)"
+                CbPk1.SelectedItem = pkOptions.Contains(prevPk1 ?? "") ? prevPk1 : pkOptions[0];
+                CbPk2.SelectedItem = pkOptions.Contains(prevPk2 ?? "") ? prevPk2 : pkOptions[0];
+            }
         }
 
         private void BtnAutoMap_Click(object sender, RoutedEventArgs e)
@@ -780,8 +878,8 @@ namespace WpfApp1.Views
             int autoGen = _mappings.Count(m => m.IsAutoGenCandidate && m.MappingType == DvMappingType.Ignore);
             RunMappingInfo.Text =
                 $"  共 {_mappings.Count} 个字段，已映射 {mapped}，已确认 {confirmed}" +
-                (autoGen > 0 ? $"，?? {autoGen} 个自动生成字段已忽略" : "") +
-                (required > 0 ? $"，? {required} 个必填未映射" : "");
+                (autoGen > 0 ? $"，⌛️ {autoGen} 个自动生成字段已忽略" : "") +
+                (required > 0 ? $"，⌛️ {required} 个必填未映射" : "");
         }
 
         // ══════════════════════════════════════════════════════════
@@ -790,7 +888,33 @@ namespace WpfApp1.Views
 
         private async void BtnRunValidation_Click(object sender, RoutedEventArgs e)
         {
-            if (_sourceData == null || _targetColumns.Count == 0) return;
+            if (_targetColumns.Count == 0) return;
+
+            // INSERT 模式：始终重新解析当前文本，保证用最新数据校验，
+            // 彻底排除缓存/导航时序导致 _sourceData 过期的问题。
+            // Panel2 此时已折叠，只悄悄重新解析，不操作 Step2 的 UI 控件。
+            if (RbInsertMode.IsChecked == true)
+            {
+                if (string.IsNullOrWhiteSpace(TxtInsert.Text))
+                {
+                    SetStatus("源数据为空，请返回数据输入步骤粘贴 INSERT 语句", true);
+                    return;
+                }
+                var sql = TxtInsert.Text;
+                try
+                {
+                    var (headers, rows, _) = await Task.Run(() => InsertStatementParser.Parse(sql));
+                    _sourceData = new DvSourceData { Headers = headers, Rows = rows };
+                    SourceHeaders = [.. headers];
+                }
+                catch (Exception ex)
+                {
+                    SetStatus($"INSERT 解析失败，请返回数据输入步骤检查语句：{ex.Message}", true);
+                    return;
+                }
+            }
+
+            if (_sourceData == null) return;
 
             // 重置上一次结果
             _lastResult = null;

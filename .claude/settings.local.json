@@ -4,7 +4,10 @@
       "Bash(del:*)",
       "Bash(dotnet publish:*)",
       "Bash(dotnet build:*)",
-      "Bash(echo \"---EXIT:$?---\")"
+      "Bash(echo \"---EXIT:$?---\")",
+      "Bash(dotnet --version)",
+      "Bash(ls:*)",
+      "Bash(git:*)"
     ]
   }
 }
