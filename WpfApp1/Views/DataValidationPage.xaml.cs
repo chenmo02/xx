@@ -168,8 +168,9 @@ namespace WpfApp1.Views
                     _ => string.Empty
                 },
                 6 => mapping.MatchMethodText,
-                7 => mapping.ConfidenceText,
-                8 => mapping.IsConfirmed ? "是" : "否",
+                7 => mapping.MatchReasonText,
+                8 => mapping.ConfidenceText,
+                9 => mapping.IsConfirmed ? "是" : "否",
                 _ => string.Empty
             };
         }
@@ -270,24 +271,122 @@ namespace WpfApp1.Views
                     return true;
 
                 case 3:
-                    // 检查必填字段是否全部映射并确认（自动生成字段如 uuid 除外）
-                    var unconfirmed = _mappings.Where(m => !m.IsConfirmed).ToList();
-                    var requiredIgnored = _mappings
-                        .Where(m => m.IsRequired && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate).ToList();
-                    if (requiredIgnored.Any())
+                    if (!EnsureMappingsReadyForValidation(out err))
                     {
                         TxtMappingHint.Visibility = Visibility.Visible;
-                        err = $"有 {requiredIgnored.Count} 个必填字段未映射";
                         return false;
                     }
-                    if (unconfirmed.Any())
-                    { err = $"还有 {unconfirmed.Count} 个字段未确认，请点击[全部确认]或逐行确认"; return false; }
+
                     TxtMappingHint.Visibility = Visibility.Collapsed;
                     return true;
 
                 default:
                     return false; // Step 4 没有"下一步"
             }
+        }
+
+        private bool HasValidSourceMapping(DvMappingRow mapping, ISet<string>? currentHeaderSet = null)
+        {
+            if (mapping.MappingType != DvMappingType.Source)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(mapping.SourceColumnName))
+                return false;
+
+            currentHeaderSet ??= new HashSet<string>(SourceHeaders, StringComparer.OrdinalIgnoreCase);
+            return currentHeaderSet.Contains(mapping.SourceColumnName);
+        }
+
+        private void ApplySuggestedSourceMapping(DvMappingRow mapping, DvMappingRow suggestion)
+        {
+            mapping.MappingType = DvMappingType.Source;
+            mapping.SourceColumnName = suggestion.SourceColumnName;
+            mapping.ConstantValue = null;
+            mapping.MatchMethod = suggestion.MatchMethod;
+            mapping.Confidence = suggestion.Confidence;
+            mapping.MatchReason = suggestion.MatchReason;
+            mapping.NeedsConfirmation = suggestion.NeedsConfirmation;
+            mapping.IsAutoGenCandidate = suggestion.IsAutoGenCandidate;
+            mapping.IsConfirmed = suggestion.IsConfirmed;
+            mapping.WasAutoIgnored = false;
+        }
+
+        private void ResetToIgnoredMapping(DvMappingRow mapping, string? reason = null)
+        {
+            mapping.MappingType = DvMappingType.Ignore;
+            mapping.SourceColumnName = null;
+            mapping.ConstantValue = null;
+            mapping.MatchMethod = DvMatchMethod.Manual;
+            mapping.Confidence = 0;
+            mapping.MatchReason = reason ?? "原来源字段已失效，已重置为忽略";
+            mapping.NeedsConfirmation = false;
+            mapping.IsConfirmed = mapping.IsAutoGenCandidate || !mapping.IsRequired;
+            mapping.WasAutoIgnored = true;
+        }
+
+        private static bool IsUserSelectionChange(object sender)
+            => sender is ComboBox combo && (combo.IsDropDownOpen || combo.IsKeyboardFocusWithin);
+
+        private static void SetManualMatchState(
+            DvMappingRow mapping,
+            string reason,
+            bool isConfirmed,
+            bool wasAutoIgnored = false)
+        {
+            mapping.MatchMethod = DvMatchMethod.Manual;
+            mapping.Confidence = 0;
+            mapping.MatchReason = reason;
+            mapping.NeedsConfirmation = false;
+            mapping.IsConfirmed = isConfirmed;
+            mapping.WasAutoIgnored = wasAutoIgnored;
+        }
+
+        // Validation can start only when the current mapping set is still usable for
+        // the latest source batch:
+        // - there is at least one mapping row,
+        // - every source mapping still points to an existing source header,
+        // - required fields are not left ignored unless they are safe auto-gen fields,
+        // - all pending mappings have been confirmed.
+        private bool EnsureMappingsReadyForValidation(out string? err)
+        {
+            err = null;
+            if (_mappings.Count == 0)
+            {
+                err = "请先完成字段映射";
+                return false;
+            }
+
+            var currentHeaderSet = new HashSet<string>(SourceHeaders, StringComparer.OrdinalIgnoreCase);
+
+            var invalidSourceMappings = _mappings
+                .Where(m => m.MappingType == DvMappingType.Source && !HasValidSourceMapping(m, currentHeaderSet))
+                .ToList();
+            if (invalidSourceMappings.Count > 0)
+            {
+                string names = string.Join("、", invalidSourceMappings.Take(3).Select(m => m.TargetColumnName));
+                if (invalidSourceMappings.Count > 3)
+                    names += " 等字段";
+                err = $"有 {invalidSourceMappings.Count} 个源字段映射已失效，请检查：{names}";
+                return false;
+            }
+
+            var requiredIgnored = _mappings
+                .Where(m => m.IsRequired && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate)
+                .ToList();
+            if (requiredIgnored.Count > 0)
+            {
+                err = $"仍有 {requiredIgnored.Count} 个必填字段未映射";
+                return false;
+            }
+
+            var unconfirmed = _mappings.Where(m => !m.IsConfirmed).ToList();
+            if (unconfirmed.Count > 0)
+            {
+                err = $"仍有 {unconfirmed.Count} 个字段映射待确认";
+                return false;
+            }
+
+            return true;
         }
 
         private void UpdateStepUI()
@@ -638,17 +737,20 @@ namespace WpfApp1.Views
             if (_sourceData == null) return;
 
             _sourceData = null;
-            SourceHeaders = [];
+            ClearValidationResultState();
             TxtInsertStatus.Text = "内容已修改，请重新点击「解析 INSERT」";
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
+            SetStatus("INSERT 内容已修改，请重新解析后再校验");
         }
 
         private void BtnClearInsert_Click(object sender, RoutedEventArgs e)
         {
             TxtInsert.Clear();           // 触发 TxtInsert_TextChanged，自动清 _sourceData
+            _sourceData = null;
             TxtInsertStatus.Text = "";   // 清空按钮本身再把提示抹掉
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139));
             SourceHeaders = [];
+            ClearValidationResultState();
             SetStatus("");
         }
 
@@ -681,8 +783,7 @@ namespace WpfApp1.Views
             try
             {
                 var (headers, rows, warning) = await Task.Run(() => InsertStatementParser.Parse(sql));
-                _sourceData = new DvSourceData { Headers = headers, Rows = rows };
-                SourceHeaders = [.. headers];
+                ApplyParsedSourceData(new DvSourceData { Headers = headers, Rows = rows });
                 TxtInsertStatus.Text = $"⌛️ 已解析 {rows.Count} 行 × {headers.Count} 列";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 if (warning != null)
@@ -717,10 +818,10 @@ namespace WpfApp1.Views
             if (dlg.ShowDialog() != true) return;
             try
             {
-                _sourceData = ReadDataExcel(dlg.FileName);
-                SourceHeaders = [.. _sourceData.Headers];
-                TxtDataExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — {_sourceData.RowCount} 行 × {_sourceData.Headers.Count} 列";
-                SetStatus($"数据 Excel 导入成功，共 {_sourceData.RowCount} 行");
+                var sourceData = ReadDataExcel(dlg.FileName);
+                ApplyParsedSourceData(sourceData);
+                TxtDataExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — {sourceData.RowCount} 行 × {sourceData.Headers.Count} 列";
+                SetStatus($"数据 Excel 导入成功，共 {sourceData.RowCount} 行");
             }
             catch (Exception ex)
             {
@@ -783,6 +884,79 @@ namespace WpfApp1.Views
             UpdateMappingInfo();
         }
 
+        private void ApplyParsedSourceData(DvSourceData sourceData)
+        {
+            var previousHeaders = SourceHeaders.ToList();
+            _sourceData = sourceData;
+            SourceHeaders = [.. sourceData.Headers];
+
+            bool headersChanged = !previousHeaders.SequenceEqual(SourceHeaders, StringComparer.OrdinalIgnoreCase);
+
+            ClearValidationResultState();
+
+            if (_mappings.Count == 0)
+                return;
+
+            RepairMappingsAfterSourceRefresh(headersChanged);
+            RefreshMappingSourceDropdowns();
+        }
+
+        private void RepairMappingsAfterSourceRefresh(bool headersChanged)
+        {
+            if (_mappings.Count == 0 || _targetColumns.Count == 0)
+            {
+                RefreshMappingPkDropdowns();
+                UpdateMappingInfo();
+                return;
+            }
+
+            var currentHeaderSet = new HashSet<string>(SourceHeaders, StringComparer.OrdinalIgnoreCase);
+            var autoMappings = FieldMatcherService.AutoMap(_targetColumns, SourceHeaders)
+                .ToDictionary(m => m.TargetColumnName, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var mapping in _mappings)
+            {
+                if (HasValidSourceMapping(mapping, currentHeaderSet))
+                    continue;
+
+                bool hasSuggestedSource =
+                    autoMappings.TryGetValue(mapping.TargetColumnName, out var suggestion) &&
+                    suggestion.MappingType == DvMappingType.Source &&
+                    !string.IsNullOrWhiteSpace(suggestion.SourceColumnName) &&
+                    currentHeaderSet.Contains(suggestion.SourceColumnName);
+
+                if (mapping.MappingType == DvMappingType.Ignore && !mapping.WasAutoIgnored)
+                    continue;
+
+                if (!hasSuggestedSource)
+                {
+                    if (mapping.MappingType == DvMappingType.Source)
+                        ResetToIgnoredMapping(mapping, "原来源字段已失效，且未找到新的匹配项");
+                    continue;
+                }
+
+                if (mapping.MappingType == DvMappingType.Source ||
+                    mapping.MappingType == DvMappingType.Ignore ||
+                    headersChanged)
+                    ApplySuggestedSourceMapping(mapping, suggestion!);
+            }
+
+            RefreshMappingPkDropdowns();
+            UpdateMappingInfo();
+        }
+
+        private void ClearValidationResultState()
+        {
+            _lastResult = null;
+
+            if (DgIssues != null)
+                DgIssues.ItemsSource = null;
+            if (SummaryCard != null)
+                SummaryCard.Visibility = Visibility.Collapsed;
+            if (BtnExportReport != null)
+                BtnExportReport.Visibility = Visibility.Collapsed;
+        }
+
         private void RefreshMappingPkDropdowns(bool resetSelection = false)
         {
             // 记录刷新前的选择
@@ -837,11 +1011,13 @@ namespace WpfApp1.Views
             foreach (var m in _mappings.Where(m => m.IsAutoGenCandidate))
             {
                 m.MappingType = DvMappingType.Ignore;
-                m.IsConfirmed = true;
+                m.SourceColumnName = null;
+                m.ConstantValue = null;
+                SetManualMatchState(m, "批量忽略 UUID 自动生成字段", isConfirmed: true, wasAutoIgnored: true);
                 count++;
             }
             UpdateMappingInfo();
-            SetStatus(count > 0 ? $"已忽略 {count} 个 UUID 字段" : "没有 UUID 类型字段");
+            SetStatus(count > 0 ? $"已忽略 {count} 个自动生成 UUID 字段" : "没有可忽略的自动生成 UUID 字段");
         }
 
         private void BtnConfirmAll_Click(object sender, RoutedEventArgs e)
@@ -855,6 +1031,56 @@ namespace WpfApp1.Views
 
         private void MappingType_Changed(object sender, SelectionChangedEventArgs e)
         {
+            if (sender is FrameworkElement { DataContext: DvMappingRow mapping })
+            {
+                if (!IsUserSelectionChange(sender))
+                {
+                    UpdateMappingInfo();
+                    return;
+                }
+
+                switch (mapping.MappingType)
+                {
+                    case DvMappingType.Source:
+                        SetManualMatchState(
+                            mapping,
+                            string.IsNullOrWhiteSpace(mapping.SourceColumnName)
+                                ? "手动切换为源字段映射，待选择来源字段"
+                                : "手动选择源字段",
+                            isConfirmed: !string.IsNullOrWhiteSpace(mapping.SourceColumnName));
+                        break;
+
+                    case DvMappingType.Constant:
+                        SetManualMatchState(mapping, "手动切换为固定值", isConfirmed: true);
+                        break;
+
+                    default:
+                        SetManualMatchState(
+                            mapping,
+                            mapping.IsAutoGenCandidate ? "手动忽略字段（UUID 自动生成候选）" : "手动忽略字段",
+                            isConfirmed: true);
+                        break;
+                }
+            }
+            UpdateMappingInfo();
+        }
+
+        private void SourceColumn_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: DvMappingRow mapping } ||
+                !IsUserSelectionChange(sender) ||
+                mapping.MappingType != DvMappingType.Source)
+            {
+                return;
+            }
+
+            SetManualMatchState(
+                mapping,
+                string.IsNullOrWhiteSpace(mapping.SourceColumnName)
+                    ? "手动清空来源字段，待重新选择"
+                    : "手动选择源字段",
+                isConfirmed: !string.IsNullOrWhiteSpace(mapping.SourceColumnName));
+
             UpdateMappingInfo();
         }
 
@@ -872,7 +1098,10 @@ namespace WpfApp1.Views
         private void UpdateMappingInfo()
         {
             if (_mappings.Count == 0) return;
-            int mapped = _mappings.Count(m => m.MappingType != DvMappingType.Ignore);
+            var currentHeaderSet = new HashSet<string>(SourceHeaders, StringComparer.OrdinalIgnoreCase);
+            int mapped = _mappings.Count(m =>
+                m.MappingType == DvMappingType.Constant ||
+                HasValidSourceMapping(m, currentHeaderSet));
             int confirmed = _mappings.Count(m => m.IsConfirmed);
             int required = _mappings.Count(m => m.IsRequired && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate);
             int autoGen = _mappings.Count(m => m.IsAutoGenCandidate && m.MappingType == DvMappingType.Ignore);
@@ -904,8 +1133,7 @@ namespace WpfApp1.Views
                 try
                 {
                     var (headers, rows, _) = await Task.Run(() => InsertStatementParser.Parse(sql));
-                    _sourceData = new DvSourceData { Headers = headers, Rows = rows };
-                    SourceHeaders = [.. headers];
+                    ApplyParsedSourceData(new DvSourceData { Headers = headers, Rows = rows });
                 }
                 catch (Exception ex)
                 {
@@ -915,6 +1143,12 @@ namespace WpfApp1.Views
             }
 
             if (_sourceData == null) return;
+
+            if (!EnsureMappingsReadyForValidation(out var mappingError))
+            {
+                SetStatus(mappingError ?? "字段映射尚未准备好，请返回字段映射步骤检查", true);
+                return;
+            }
 
             // 重置上一次结果
             _lastResult = null;
@@ -1029,4 +1263,3 @@ namespace WpfApp1.Views
         }
     }
 }
-

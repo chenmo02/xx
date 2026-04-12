@@ -797,7 +797,7 @@
                                        Text="存在必填目标字段未映射，请处理后再继续"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Content="忽略所有UUID" Style="{StaticResource GhostBtn}"
+                            <Button Content="忽略自动生成UUID" Style="{StaticResource GhostBtn}"
                                     Padding="12,7" FontSize="12" Margin="0,0,8,0"
                                     Click="BtnIgnoreAllUuid_Click"/>
                             <Button Content="重新自动映射" Style="{StaticResource GhostBtn}"
@@ -892,7 +892,8 @@
                                                 <ComboBox Style="{StaticResource InlineCb}"
                                                           Visibility="{Binding IsSourceMode, Converter={StaticResource BoolVis}}"
                                                           SelectedItem="{Binding SourceColumnName, UpdateSourceTrigger=PropertyChanged}"
-                                                          ItemsSource="{Binding DataContext.SourceHeaders, RelativeSource={RelativeSource AncestorType=Page}}"/>
+                                                          ItemsSource="{Binding DataContext.SourceHeaders, RelativeSource={RelativeSource AncestorType=Page}}"
+                                                          SelectionChanged="SourceColumn_Changed"/>
                                                 <!-- Constant: TextBox -->
                                                 <TextBox Visibility="{Binding IsConstantMode, Converter={StaticResource BoolVis}}"
                                                          Text="{Binding ConstantValue, UpdateSourceTrigger=PropertyChanged}"
@@ -905,6 +906,10 @@
                                 <!-- 匹配方式 -->
                                 <DataGridTextColumn Header="匹配方式" Binding="{Binding MatchMethodText}"
                                                     Width="80" IsReadOnly="True"/>
+
+                                <!-- 命中原因 -->
+                                <DataGridTextColumn Header="命中原因" Binding="{Binding MatchReasonText}"
+                                                    Width="220" IsReadOnly="True"/>
 
                                 <!-- 置信度 -->
                                 <DataGridTextColumn Header="置信度" Binding="{Binding ConfidenceText}"
