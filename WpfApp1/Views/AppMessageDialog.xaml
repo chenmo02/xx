@@ -1,0 +1,190 @@
+<Window x:Class="WpfApp1.Views.AppMessageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="提示"
+        Width="320"
+        MinWidth="280"
+        MinHeight="132"
+        MaxHeight="420"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        AllowsTransparency="True"
+        Background="Transparent"
+        KeyDown="Window_KeyDown">
+    <Window.Resources>
+        <Style x:Key="DialogButtonBaseStyle" TargetType="Button">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="MinWidth" Value="72" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.92" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.82" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonBaseStyle}">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#2563EB" />
+            <Setter Property="BorderBrush" Value="#2563EB" />
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonBaseStyle}">
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="BorderBrush" Value="#D8E1EE" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Border CornerRadius="18" Background="#FFF5F8FC">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20"
+                                  ShadowDepth="0"
+                                  Opacity="0.18"
+                                  Color="#14213D" />
+            </Border.Effect>
+        </Border>
+
+        <Border CornerRadius="18"
+                Background="White"
+                BorderBrush="#E5ECF5"
+                BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0"
+                        CornerRadius="18,18,0,0"
+                        Padding="16,14,16,12">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop x:Name="HeaderGradientStart" Color="#EEF5FF" Offset="0" />
+                            <GradientStop x:Name="HeaderGradientEnd" Color="#F8FAFC" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border x:Name="BadgeBorder"
+                                Width="34"
+                                Height="34"
+                                CornerRadius="17"
+                                Background="#2563EB"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="BadgeText"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="17"
+                                       FontWeight="Bold"
+                                       Foreground="White"
+                                       Text="i" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="CaptionText"
+                                       FontSize="15"
+                                       FontWeight="Bold"
+                                       Foreground="#0F172A"
+                                       Text="提示" />
+                            <TextBlock x:Name="SubCaptionText"
+                                       Margin="0,3,0,0"
+                                       FontSize="11"
+                                       Foreground="#64748B"
+                                       Visibility="Collapsed"
+                                       Text="请确认当前操作内容。" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="1"
+                        Margin="16,10,16,0"
+                        Padding="12,9"
+                        CornerRadius="12"
+                        Background="#F8FBFF"
+                        BorderBrush="#E8EEF7"
+                        BorderThickness="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock x:Name="MessageText"
+                                   FontSize="12"
+                                   LineHeight="18"
+                                   Foreground="#243244"
+                                   TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Border>
+
+                <Border Grid.Row="2"
+                        Margin="0,10,0,0"
+                        Padding="16,8,16,10"
+                        BorderBrush="#EEF2F7"
+                        BorderThickness="1,1,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock x:Name="HintText"
+                                   VerticalAlignment="Center"
+                                   FontSize="10"
+                                   Foreground="#94A3B8"
+                                   Visibility="Collapsed"
+                                   Text="按 Esc 可快速关闭当前弹窗。" />
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right">
+                            <Button x:Name="TertiaryButton"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Visibility="Collapsed"
+                                    Click="TertiaryButton_Click" />
+                            <Button x:Name="SecondaryButton"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Visibility="Collapsed"
+                                    Click="SecondaryButton_Click" />
+                            <Button x:Name="PrimaryButton"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Click="PrimaryButton_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

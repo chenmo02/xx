@@ -25,6 +25,8 @@ namespace WpfApp1.Views
         private DvSourceData? _sourceData;
         private ObservableCollection<DvMappingRow> _mappings = [];
         private DvValidationResult? _lastResult;
+        private bool _insertParseDirty = true;
+        private bool _sourceDataFromInsert;
 
         // true = 目标表结构发生了变化（DDL 重新解析或重新导入），需要重建字段映射
         // false = 仅源数据变化，保留已有映射
@@ -209,7 +211,7 @@ namespace WpfApp1.Views
 
         private async void BtnNext_Click(object sender, RoutedEventArgs e)
         {
-            // Step 2 → Step 3：始终重新解析当前 INSERT 文本，保证源数据是最新的
+            // Step 2 → Step 3：仅当 INSERT 内容变更或当前源数据不是由 INSERT 解析得到时，才重新解析
             if (_step == 2 && RbInsertMode.IsChecked == true)
             {
                 if (string.IsNullOrWhiteSpace(TxtInsert.Text))
@@ -217,8 +219,12 @@ namespace WpfApp1.Views
                     SetStatus("请先输入 INSERT INTO 语句", true);
                     return;
                 }
-                bool ok = await TryParseInsertAsync();
-                if (!ok) return;
+
+                if (_insertParseDirty || !_sourceDataFromInsert || _sourceData == null)
+                {
+                    bool ok = await TryParseInsertAsync();
+                    if (!ok) return;
+                }
             }
 
             if (!CanGoNext(out string? err))
@@ -318,9 +324,10 @@ namespace WpfApp1.Views
             mapping.ConstantValue = null;
             mapping.MatchMethod = DvMatchMethod.Manual;
             mapping.Confidence = 0;
-            mapping.MatchReason = reason ?? "原来源字段已失效，已重置为忽略";
-            mapping.NeedsConfirmation = false;
-            mapping.IsConfirmed = mapping.IsAutoGenCandidate || !mapping.IsRequired;
+            string baseReason = reason ?? "原来源字段已失效，已重置为忽略";
+            mapping.MatchReason = AppendUuidManualHint(mapping, baseReason, hasBeenHandled: false);
+            mapping.NeedsConfirmation = mapping.IsUuidTarget;
+            mapping.IsConfirmed = mapping.IsUuidTarget ? false : mapping.IsAutoGenCandidate || !mapping.IsRequired;
             mapping.WasAutoIgnored = true;
         }
 
@@ -335,10 +342,41 @@ namespace WpfApp1.Views
         {
             mapping.MatchMethod = DvMatchMethod.Manual;
             mapping.Confidence = 0;
-            mapping.MatchReason = reason;
-            mapping.NeedsConfirmation = false;
+            mapping.MatchReason = AppendUuidManualHint(mapping, reason, isConfirmed);
+            mapping.NeedsConfirmation = mapping.IsUuidTarget && !isConfirmed;
             mapping.IsConfirmed = isConfirmed;
             mapping.WasAutoIgnored = wasAutoIgnored;
+        }
+
+        private static string AppendUuidManualHint(DvMappingRow mapping, string reason, bool hasBeenHandled)
+        {
+            if (!mapping.IsUuidTarget)
+                return reason;
+
+            string hint = hasBeenHandled
+                ? "UUID 字段已由用户手动处理"
+                : "UUID 字段需人工选择后才能继续";
+
+            if (string.IsNullOrWhiteSpace(reason))
+                return hint;
+
+            return reason.Contains(hint, StringComparison.OrdinalIgnoreCase)
+                ? reason
+                : $"{reason}；{hint}";
+        }
+
+        private static string BuildRequiredFieldHint(IReadOnlyList<DvMappingRow> rows)
+        {
+            if (rows.Count == 0)
+                return "存在必填字段未映射或值为空";
+
+            if (rows.Count == 1)
+                return $"必填字段 {rows[0].TargetColumnName} 未映射或值为空";
+
+            string names = string.Join("、", rows.Take(3).Select(r => r.TargetColumnName));
+            if (rows.Count > 3)
+                names += " 等字段";
+            return $"必填字段 {names} 未映射或值为空";
         }
 
         // Validation can start only when the current mapping set is still usable for
@@ -371,18 +409,35 @@ namespace WpfApp1.Views
             }
 
             var requiredIgnored = _mappings
-                .Where(m => m.IsRequired && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate)
+                .Where(m => m.IsRequired && !m.IsUuidTarget && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate)
                 .ToList();
             if (requiredIgnored.Count > 0)
             {
-                err = $"仍有 {requiredIgnored.Count} 个必填字段未映射";
+                err = BuildRequiredFieldHint(requiredIgnored);
                 return false;
             }
 
             var unconfirmed = _mappings.Where(m => !m.IsConfirmed).ToList();
             if (unconfirmed.Count > 0)
             {
-                err = $"仍有 {unconfirmed.Count} 个字段映射待确认";
+                int pendingUuid = unconfirmed.Count(m => m.IsUuidTarget);
+                int pendingOther = unconfirmed.Count - pendingUuid;
+                if (pendingUuid > 0)
+                {
+                    var pendingRequiredUuid = unconfirmed
+                        .Where(m => m.IsUuidTarget && m.IsRequired)
+                        .ToList();
+
+                    err = pendingRequiredUuid.Count > 0
+                        ? BuildRequiredFieldHint(pendingRequiredUuid)
+                        : pendingOther > 0
+                            ? $"仍有 {pendingUuid} 个 UUID 字段需人工选择，另有 {pendingOther} 个字段映射待确认"
+                            : $"仍有 {pendingUuid} 个 UUID 字段需人工选择";
+                }
+                else
+                {
+                    err = $"仍有 {pendingOther} 个字段映射待确认";
+                }
                 return false;
             }
 
@@ -732,25 +787,32 @@ namespace WpfApp1.Views
 
         private void TxtInsert_TextChanged(object sender, TextChangedEventArgs e)
         {
-            // INSERT 文本内容变动 → 旧解析结果失效，强制用户重新解析
-            // _sourceData == null 说明本来就没解析过，无需处理
-            if (_sourceData == null) return;
+            _insertParseDirty = true;
+
+            // 只有当前源数据本身来自 INSERT 时，文本改动才需要让旧解析结果失效。
+            if (!_sourceDataFromInsert || _sourceData == null) return;
 
             _sourceData = null;
+            _sourceDataFromInsert = false;
             ClearValidationResultState();
             TxtInsertStatus.Text = "内容已修改，请重新点击「解析 INSERT」";
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
-            SetStatus("INSERT 内容已修改，请重新解析后再校验");
+            SetStatus("INSERT 内容已修改，请重新解析后再继续");
         }
 
         private void BtnClearInsert_Click(object sender, RoutedEventArgs e)
         {
-            TxtInsert.Clear();           // 触发 TxtInsert_TextChanged，自动清 _sourceData
-            _sourceData = null;
+            TxtInsert.Clear();           // 触发 TxtInsert_TextChanged，自动标记为待重新解析
+            if (_sourceDataFromInsert)
+            {
+                _sourceData = null;
+                _sourceDataFromInsert = false;
+                SourceHeaders = [];
+                ClearValidationResultState();
+            }
+
             TxtInsertStatus.Text = "";   // 清空按钮本身再把提示抹掉
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139));
-            SourceHeaders = [];
-            ClearValidationResultState();
             SetStatus("");
         }
 
@@ -768,8 +830,8 @@ namespace WpfApp1.Views
         /// <summary>
         /// 解析当前 TxtInsert 内容，更新 _sourceData 和 SourceHeaders。
         /// 返回 true 表示解析成功。
-        /// BtnParseInsert_Click 和 BtnNext_Click（Step2→3）均调用此方法，
-        /// 保证每次进入字段映射步骤使用的都是最新数据。
+        /// BtnParseInsert_Click、BtnNext_Click（Step2→3）和最终校验入口均可调用；
+        /// 只有在 INSERT 内容发生变化时才需要重新解析。
         /// </summary>
         private async Task<bool> TryParseInsertAsync()
         {
@@ -784,6 +846,8 @@ namespace WpfApp1.Views
             {
                 var (headers, rows, warning) = await Task.Run(() => InsertStatementParser.Parse(sql));
                 ApplyParsedSourceData(new DvSourceData { Headers = headers, Rows = rows });
+                _sourceDataFromInsert = true;
+                _insertParseDirty = false;
                 TxtInsertStatus.Text = $"⌛️ 已解析 {rows.Count} 行 × {headers.Count} 列";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 if (warning != null)
@@ -796,8 +860,12 @@ namespace WpfApp1.Views
             {
                 TxtInsertStatus.Text = $"解析失败: {ex.Message}";
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
-                _sourceData = null;
-                SourceHeaders = [];
+                if (_sourceDataFromInsert)
+                {
+                    _sourceData = null;
+                    _sourceDataFromInsert = false;
+                    SourceHeaders = [];
+                }
                 SetStatus("INSERT 解析失败，请检查语句格式", true);
                 return false;
             }
@@ -820,6 +888,7 @@ namespace WpfApp1.Views
             {
                 var sourceData = ReadDataExcel(dlg.FileName);
                 ApplyParsedSourceData(sourceData);
+                _sourceDataFromInsert = false;
                 TxtDataExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — {sourceData.RowCount} 行 × {sourceData.Headers.Count} 列";
                 SetStatus($"数据 Excel 导入成功，共 {sourceData.RowCount} 行");
             }
@@ -1007,26 +1076,58 @@ namespace WpfApp1.Views
 
         private void BtnIgnoreAllUuid_Click(object sender, RoutedEventArgs e)
         {
-            int count = 0;
-            foreach (var m in _mappings.Where(m => m.IsAutoGenCandidate))
+            var uuidMappings = _mappings.Where(m => m.IsUuidTarget).ToList();
+            if (uuidMappings.Count == 0)
+            {
+                SetStatus("没有可忽略的 UUID 类型字段");
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"将忽略全部 {uuidMappings.Count} 个 UUID 类型字段，已匹配项也会一并忽略。是否继续？",
+                "确认忽略 UUID 字段",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            foreach (var m in uuidMappings)
             {
                 m.MappingType = DvMappingType.Ignore;
                 m.SourceColumnName = null;
                 m.ConstantValue = null;
-                SetManualMatchState(m, "批量忽略 UUID 自动生成字段", isConfirmed: true, wasAutoIgnored: true);
-                count++;
+                SetManualMatchState(m, "批量忽略 UUID 类型字段", isConfirmed: true, wasAutoIgnored: true);
             }
+
             UpdateMappingInfo();
-            SetStatus(count > 0 ? $"已忽略 {count} 个自动生成 UUID 字段" : "没有可忽略的自动生成 UUID 字段");
+            SetStatus($"已忽略 {uuidMappings.Count} 个 UUID 类型字段");
         }
 
         private void BtnConfirmAll_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var m in _mappings)
+            int pendingUuidBeforeConfirm = _mappings.Count(m => m.IsUuidTarget && !m.IsConfirmed);
+            var message = pendingUuidBeforeConfirm > 0
+                ? $"将确认当前所有非 UUID 字段映射，仍有 {pendingUuidBeforeConfirm} 个 UUID 字段需要你手动处理。是否继续？"
+                : "将确认当前全部映射。是否继续？";
+
+            var result = MessageBox.Show(
+                message,
+                "确认全部确认",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            foreach (var m in _mappings.Where(m => !m.IsUuidTarget))
                 m.IsConfirmed = true;
-            TxtMappingHint.Visibility = Visibility.Collapsed;
             UpdateMappingInfo();
-            SetStatus("全部映射已确认");
+            int pendingUuid = _mappings.Count(m => m.IsUuidTarget && !m.IsConfirmed);
+            SetStatus(
+                pendingUuid > 0
+                    ? $"已确认非 UUID 映射，仍有 {pendingUuid} 个 UUID 字段需手动处理"
+                    : "全部映射已确认");
         }
 
         private void MappingType_Changed(object sender, SelectionChangedEventArgs e)
@@ -1103,12 +1204,44 @@ namespace WpfApp1.Views
                 m.MappingType == DvMappingType.Constant ||
                 HasValidSourceMapping(m, currentHeaderSet));
             int confirmed = _mappings.Count(m => m.IsConfirmed);
-            int required = _mappings.Count(m => m.IsRequired && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate);
-            int autoGen = _mappings.Count(m => m.IsAutoGenCandidate && m.MappingType == DvMappingType.Ignore);
+            int required = _mappings.Count(m => m.IsRequired && !m.IsUuidTarget && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate);
+            int ignoredUuid = _mappings.Count(m => m.IsUuidTarget && m.MappingType == DvMappingType.Ignore);
+            int pendingUuid = _mappings.Count(m => m.IsUuidTarget && !m.IsConfirmed);
+            int pendingOther = _mappings.Count(m => !m.IsUuidTarget && !m.IsConfirmed);
             RunMappingInfo.Text =
                 $"  共 {_mappings.Count} 个字段，已映射 {mapped}，已确认 {confirmed}" +
-                (autoGen > 0 ? $"，⌛️ {autoGen} 个自动生成字段已忽略" : "") +
-                (required > 0 ? $"，⌛️ {required} 个必填未映射" : "");
+                (ignoredUuid > 0 ? $"，⌛️ {ignoredUuid} 个 UUID 字段已忽略" : "") +
+                (required > 0 ? $"，⌛️ {required} 个必填未映射" : "") +
+                (pendingUuid > 0 ? $"，⌛️ {pendingUuid} 个 UUID 待人工处理" : "") +
+                (pendingOther > 0 ? $"，⌛️ {pendingOther} 个字段待确认" : "");
+
+            if (pendingUuid > 0)
+            {
+                var pendingRequiredUuid = _mappings
+                    .Where(m => m.IsUuidTarget && m.IsRequired && !m.IsConfirmed)
+                    .ToList();
+                TxtMappingHint.Text = pendingRequiredUuid.Count > 0
+                    ? BuildRequiredFieldHint(pendingRequiredUuid)
+                    : $"仍有 {pendingUuid} 个 UUID 字段需要人工选择，请先处理红色高亮行";
+                TxtMappingHint.Visibility = Visibility.Visible;
+            }
+            else if (required > 0)
+            {
+                var requiredIgnoredRows = _mappings
+                    .Where(m => m.IsRequired && !m.IsUuidTarget && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate)
+                    .ToList();
+                TxtMappingHint.Text = BuildRequiredFieldHint(requiredIgnoredRows);
+                TxtMappingHint.Visibility = Visibility.Visible;
+            }
+            else if (pendingOther > 0)
+            {
+                TxtMappingHint.Text = $"仍有 {pendingOther} 个字段映射待确认，请处理后再继续";
+                TxtMappingHint.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                TxtMappingHint.Visibility = Visibility.Collapsed;
+            }
         }
 
         // ══════════════════════════════════════════════════════════
@@ -1119,9 +1252,7 @@ namespace WpfApp1.Views
         {
             if (_targetColumns.Count == 0) return;
 
-            // INSERT 模式：始终重新解析当前文本，保证用最新数据校验，
-            // 彻底排除缓存/导航时序导致 _sourceData 过期的问题。
-            // Panel2 此时已折叠，只悄悄重新解析，不操作 Step2 的 UI 控件。
+            // INSERT 模式：仅当文本有变动、尚未解析，或当前源数据并非来自 INSERT 时才重新解析。
             if (RbInsertMode.IsChecked == true)
             {
                 if (string.IsNullOrWhiteSpace(TxtInsert.Text))
@@ -1129,16 +1260,15 @@ namespace WpfApp1.Views
                     SetStatus("源数据为空，请返回数据输入步骤粘贴 INSERT 语句", true);
                     return;
                 }
-                var sql = TxtInsert.Text;
-                try
+
+                if (_insertParseDirty || !_sourceDataFromInsert || _sourceData == null)
                 {
-                    var (headers, rows, _) = await Task.Run(() => InsertStatementParser.Parse(sql));
-                    ApplyParsedSourceData(new DvSourceData { Headers = headers, Rows = rows });
-                }
-                catch (Exception ex)
-                {
-                    SetStatus($"INSERT 解析失败，请返回数据输入步骤检查语句：{ex.Message}", true);
-                    return;
+                    bool ok = await TryParseInsertAsync();
+                    if (!ok)
+                    {
+                        SetStatus("INSERT 解析失败，请返回数据输入步骤检查语句", true);
+                        return;
+                    }
                 }
             }
 

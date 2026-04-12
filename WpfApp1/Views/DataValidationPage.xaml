@@ -138,7 +138,7 @@
                                         Background="#F8FAFC"
                                         BorderBrush="#E5E7EB"
                                         BorderThickness="1"
-                                        CornerRadius="999"
+                                        CornerRadius="6"
                                         Padding="8,3"
                                         VerticalAlignment="Center">
                                     <TextBlock x:Name="StateText"
@@ -794,7 +794,7 @@
                             </TextBlock>
                             <TextBlock x:Name="TxtMappingHint" FontSize="12" Foreground="#EF4444"
                                        Margin="0,2,0,0" Visibility="Collapsed"
-                                       Text="存在必填目标字段未映射，请处理后再继续"/>
+                                       Text="存在待处理映射，请先处理红色高亮行后再继续"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
                             <Button Content="忽略自动生成UUID" Style="{StaticResource GhostBtn}"

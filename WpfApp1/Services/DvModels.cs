@@ -41,7 +41,7 @@ namespace WpfApp1.Services
     /// <summary>
     /// 自动匹配字段时的命中方式。
     /// </summary>
-    public enum DvMatchMethod { Exact, Normalized, PrefixStrip, Contains, Manual }
+    public enum DvMatchMethod { Exact, Normalized, PrefixStrip, Semantic, Contains, Manual }
 
     /// <summary>
     /// 目标字段元数据，即从 DDL 或数据库结构查询中解析出的字段定义。
@@ -103,6 +103,7 @@ namespace WpfApp1.Services
         public required string TargetColumnName { get; init; }
         public required string TargetDisplayType { get; init; }
         public bool IsRequired { get; init; }
+        public bool IsUuidTarget { get; init; }
 
         private DvMappingType _mappingType = DvMappingType.Ignore;
         public DvMappingType MappingType
@@ -127,6 +128,7 @@ namespace WpfApp1.Services
             {
                 _sourceColumnName = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(NeedsHighlight));
             }
         }
 
@@ -173,6 +175,7 @@ namespace WpfApp1.Services
             {
                 _isConfirmed = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(NeedsHighlight));
             }
         }
 
@@ -184,6 +187,7 @@ namespace WpfApp1.Services
             {
                 _needsConfirmation = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(NeedsHighlight));
             }
         }
 
@@ -203,7 +207,17 @@ namespace WpfApp1.Services
         /// 是否为系统自动生成字段，例如 UUID 主键。
         /// 这类字段允许默认忽略，不计入“必填未映射”。
         /// </summary>
-        public bool IsAutoGenCandidate { get; set; }
+        private bool _isAutoGenCandidate;
+        public bool IsAutoGenCandidate
+        {
+            get => _isAutoGenCandidate;
+            set
+            {
+                _isAutoGenCandidate = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(NeedsHighlight));
+            }
+        }
 
         private bool _wasAutoIgnored;
         public bool WasAutoIgnored
@@ -213,6 +227,7 @@ namespace WpfApp1.Services
             {
                 _wasAutoIgnored = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(NeedsHighlight));
             }
         }
 
@@ -246,6 +261,7 @@ namespace WpfApp1.Services
             DvMatchMethod.Exact => "精确",
             DvMatchMethod.Normalized => "标准化",
             DvMatchMethod.PrefixStrip => "前缀剥离",
+            DvMatchMethod.Semantic => "语义优先",
             DvMatchMethod.Contains => "包含（待确认）",
             DvMatchMethod.Manual => "\u624B\u52A8",
             _ => "-"
@@ -255,9 +271,11 @@ namespace WpfApp1.Services
         public string MatchReasonText => string.IsNullOrWhiteSpace(MatchReason) ? "-" : MatchReason!;
 
         /// <summary>
-        /// 必填字段如果被忽略，并且又不是自动生成字段，就需要高亮提醒用户。
+        /// UUID 目标字段必须由用户显式处理；其他字段仅在“必填且被忽略”时高亮。
         /// </summary>
-        public bool NeedsHighlight => IsRequired && MappingType == DvMappingType.Ignore && !IsAutoGenCandidate;
+        public bool NeedsHighlight =>
+            (IsUuidTarget && !IsConfirmed) ||
+            (IsRequired && !IsUuidTarget && MappingType == DvMappingType.Ignore && !IsAutoGenCandidate);
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
