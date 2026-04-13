@@ -152,9 +152,9 @@
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <Border x:Name="Pill" Background="#F8FAFC" BorderBrush="#E2E8F0"
-                                BorderThickness="1" CornerRadius="20" Padding="11,5">
+                        <ControlTemplate TargetType="CheckBox">
+                            <Border x:Name="Pill" Background="#F8FAFC" BorderBrush="#E2E8F0"
+                                    BorderThickness="1" CornerRadius="8" Padding="11,5">
                             <DockPanel>
                                 <Ellipse x:Name="Dot" Width="7" Height="7" Fill="#CBD5E1"
                                          Margin="0,0,6,0" VerticalAlignment="Center" DockPanel.Dock="Left" />

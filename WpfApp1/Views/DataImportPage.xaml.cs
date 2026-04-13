@@ -607,6 +607,14 @@ namespace WpfApp1.Views
                 _ => "提示：PostgreSQL 使用 CREATE TEMPORARY TABLE，布尔值会输出为 TRUE / FALSE。"
             };
 
+            TxtTableHint.Text = dbType switch
+            {
+                SqlGeneratorService.DbType.SqlServer => "提示：SQL Server 临时表建议使用 # 前缀，批量 INSERT 会自动限制为 1000 行；导入值会按原样输出。",
+                SqlGeneratorService.DbType.MySQL => "提示：MySQL 使用 CREATE TEMPORARY TABLE，导入值会按原样输出，不会自动改写布尔值。",
+                SqlGeneratorService.DbType.Oracle => "提示：Oracle 使用 CREATE GLOBAL TEMPORARY TABLE，导入值会按原样输出，不会自动改写日期或布尔值。",
+                _ => "提示：PostgreSQL 使用 CREATE TEMPORARY TABLE，导入值会按原样输出，不会自动改写布尔值。"
+            };
+
             string suggestedName = string.IsNullOrWhiteSpace(_importSettings.DefaultTableName)
                 ? SqlGeneratorService.GetDefaultTableName(dbType)
                 : SqlGeneratorService.NormalizeTableName(dbType, _importSettings.DefaultTableName, _importSettings.TempTablePrefix);

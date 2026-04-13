@@ -271,8 +271,15 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer Style="{StaticResource PageScrollViewerStyle}" Padding="28,24">
-        <StackPanel MaxWidth="1120">
+    <Grid>
+        <ScrollViewer Style="{StaticResource PageScrollViewerStyle}"
+                      Padding="28,24"
+                      VerticalScrollBarVisibility="Visible"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      CanContentScroll="False"
+                      IsDeferredScrollingEnabled="False">
+            <StackPanel MaxWidth="1120">
 
             <TextBlock Text="数据导入 SQL 生成器"
                        FontSize="22"
@@ -549,6 +556,7 @@
                              AcceptsReturn="True"/>
                 </StackPanel>
             </Border>
-        </StackPanel>
-    </ScrollViewer>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </Page>

@@ -290,6 +290,7 @@ namespace WpfApp1.Services
             {
                 DataColumn column = data.Columns[index];
                 string safeName = MakeUniqueColumnName(SanitizeColumnName(column.ColumnName), usedNames);
+                // Keep imported values as-is in generated SQL instead of normalizing booleans or numerics.
                 ColumnKind kind = ColumnKind.String;
                 int maxLength = GetMaxStringLength(data, index);
                 string sqlType = GetSqlType(dbType, kind, maxLength, limitStringLength);
