@@ -5,7 +5,7 @@ using System.Windows.Data;
 using System.Windows.Media;
 using WpfApp1.Services;
 
-namespace WpfApp1.Views
+namespace WpfApp1.Converters
 {
     /// <summary>bool → Visibility（true=Visible）</summary>
     public sealed class BoolVisConverter : IValueConverter

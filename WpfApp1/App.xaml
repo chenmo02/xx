@@ -5,12 +5,15 @@
              xmlns:behaviors="clr-namespace:WpfApp1.Behaviors"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <Style x:Key="PageScrollViewerStyle" TargetType="ScrollViewer">
-            <Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>
-            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
-            <Setter Property="CanContentScroll" Value="False"/>
-            <Setter Property="PanningMode" Value="VerticalOnly"/>
-            <Setter Property="behaviors:ScrollViewerAssist.EnableHiddenWheelScroll" Value="True"/>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/LightTheme.xaml"/>
+                <ResourceDictionary Source="Themes/ButtonStyles.xaml"/>
+                <ResourceDictionary Source="Themes/DataGridStyles.xaml"/>
+                <ResourceDictionary Source="Themes/InputStyles.xaml"/>
+                <ResourceDictionary Source="Themes/CardStyles.xaml"/>
+                <ResourceDictionary Source="Themes/CommonStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

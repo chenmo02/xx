@@ -1,7 +1,7 @@
 ﻿<Page x:Class="WpfApp1.Views.JsonToolPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Background="#F0F2F5"
+      Background="{DynamicResource PageBackgroundAltBrush}"
       Loaded="Page_Loaded">
 
     <Page.InputBindings>
@@ -15,29 +15,6 @@
     </Page.CommandBindings>
 
     <Page.Resources>
-        <Style x:Key="RBtn" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}"
-                                CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Opacity" Value="0.85"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="bd" Property="Opacity" Value="0.4"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- 隐藏 TreeViewItem 默认箭头，自定义展开样式 -->
         <Style x:Key="GridTreeItemStyle" TargetType="TreeViewItem">
             <Setter Property="IsExpanded" Value="True"/>
@@ -85,11 +62,11 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                 <Button Content="📂 导入" Padding="10,5" FontSize="12" Margin="0,0,4,0"
-                        Background="#6366F1" Foreground="White" Style="{StaticResource RBtn}" Click="BtnImportJson_Click"/>
+                        Background="#6366F1" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnImportJson_Click"/>
                 <Button Content="💾 导出 JSON" Padding="10,5" FontSize="12" Margin="0,0,4,0"
-                        Background="#10B981" Foreground="White" Style="{StaticResource RBtn}" Click="BtnExportJson_Click"/>
+                        Background="#10B981" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnExportJson_Click"/>
                 <Button Content="📋 导出 CSV" Padding="10,5" FontSize="12"
-                        Background="#F59E0B" Foreground="White" Style="{StaticResource RBtn}" Click="BtnExportCsv_Click"/>
+                        Background="#F59E0B" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnExportCsv_Click"/>
             </StackPanel>
         </DockPanel>
 
@@ -115,13 +92,13 @@
                                        VerticalAlignment="Center" DockPanel.Dock="Left"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button Content="🔍" Padding="8,3" FontSize="11" Margin="0,0,3,0" ToolTip="查找 (Ctrl+F)"
-                                        Background="#8B5CF6" Foreground="White" Style="{StaticResource RBtn}" Click="BtnToggleSearch_Click"/>
+                                        Background="#8B5CF6" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnToggleSearch_Click"/>
                                 <Button Content="美化" Padding="8,3" FontSize="11" Margin="0,0,3,0"
-                                        Background="#3B82F6" Foreground="White" Style="{StaticResource RBtn}" Click="BtnBeautify_Click"/>
+                                        Background="#3B82F6" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnBeautify_Click"/>
                                 <Button Content="压缩" Padding="8,3" FontSize="11" Margin="0,0,3,0"
-                                        Background="#6B7280" Foreground="White" Style="{StaticResource RBtn}" Click="BtnMinify_Click"/>
+                                        Background="#6B7280" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnMinify_Click"/>
                                 <Button Content="校验" Padding="8,3" FontSize="11"
-                                        Background="#10B981" Foreground="White" Style="{StaticResource RBtn}" Click="BtnValidate_Click"/>
+                                        Background="#10B981" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnValidate_Click"/>
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -134,11 +111,11 @@
                                 <TextBlock x:Name="TxtSearchCount" Text="" FontSize="11" Foreground="#92400E"
                                            VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <Button Content="▲" Padding="6,2" FontSize="10" Margin="0,0,2,0" ToolTip="上一个 (Shift+Enter)"
-                                        Background="#F59E0B" Foreground="White" Style="{StaticResource RBtn}" Click="BtnSearchPrev_Click"/>
+                                        Background="#F59E0B" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnSearchPrev_Click"/>
                                 <Button Content="▼" Padding="6,2" FontSize="10" Margin="0,0,2,0" ToolTip="下一个 (Enter)"
-                                        Background="#F59E0B" Foreground="White" Style="{StaticResource RBtn}" Click="BtnSearchNext_Click"/>
+                                        Background="#F59E0B" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnSearchNext_Click"/>
                                 <Button Content="✕" Padding="6,2" FontSize="10" ToolTip="关闭 (Esc)"
-                                        Background="#EF4444" Foreground="White" Style="{StaticResource RBtn}" Click="BtnCloseSearch_Click"/>
+                                        Background="#EF4444" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnCloseSearch_Click"/>
                             </StackPanel>
                              <TextBlock Text="🔍" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
                              <TextBox x:Name="TxtSearchKeyword" FontSize="12" Padding="4,3" VerticalAlignment="Center"
@@ -193,15 +170,15 @@
                                        VerticalAlignment="Center" Margin="12,0,0,0" DockPanel.Dock="Left"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Button x:Name="BtnToggleGridEdit" Content="✏️ 开启编辑" Padding="8,3" FontSize="11" Margin="0,0,3,0"
-                                        Background="#F59E0B" Foreground="White" Style="{StaticResource RBtn}" Click="BtnToggleGridEdit_Click"/>
+                                        Background="#F59E0B" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnToggleGridEdit_Click"/>
                                 <Button x:Name="BtnToggleGridFullscreen" Content="⛶ 全屏" Padding="8,3" FontSize="11" Margin="0,0,3,0"
-                                        Background="#2563EB" Foreground="White" Style="{StaticResource RBtn}" Click="BtnToggleGridFullscreen_Click"/>
+                                        Background="#2563EB" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnToggleGridFullscreen_Click"/>
                                 <Button Content="🔍" Padding="8,3" FontSize="11" Margin="0,0,3,0" ToolTip="GRID 查找 (Ctrl+F)"
-                                        Background="#8B5CF6" Foreground="White" Style="{StaticResource RBtn}" Click="BtnToggleGridSearch_Click"/>
+                                        Background="#8B5CF6" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnToggleGridSearch_Click"/>
                                 <Button Content="📂 全部展开" Padding="8,3" FontSize="11" Margin="0,0,3,0"
-                                        Background="#10B981" Foreground="White" Style="{StaticResource RBtn}" Click="BtnExpandAll_Click"/>
+                                        Background="#10B981" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnExpandAll_Click"/>
                                 <Button Content="📁 全部折叠" Padding="8,3" FontSize="11"
-                                        Background="#6B7280" Foreground="White" Style="{StaticResource RBtn}" Click="BtnCollapseAll_Click"/>
+                                        Background="#6B7280" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnCollapseAll_Click"/>
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -214,11 +191,11 @@
                                 <TextBlock x:Name="TxtGridSearchCount" Text="" FontSize="11" Foreground="#5B21B6"
                                            VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <Button Content="▲" Padding="6,2" FontSize="10" Margin="0,0,2,0" ToolTip="上一个"
-                                        Background="#8B5CF6" Foreground="White" Style="{StaticResource RBtn}" Click="BtnGridSearchPrev_Click"/>
+                                        Background="#8B5CF6" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnGridSearchPrev_Click"/>
                                 <Button Content="▼" Padding="6,2" FontSize="10" Margin="0,0,2,0" ToolTip="下一个"
-                                        Background="#8B5CF6" Foreground="White" Style="{StaticResource RBtn}" Click="BtnGridSearchNext_Click"/>
+                                        Background="#8B5CF6" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnGridSearchNext_Click"/>
                                 <Button Content="✕" Padding="6,2" FontSize="10" ToolTip="关闭 (Esc)"
-                                        Background="#EF4444" Foreground="White" Style="{StaticResource RBtn}" Click="BtnCloseGridSearch_Click"/>
+                                        Background="#EF4444" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnCloseGridSearch_Click"/>
                             </StackPanel>
                             <TextBlock Text="🔍" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBox x:Name="TxtGridSearchKeyword" FontSize="12" Padding="4,3" VerticalAlignment="Center"

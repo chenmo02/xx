@@ -782,7 +782,7 @@ namespace WpfApp1.Views
             }
 
             context = InvoicePrintService.CreatePrintLayoutContext(dlg, template, IsLandscape);
-            pages = InvoicePrintService.BuildPrintPages(printItems, template, context.ContentSize);
+            pages = InvoicePrintService.BuildPrintPages(printItems, template, context.ContentSize, ShowCutLine);
 
             if (pages.Count == 0)
             {

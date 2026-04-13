@@ -563,6 +563,10 @@ namespace WpfApp1.Views
             int totalPages = total == 0 ? 0 : (int)Math.Ceiling(total / (double)_pageSize);
             _pageIndex = totalPages == 0 ? 0 : Math.Clamp(_pageIndex, 0, totalPages - 1);
 
+            // 先断开 DataGrid 的数据源，避免 Clear 时触发 SelectionChanged 异常
+            DgSummaryRows.ItemsSource = null;
+            DgDetailRows.ItemsSource = null;
+
             _currentPageRows.Clear();
             if (total > 0)
                 _currentPageRows.AddRange(_filteredDisplayRows.Skip(_pageIndex * _pageSize).Take(_pageSize));
@@ -575,7 +579,6 @@ namespace WpfApp1.Views
             if (_currentPageRows.Count == 0)
             {
                 DgSummaryRows.Visibility = Visibility.Collapsed;
-                DgSummaryRows.ItemsSource = null;
                 TxtResultEmptyState.Visibility = Visibility.Visible;
                 TxtResultEmptyState.Text = _lastResult?.DiffItems.Count == 0
                     ? "两个文件内容一致，没有发现任何差异。"

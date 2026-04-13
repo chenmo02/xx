@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
-namespace WpfApp1.Services
+namespace WpfApp1.Models
 {
     /// <summary>
     /// 数据验证当前支持的数据库类型。

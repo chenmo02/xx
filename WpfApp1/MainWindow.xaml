@@ -10,39 +10,6 @@
         Icon="pack://application:,,,/favicon.ico"
         Background="#F5F6F8">
 
-    <Window.Resources>
-        <Style x:Key="NavButtonStyle" TargetType="RadioButton">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="border" Background="Transparent" CornerRadius="6"
-                                Padding="14,10" Margin="6,2" Cursor="Hand">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock x:Name="icon" Text="{TemplateBinding Tag}" FontSize="16"
-                                           VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#999"/>
-                                <TextBlock x:Name="text" Text="{TemplateBinding Content}" FontSize="13.5"
-                                           VerticalAlignment="Center" Foreground="#666" FontWeight="Normal"/>
-                            </StackPanel>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#F0F1F5"/>
-                                <Setter TargetName="text" Property="Foreground" Value="#222"/>
-                                <Setter TargetName="icon" Property="Foreground" Value="#222"/>
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#EDF0FF"/>
-                                <Setter TargetName="text" Property="Foreground" Value="#4E6EF2"/>
-                                <Setter TargetName="text" Property="FontWeight" Value="SemiBold"/>
-                                <Setter TargetName="icon" Property="Foreground" Value="#4E6EF2"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
-
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220"/>
@@ -50,7 +17,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- 左侧导航栏 -->
-        <Border Grid.Column="0" Background="White" BorderBrush="#E5E5E5" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" Background="{DynamicResource NavBackgroundBrush}" BorderBrush="{DynamicResource NavBorderBrush}" BorderThickness="0,0,1,0">
             <DockPanel>
                 <Border DockPanel.Dock="Top" Padding="18,20,18,16">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">

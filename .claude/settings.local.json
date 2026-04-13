@@ -7,7 +7,9 @@
       "Bash(echo \"---EXIT:$?---\")",
       "Bash(dotnet --version)",
       "Bash(ls:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(cp \"Views/DvConverters.cs\" \"Converters/DvConverters.cs\")",
+      "Bash(cp \"Services/DvModels.cs\" \"Models/DvModels.cs\")"
     ]
   }
 }

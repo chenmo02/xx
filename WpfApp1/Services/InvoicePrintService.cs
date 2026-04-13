@@ -280,7 +280,7 @@ namespace WpfApp1.Services
         // 鈹€鈹€ 鎺掔増寮曟搸锛氱敓鎴愭墦鍗伴〉闈?鈹€鈹€
 
         public static List<DrawingVisual> BuildPrintPages(
-            List<InvoiceFileItem> items, PrintTemplate template, Size pageSize)
+            List<InvoiceFileItem> items, PrintTemplate template, Size pageSize, bool showCutLine = false)
         {
             var pages = new List<DrawingVisual>();
             int perPage = template.LayoutCount;
@@ -348,6 +348,36 @@ namespace WpfApp1.Services
                         double drawY = y + (h - drawH) / 2;
 
                         dc.DrawImage(img, new Rect(drawX, drawY, drawW, drawH));
+                    }
+
+                    // 裁剪线
+                    if (showCutLine && perPage > 1)
+                    {
+                        var cutPen = new Pen(new SolidColorBrush(Color.FromArgb(180, 150, 150, 150)), 1) { DashStyle = DashStyles.Dash };
+                        double scissorSize = 10;
+                        var scissorBrush = new SolidColorBrush(Color.FromRgb(150, 150, 150));
+
+                        // 水平裁剪线（2张或4张时，中间横线）
+                        if (rows == 2)
+                        {
+                            double cy = mt + cellH + gap / 2;
+                            dc.DrawLine(cutPen, new Point(0, cy), new Point(pageSize.Width, cy));
+                            var ft = new FormattedText("\u2702", System.Globalization.CultureInfo.CurrentCulture,
+                                FlowDirection.LeftToRight, new Typeface("Segoe UI Symbol"), scissorSize, scissorBrush,
+                                96.0 / 96.0);
+                            dc.DrawText(ft, new Point(4, cy - ft.Height / 2));
+                        }
+
+                        // 垂直裁剪线（4张时，中间竖线）
+                        if (cols == 2)
+                        {
+                            double cx = ml + cellW + gap / 2;
+                            dc.DrawLine(cutPen, new Point(cx, 0), new Point(cx, pageSize.Height));
+                            var ft = new FormattedText("\u2702", System.Globalization.CultureInfo.CurrentCulture,
+                                FlowDirection.LeftToRight, new Typeface("Segoe UI Symbol"), scissorSize, scissorBrush,
+                                96.0 / 96.0);
+                            dc.DrawText(ft, new Point(cx - ft.Width / 2, 4));
+                        }
                     }
                 }
                 pages.Add(dv);

@@ -1,7 +1,7 @@
 <Page x:Class="WpfApp1.Views.DataImportPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Background="#F0F2F5"
+      Background="{DynamicResource PageBackgroundAltBrush}"
       AllowDrop="True"
       Focusable="True"
       Loaded="Page_Loaded"
@@ -9,270 +9,8 @@
       DragEnter="Page_DragEnter"
       Drop="Page_Drop">
 
-    <Page.Resources>
-        <Style x:Key="RoundedButton" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Opacity" Value="0.88"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="bd" Property="Opacity" Value="0.45"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <ControlTemplate x:Key="ComboBoxToggleButton" TargetType="ToggleButton">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition/>
-                    <ColumnDefinition Width="36"/>
-                </Grid.ColumnDefinitions>
-                <Border x:Name="Border" Grid.ColumnSpan="2" CornerRadius="8"
-                        Background="{TemplateBinding Background}"
-                        BorderBrush="#D1D5DB" BorderThickness="1"/>
-                <Border Grid.Column="0" CornerRadius="8,0,0,8" Background="Transparent"/>
-                <Path x:Name="Arrow" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Data="M 0 0 L 5 5 L 10 0" Stroke="#888" StrokeThickness="1.5" Fill="Transparent"/>
-            </Grid>
-            <ControlTemplate.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="Border" Property="BorderBrush" Value="#4E6EF2"/>
-                    <Setter TargetName="Arrow" Property="Stroke" Value="#4E6EF2"/>
-                </Trigger>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter TargetName="Border" Property="BorderBrush" Value="#4E6EF2"/>
-                    <Setter TargetName="Border" Property="Background" Value="#F8F9FF"/>
-                    <Setter TargetName="Arrow" Property="Data" Value="M 0 5 L 5 0 L 10 5"/>
-                    <Setter TargetName="Arrow" Property="Stroke" Value="#4E6EF2"/>
-                </Trigger>
-            </ControlTemplate.Triggers>
-        </ControlTemplate>
-
-        <Style TargetType="ComboBox">
-            <Setter Property="Foreground" Value="#333"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Background" Value="#F7F8FA"/>
-            <Setter Property="BorderBrush" Value="#D1D5DB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,9"/>
-            <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton x:Name="ToggleButton"
-                                          Template="{StaticResource ComboBoxToggleButton}"
-                                          Background="{TemplateBinding Background}"
-                                          Focusable="False"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
-                                          ClickMode="Press"/>
-                            <ContentPresenter x:Name="ContentSite"
-                                              IsHitTestVisible="False"
-                                              Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                              Margin="12,0,36,0"
-                                              VerticalAlignment="Center"
-                                              HorizontalAlignment="Left"/>
-                            <Popup x:Name="Popup" Placement="Bottom"
-                                   IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   AllowsTransparency="True" Focusable="False"
-                                   PopupAnimation="Slide">
-                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
-                                      MinWidth="{TemplateBinding ActualWidth}"
-                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                    <Border x:Name="DropDownBorder"
-                                            Background="White" CornerRadius="8"
-                                            BorderBrush="#E0E0E0" BorderThickness="1"
-                                            Margin="0,2,0,0">
-                                        <Border.Effect>
-                                            <DropShadowEffect ShadowDepth="2" BlurRadius="10" Opacity="0.12" Color="#000"/>
-                                        </Border.Effect>
-                                    </Border>
-                                    <ScrollViewer Margin="0,6,0,6" SnapsToDevicePixels="True">
-                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                    </ScrollViewer>
-                                </Grid>
-                            </Popup>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="#333"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
-                                Margin="4,1" CornerRadius="6">
-                            <ContentPresenter VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#EDF0FF"/>
-                                <Setter Property="Foreground" Value="#4E6EF2"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#E0E7FF"/>
-                                <Setter Property="Foreground" Value="#3B5BDB"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="TextBox">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Background" Value="#F7F8FA"/>
-            <Setter Property="BorderBrush" Value="#D1D5DB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-
-        <Style x:Key="PreviewGridColumnHeaderStyle" TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#F3F3F3"/>
-            <Setter Property="Foreground" Value="#111827"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="BorderBrush" Value="#D9D9D9"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="SeparatorBrush" Value="#D9D9D9"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridColumnHeader">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="PreviewGridRowHeaderStyle" TargetType="DataGridRowHeader">
-            <Setter Property="Background" Value="#F3F3F3"/>
-            <Setter Property="Foreground" Value="#4B5563"/>
-            <Setter Property="BorderBrush" Value="#D9D9D9"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FontWeight" Value="Normal"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Width" Value="48"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridRowHeader">
-                        <Border x:Name="HeaderBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="HeaderBorder" Property="Background" Value="#EDEDED"/>
-                            </Trigger>
-                            <Trigger Property="IsRowSelected" Value="True">
-                                <Setter TargetName="HeaderBorder" Property="Background" Value="#DDEBF7"/>
-                                <Setter Property="Foreground" Value="#1F2937"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="PreviewGridCellStyle" TargetType="DataGridCell">
-            <Setter Property="Foreground" Value="#0F172A"/>
-            <Setter Property="Padding" Value="6,4"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="BorderBrush" Value="#E4E7EB"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DataGridCell">
-                        <Border x:Name="CellBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter Margin="{TemplateBinding Padding}"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="CellBorder" Property="Background" Value="#EAF2FF"/>
-                                <Setter TargetName="CellBorder" Property="BorderBrush" Value="#5B9BD5"/>
-                                <Setter Property="Foreground" Value="#111827"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <MultiTrigger>
-                    <MultiTrigger.Conditions>
-                        <Condition Property="IsSelected" Value="True"/>
-                        <Condition Property="Selector.IsSelectionActive" Value="False"/>
-                    </MultiTrigger.Conditions>
-                    <Setter Property="Background" Value="#EEF4FB"/>
-                    <Setter Property="BorderBrush" Value="#9DC3E6"/>
-                    <Setter Property="Foreground" Value="#111827"/>
-                </MultiTrigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="PreviewGridRowStyle" TargetType="DataGridRow">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FAFAFA"/>
-                </Trigger>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="White"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-    </Page.Resources>
-
     <Grid>
-        <ScrollViewer Style="{StaticResource PageScrollViewerStyle}"
+        <ScrollViewer Style="{DynamicResource PageScrollViewerStyle}"
                       Padding="28,24"
                       VerticalScrollBarVisibility="Visible"
                       HorizontalAlignment="Stretch"
@@ -315,6 +53,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="TxtFilePath"
                                  Grid.Column="0"
+                                 Style="{DynamicResource TextBoxStandard}"
                                  IsReadOnly="True"
                                  Text="请选择 Excel / CSV / DBF 文件..."
                                  Foreground="#9CA3AF"/>
@@ -326,7 +65,7 @@
                                 FontSize="13"
                                 Background="#1A56DB"
                                 Foreground="White"
-                                Style="{StaticResource RoundedButton}"
+                                Style="{DynamicResource ButtonPrimary}"
                                 Click="BtnSelectFile_Click"/>
                     </Grid>
 
@@ -343,12 +82,12 @@
 
                     <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="0,12,0,0">
                         <TextBlock Text="选择 Sheet 工作表" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CbSheetList" SelectionChanged="CbSheetList_SelectionChanged"/>
+                        <ComboBox x:Name="CbSheetList" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="CbSheetList_SelectionChanged"/>
                     </StackPanel>
 
                     <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="0,12,0,0">
                         <TextBlock Text="DBF 编码" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CbDbfEncoding" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
+                        <ComboBox x:Name="CbDbfEncoding" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
                     </StackPanel>
 
                     <TextBlock x:Name="TxtFileInfo" Text="" FontSize="12" Foreground="#6B7A90" Margin="0,10,0,0"/>
@@ -404,10 +143,10 @@
                                   VerticalScrollBarVisibility="Auto"
                                   SelectionUnit="CellOrRowHeader"
                                   SelectionMode="Extended"
-                                  ColumnHeaderStyle="{StaticResource PreviewGridColumnHeaderStyle}"
-                                  RowHeaderStyle="{StaticResource PreviewGridRowHeaderStyle}"
-                                  CellStyle="{StaticResource PreviewGridCellStyle}"
-                                  RowStyle="{StaticResource PreviewGridRowStyle}"/>
+                                  ColumnHeaderStyle="{DynamicResource DataGridHeaderStyle}"
+                                  RowHeaderStyle="{DynamicResource DataGridRowHeaderStyle}"
+                                  CellStyle="{DynamicResource DataGridCellStyle}"
+                                  RowStyle="{DynamicResource DataGridRowStyle}"/>
                     </Border>
 
                     <TextBlock x:Name="TxtPreviewInfo"
@@ -438,7 +177,7 @@
 
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="目标数据库类型" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                            <ComboBox x:Name="CbDatabaseType" SelectionChanged="DbType_Changed">
+                            <ComboBox x:Name="CbDatabaseType" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="DbType_Changed">
                                 <ComboBoxItem Content="PostgreSQL" IsSelected="True"/>
                                 <ComboBoxItem Content="SQL Server"/>
                                 <ComboBoxItem Content="MySQL"/>
@@ -448,7 +187,7 @@
 
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="表名" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                            <TextBox x:Name="TxtTableName" Text="TempTable"/>
+                            <TextBox x:Name="TxtTableName" Style="{DynamicResource TextBoxStandard}" Text="TempTable"/>
                         </StackPanel>
                     </Grid>
 
@@ -466,7 +205,7 @@
 
                     <WrapPanel Margin="0,0,0,14">
                         <TextBlock Text="每批行数：" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center"/>
-                        <TextBox x:Name="TxtBatchSize" Width="70" Margin="8,0,0,0" Text="1000"/>
+                        <TextBox x:Name="TxtBatchSize" Style="{DynamicResource TextBoxStandard}" Width="70" Margin="8,0,0,0" Text="1000"/>
                         <TextBlock Text="  SQL Server 单批最大 1000，Oracle 批量时会转成 INSERT ALL。"
                                    FontSize="11"
                                    Foreground="#9CA3AF"
@@ -482,7 +221,7 @@
                                 FontWeight="SemiBold"
                                 Background="#1A56DB"
                                 Foreground="White"
-                                Style="{StaticResource RoundedButton}"
+                                Style="{DynamicResource ButtonPrimary}"
                                 Click="BtnGenerateSql_Click"/>
                     </StackPanel>
                 </StackPanel>
@@ -507,7 +246,7 @@
                                     FontSize="12"
                                     Background="#10B981"
                                     Foreground="White"
-                                    Style="{StaticResource RoundedButton}"
+                                    Style="{DynamicResource ButtonPrimary}"
                                     Margin="0,0,8,0"
                                     Click="BtnCopySql_Click"/>
                             <Button x:Name="BtnSaveSql"
@@ -516,7 +255,7 @@
                                     FontSize="12"
                                     Background="#6366F1"
                                     Foreground="White"
-                                    Style="{StaticResource RoundedButton}"
+                                    Style="{DynamicResource ButtonPrimary}"
                                     Margin="0,0,8,0"
                                     Click="BtnSaveSql_Click"/>
                             <Button x:Name="BtnExportCsv"
@@ -525,7 +264,7 @@
                                     FontSize="12"
                                     Background="#0F766E"
                                     Foreground="White"
-                                    Style="{StaticResource RoundedButton}"
+                                    Style="{DynamicResource ButtonPrimary}"
                                     Margin="0,0,8,0"
                                     Click="BtnExportCsv_Click"/>
                             <Button x:Name="BtnExportJson"
@@ -534,7 +273,7 @@
                                     FontSize="12"
                                     Background="#7C3AED"
                                     Foreground="White"
-                                    Style="{StaticResource RoundedButton}"
+                                    Style="{DynamicResource ButtonPrimary}"
                                     Click="BtnExportJson_Click"/>
                         </WrapPanel>
                     </DockPanel>
