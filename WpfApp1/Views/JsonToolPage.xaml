@@ -47,6 +47,56 @@
             <Setter Property="Padding" Value="6,5"/>
             <Setter Property="MinWidth" Value="30"/>
         </Style>
+
+        <Style x:Key="CompactSearchTextBox" TargetType="TextBox">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextDarkBrush}"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="UseLayoutRounding" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="InputBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="8,0,8,1"
+                                          VerticalAlignment="Center"
+                                          VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
+                                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="InputBorder" Property="Background"
+                                        Value="{DynamicResource InputDisabledBackgroundBrush}"/>
+                                <Setter TargetName="InputBorder" Property="BorderBrush"
+                                        Value="{DynamicResource CardBorderBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="InputBorder" Property="BorderBrush"
+                                        Value="{DynamicResource InputHoverBorderBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="InputBorder" Property="BorderBrush"
+                                        Value="{DynamicResource InputFocusBorderBrush}"/>
+                                <Setter TargetName="InputBorder" Property="Background"
+                                        Value="{DynamicResource InputFocusBackgroundBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <Grid x:Name="RootLayout" Margin="16,14">
@@ -118,7 +168,7 @@
                                         Background="#EF4444" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnCloseSearch_Click"/>
                             </StackPanel>
                              <TextBlock Text="🔍" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                             <TextBox x:Name="TxtSearchKeyword" FontSize="12" Padding="4,3" VerticalAlignment="Center"
+                             <TextBox x:Name="TxtSearchKeyword" Style="{StaticResource CompactSearchTextBox}" VerticalAlignment="Center"
                                       Background="White" BorderBrush="#D97706" BorderThickness="1" MinWidth="150"
                                       TextChanged="TxtSearchKeyword_TextChanged"
                                       KeyDown="TxtSearchKeyword_KeyDown"/>
@@ -198,7 +248,7 @@
                                         Background="#EF4444" Foreground="White" Style="{DynamicResource ButtonSmall}" Click="BtnCloseGridSearch_Click"/>
                             </StackPanel>
                             <TextBlock Text="🔍" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBox x:Name="TxtGridSearchKeyword" FontSize="12" Padding="4,3" VerticalAlignment="Center"
+                            <TextBox x:Name="TxtGridSearchKeyword" Style="{StaticResource CompactSearchTextBox}" VerticalAlignment="Center"
                                      Background="White" BorderBrush="#7C3AED" BorderThickness="1" MinWidth="150"
                                      TextChanged="TxtGridSearchKeyword_TextChanged"
                                      KeyDown="TxtGridSearchKeyword_KeyDown"/>

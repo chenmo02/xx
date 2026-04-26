@@ -2,11 +2,115 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:behaviors="clr-namespace:WpfApp1.Behaviors">
 
-    <!-- ==================== 通用共享样式 ==================== -->
+    <!-- 页面滚动条 -->
+    <Style x:Key="PageScrollThumbStyle" TargetType="Thumb">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Background" Value="{DynamicResource PageScrollThumbBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbBorder"
+                            Width="6"
+                            Margin="0,2"
+                            HorizontalAlignment="Center"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="3"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Background"
+                                    Value="{DynamicResource PageScrollThumbHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Background"
+                                    Value="{DynamicResource PageScrollThumbPressedBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
-    <!-- 页面 ScrollViewer（隐藏滚动条、支持鼠标滚轮） -->
+    <ControlTemplate x:Key="PageVerticalScrollBarTemplate" TargetType="ScrollBar">
+        <Grid Width="{TemplateBinding Width}" Background="Transparent">
+            <Border Width="6"
+                    Margin="0,8"
+                    HorizontalAlignment="Center"
+                    Background="{DynamicResource PageScrollTrackBrush}"
+                    CornerRadius="3"/>
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageUpCommand"
+                                  Focusable="False"
+                                  IsTabStop="False"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Opacity="0"/>
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Style="{StaticResource PageScrollThumbStyle}" MinHeight="40"/>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageDownCommand"
+                                  Focusable="False"
+                                  IsTabStop="False"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Opacity="0"/>
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Grid>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="PageHorizontalScrollBarTemplate" TargetType="ScrollBar">
+        <Grid Height="{TemplateBinding Height}" Background="Transparent">
+            <Border Height="6"
+                    Margin="8,0"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource PageScrollTrackBrush}"
+                    CornerRadius="3"/>
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageLeftCommand"
+                                  Focusable="False"
+                                  IsTabStop="False"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Opacity="0"/>
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Style="{StaticResource PageScrollThumbStyle}" MinWidth="40"/>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Command="ScrollBar.PageRightCommand"
+                                  Focusable="False"
+                                  IsTabStop="False"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Opacity="0"/>
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Grid>
+    </ControlTemplate>
+
+    <Style x:Key="PageScrollBarStyle" TargetType="ScrollBar">
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template" Value="{StaticResource PageVerticalScrollBarTemplate}"/>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Height" Value="14"/>
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Template" Value="{StaticResource PageHorizontalScrollBarTemplate}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 页面 ScrollViewer -->
     <Style x:Key="PageScrollViewerStyle" TargetType="ScrollViewer">
-        <Setter Property="VerticalScrollBarVisibility" Value="Hidden"/>
+        <Style.Resources>
+            <Style TargetType="ScrollBar" BasedOn="{StaticResource PageScrollBarStyle}"/>
+        </Style.Resources>
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
         <Setter Property="CanContentScroll" Value="False"/>
         <Setter Property="PanningMode" Value="VerticalOnly"/>

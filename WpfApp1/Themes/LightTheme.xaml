@@ -31,7 +31,10 @@
     <!-- 输入控件 -->
     <SolidColorBrush x:Key="InputBackgroundBrush" Color="#F8FAFC"/>
     <SolidColorBrush x:Key="InputBorderBrush" Color="#D1D5DB"/>
+    <SolidColorBrush x:Key="InputHoverBorderBrush" Color="#A8B4C5"/>
     <SolidColorBrush x:Key="InputFocusBorderBrush" Color="#4E6EF2"/>
+    <SolidColorBrush x:Key="InputFocusBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="InputDisabledBackgroundBrush" Color="#F1F5F9"/>
 
     <!-- 分割线 -->
     <SolidColorBrush x:Key="DividerBrush" Color="#EBEBEB"/>
@@ -72,5 +75,15 @@
     <SolidColorBrush x:Key="DropdownBackgroundBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="DropdownBorderBrush" Color="#E0E0E0"/>
     <SolidColorBrush x:Key="DropdownArrowBrush" Color="#888"/>
+    <SolidColorBrush x:Key="DropdownScrollTrackBrush" Color="#EEF2F7"/>
+    <SolidColorBrush x:Key="DropdownScrollThumbBrush" Color="#C3CBD8"/>
+    <SolidColorBrush x:Key="DropdownScrollThumbHoverBrush" Color="#94A3B8"/>
+    <SolidColorBrush x:Key="DropdownScrollThumbPressedBrush" Color="#64748B"/>
+
+    <!-- 页面滚动条 -->
+    <SolidColorBrush x:Key="PageScrollTrackBrush" Color="#E8EDF4"/>
+    <SolidColorBrush x:Key="PageScrollThumbBrush" Color="#C4CEDB"/>
+    <SolidColorBrush x:Key="PageScrollThumbHoverBrush" Color="#9BAAC0"/>
+    <SolidColorBrush x:Key="PageScrollThumbPressedBrush" Color="#71839D"/>
 
 </ResourceDictionary>

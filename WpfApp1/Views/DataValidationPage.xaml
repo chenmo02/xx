@@ -8,40 +8,7 @@
 
     <Page.Resources>
         <!-- 圆角输入框 -->
-        <Style x:Key="RoundedInputBox" TargetType="TextBox">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="10,7"/>
-            <Setter Property="Background" Value="#F8FAFC"/>
-            <Setter Property="BorderBrush" Value="#D1D5DB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Foreground" Value="#111827"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8" SnapsToDevicePixels="True">
-                            <ScrollViewer x:Name="PART_ContentHost"
-                                          Padding="{TemplateBinding Padding}"
-                                          VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
-                                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#94A3B8"/>
-                            </Trigger>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4E6EF2"/>
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4E6EF2"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="RoundedInputBox" TargetType="TextBox" BasedOn="{StaticResource TextBoxStandard}"/>
 
         <Style x:Key="GridContextMenu" TargetType="ContextMenu">
             <Setter Property="Background" Value="White"/>
@@ -527,6 +494,7 @@
                                     </StackPanel>
                                     <TextBox x:Name="TxtStructQuery" IsReadOnly="True"
                                              AcceptsReturn="True"
+                                             Style="{DynamicResource TextBoxStandard}"
                                              TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"
                                              Background="#F8FAFC" BorderBrush="#D1D5DB" BorderThickness="1"
                                              VerticalScrollBarVisibility="Auto" Padding="8,6"/>

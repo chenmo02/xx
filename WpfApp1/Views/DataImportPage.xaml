@@ -12,7 +12,7 @@
     <Grid>
         <ScrollViewer Style="{DynamicResource PageScrollViewerStyle}"
                       Padding="28,24"
-                      VerticalScrollBarVisibility="Visible"
+                      VerticalScrollBarVisibility="Auto"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch"
                       CanContentScroll="False"
@@ -205,7 +205,13 @@
 
                     <WrapPanel Margin="0,0,0,14">
                         <TextBlock Text="每批行数：" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center"/>
-                        <TextBox x:Name="TxtBatchSize" Style="{DynamicResource TextBoxStandard}" Width="70" Margin="8,0,0,0" Text="1000"/>
+                        <TextBox x:Name="TxtBatchSize"
+                                 Style="{DynamicResource TextBoxStandard}"
+                                 Width="90"
+                                 Margin="8,0,0,0"
+                                 Padding="8,5"
+                                 TextAlignment="Center"
+                                 Text="1000"/>
                         <TextBlock Text="  SQL Server 单批最大 1000，Oracle 批量时会转成 INSERT ALL。"
                                    FontSize="11"
                                    Foreground="#9CA3AF"

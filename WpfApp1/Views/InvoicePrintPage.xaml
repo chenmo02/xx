@@ -291,19 +291,19 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Grid.Column="0">
                             <TextBlock Text="上" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginTop" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginTop" Text="0" Style="{DynamicResource TextBoxStandard}" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                         <StackPanel Grid.Row="0" Grid.Column="2">
                             <TextBlock Text="下" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginBottom" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginBottom" Text="0" Style="{DynamicResource TextBoxStandard}" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="0">
                             <TextBlock Text="左" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginLeft" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginLeft" Text="0" Style="{DynamicResource TextBoxStandard}" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                         <StackPanel Grid.Row="2" Grid.Column="2">
                             <TextBlock Text="右" Style="{StaticResource SubLabel}"/>
-                            <TextBox x:Name="TxtMarginRight" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtMarginRight" Text="0" Style="{DynamicResource TextBoxStandard}" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                         </StackPanel>
                     </Grid>
 
@@ -318,11 +318,11 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="X" Style="{StaticResource SubLabel}"/>
-                                <TextBox x:Name="TxtOffsetX" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtOffsetX" Text="0" Style="{DynamicResource TextBoxStandard}" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Y" Style="{StaticResource SubLabel}"/>
-                                <TextBox x:Name="TxtOffsetY" Text="0" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
+                            <TextBox x:Name="TxtOffsetY" Text="0" Style="{DynamicResource TextBoxStandard}" Padding="6,4" FontSize="12" Background="#F7F8FA" BorderBrush="#D1D5DB" TextChanged="MarginChanged"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>

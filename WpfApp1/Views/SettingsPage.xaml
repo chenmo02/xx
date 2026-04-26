@@ -27,7 +27,7 @@
         </Style>
 
         <!-- 结果文本框（只读） -->
-        <Style x:Key="ResultBox" TargetType="TextBox">
+        <Style x:Key="ResultBox" TargetType="TextBox" BasedOn="{StaticResource TextBoxStandard}">
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontFamily" Value="Consolas, Courier New"/>
