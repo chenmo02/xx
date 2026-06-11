@@ -264,16 +264,50 @@ xx
 
 ## 本地运行
 
-在项目根目录执行：
+本项目是 Windows WPF 桌面程序，入口项目为 `WpfApp1/WpfApp1.csproj`，应用程序集名为 `CCToolbox`，目标框架为 `net10.0-windows10.0.19041.0`。
+
+### 环境要求
+
+- Windows 10 19041 或更高版本
+- .NET 10 SDK（包含 Windows Desktop Runtime）
+- 首次还原依赖时需要访问 NuGet 源
+
+如果本机 `dotnet` 已加入 `PATH`，在项目根目录执行：
 
 ```powershell
-dotnet build .\WpfApp1\WpfApp1.csproj
+dotnet restore .\WpfApp1\WpfApp1.csproj --configfile .\NuGet.Config
+dotnet run --project .\WpfApp1\WpfApp1.csproj --launch-profile CCToolbox-DebugLocal
+```
+
+如果本机没有全局 `dotnet`，可以使用本地 SDK。当前环境已验证可用的 SDK 路径为 `C:\tmp\dotnet-10\dotnet.exe`，版本为 `10.0.203`：
+
+```powershell
+Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile C:\tmp\dotnet-install.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\tmp\dotnet-install.ps1 -Channel 10.0 -InstallDir C:\tmp\dotnet-10 -Architecture x64
+```
+
+```powershell
+C:\tmp\dotnet-10\dotnet.exe restore .\WpfApp1\WpfApp1.csproj --configfile .\NuGet.Config
+C:\tmp\dotnet-10\dotnet.exe build .\WpfApp1\WpfApp1.csproj --no-restore
+$env:DOTNET_ROOT="C:\tmp\dotnet-10"
+$env:PATH="C:\tmp\dotnet-10;$env:PATH"
+.\WpfApp1\bin\Debug\net10.0-windows10.0.19041.0\CCToolbox.exe
+```
+
+在受限沙箱或用户目录不可写的环境中，先把 .NET/NuGet 缓存指向仓库内目录：
+
+```powershell
+$env:DOTNET_CLI_HOME="$PWD\.dotnet_cli"
+$env:APPDATA="$PWD\.dotnet_user\AppData\Roaming"
+$env:LOCALAPPDATA="$PWD\.dotnet_user\AppData\Local"
+$env:NUGET_PACKAGES="$PWD\.nuget\packages"
+$env:NUGET_HTTP_CACHE_PATH="$PWD\.nuget\http-cache"
 ```
 
 如果需要发布：
 
 ```powershell
-dotnet publish .\WpfApp1.csproj -c Release -r win-x64 --self-contained false -o .\publish\win-x64
+dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
 ```
 
 ## 最近更新

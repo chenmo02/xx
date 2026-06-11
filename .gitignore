@@ -9,6 +9,11 @@ obj/
 
 # Other generated files
 packages/
+.nuget/
+.dotnet_user/
+.dotnet_cli/.dotnet/*.aspNetCertificateSentinel
+.dotnet_cli/.dotnet/*.dotnetFirstUseSentinel
+.dotnet_cli/.dotnet/*.toolpath.sentinel
 
 # Single-file publish outputs
 artifacts/

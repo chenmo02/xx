@@ -26,6 +26,15 @@
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
 
+        <Style x:Key="SqlPreferenceComboBox" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStandard}">
+            <Setter Property="Height" Value="40"/>
+        </Style>
+
+        <Style x:Key="SqlPreferenceTextBox" TargetType="TextBox" BasedOn="{StaticResource TextBoxStandard}">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
+
         <!-- 结果文本框（只读） -->
         <Style x:Key="ResultBox" TargetType="TextBox" BasedOn="{StaticResource TextBoxStandard}">
             <Setter Property="Padding" Value="10,8"/>
@@ -66,7 +75,7 @@
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="默认数据库类型" Style="{StaticResource LabelText}"/>
                             <ComboBox x:Name="CmbDefaultDbType" SelectedIndex="0"
-                                         Style="{DynamicResource ComboBoxStandard}"
+                                         Style="{StaticResource SqlPreferenceComboBox}"
                                          ItemContainerStyle="{DynamicResource ComboBoxItemStandard}">
                                 <ComboBoxItem Content="PostgreSQL"/>
                                 <ComboBoxItem Content="SQL Server"/>
@@ -77,12 +86,12 @@
 
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="默认表名" Style="{StaticResource LabelText}"/>
-                            <TextBox x:Name="TxtDefaultTableName" Style="{DynamicResource TextBoxStandard}" Text="TempTable"/>
+                            <TextBox x:Name="TxtDefaultTableName" Style="{StaticResource SqlPreferenceTextBox}" Text="temp_table"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="4">
                             <TextBlock Text="每批 INSERT 行数" Style="{StaticResource LabelText}"/>
-                            <TextBox x:Name="TxtDefaultBatchSize" Style="{DynamicResource TextBoxStandard}" Text="1000"/>
+                            <TextBox x:Name="TxtDefaultBatchSize" Style="{StaticResource SqlPreferenceTextBox}" Text="1000"/>
                         </StackPanel>
                     </Grid>
 

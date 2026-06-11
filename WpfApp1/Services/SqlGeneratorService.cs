@@ -36,10 +36,10 @@ namespace WpfApp1.Services
 
         public static string GetDefaultTableName(DbType dbType) => dbType switch
         {
-            DbType.PostgreSQL => "TempTable",
+            DbType.PostgreSQL => "temp_table",
             DbType.MySQL => "temp_table",
-            DbType.Oracle => "TEMP_TABLE",
-            _ => "#TMP"
+            DbType.Oracle => "temp_table",
+            _ => "#tmp"
         };
 
         public static string GetDefaultTableName(DbType dbType, string? prefix)
@@ -59,7 +59,6 @@ namespace WpfApp1.Services
             return dbType switch
             {
                 DbType.SqlServer => $"#{logicalName}",
-                DbType.Oracle => logicalName.ToUpperInvariant(),
                 _ => logicalName
             };
         }
@@ -77,7 +76,7 @@ namespace WpfApp1.Services
 
             if (dbType == DbType.SqlServer && candidate.StartsWith("#", StringComparison.Ordinal))
             {
-                return candidate;
+                return NormalizeSqlName(candidate, allowTempPrefix: true);
             }
 
             if (TryGetTemporaryTableLogicalName(candidate, out string logicalName))
@@ -85,8 +84,6 @@ namespace WpfApp1.Services
                 return dbType switch
                 {
                     DbType.SqlServer => $"#{logicalName}",
-                    DbType.Oracle => logicalName.ToUpperInvariant(),
-                    DbType.MySQL => logicalName,
                     _ => logicalName
                 };
             }
@@ -96,7 +93,7 @@ namespace WpfApp1.Services
                 return $"#{sqlServerTableName}";
             }
 
-            return candidate;
+            return NormalizeSqlName(candidate, allowTempPrefix: dbType == DbType.SqlServer);
         }
 
         public static string GenerateFullSql(
@@ -179,7 +176,7 @@ namespace WpfApp1.Services
                         break;
                     case DbType.Oracle:
                         sb.AppendLine("BEGIN");
-                        sb.AppendLine($"    EXECUTE IMMEDIATE 'DROP TABLE {tableName}';");
+                        sb.AppendLine($"    EXECUTE IMMEDIATE 'DROP TABLE {wrappedName}';");
                         sb.AppendLine("EXCEPTION");
                         sb.AppendLine("    WHEN OTHERS THEN");
                         sb.AppendLine("        IF SQLCODE != -942 THEN RAISE; END IF;");
@@ -605,13 +602,16 @@ namespace WpfApp1.Services
             _ => " LIMIT 10"
         };
 
-        private static string WrapName(DbType dbType, string name) => dbType switch
+        private static string WrapName(DbType dbType, string name)
         {
-            DbType.PostgreSQL => $"\"{name}\"",
-            DbType.MySQL => $"`{name}`",
-            DbType.Oracle => $"\"{name}\"",
-            _ => name.StartsWith("#", StringComparison.Ordinal) ? name : $"[{name}]"
-        };
+            string normalized = NormalizeSqlName(name, allowTempPrefix: dbType == DbType.SqlServer);
+            return dbType switch
+            {
+                DbType.MySQL => $"`{normalized}`",
+                _ when dbType == DbType.SqlServer && !normalized.StartsWith("#", StringComparison.Ordinal) => $"[{normalized}]",
+                _ => normalized
+            };
+        }
 
         private static string SanitizeColumnName(string name)
         {
@@ -633,7 +633,7 @@ namespace WpfApp1.Services
                 }
             }
 
-            string result = sb.ToString().Trim('_');
+            string result = sb.ToString().Trim('_').ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(result))
             {
                 result = "col";
@@ -679,12 +679,24 @@ namespace WpfApp1.Services
             }
 
             string normalized = logicalName.Replace("_", string.Empty, StringComparison.Ordinal).ToLowerInvariant();
-            return normalized is "temptable" or "tmp";
+            if (normalized == "temptable")
+            {
+                logicalName = "temp_table";
+                return true;
+            }
+
+            if (normalized == "tmp")
+            {
+                logicalName = "tmp";
+                return true;
+            }
+
+            return false;
         }
 
         private static bool TryGetSqlServerSimpleTableName(string tableName, out string logicalName)
         {
-            logicalName = StripIdentifierDelimiters(tableName.Trim());
+            logicalName = NormalizeSqlName(tableName);
             if (string.IsNullOrWhiteSpace(logicalName) || logicalName.Contains('.'))
             {
                 logicalName = string.Empty;
@@ -735,7 +747,40 @@ namespace WpfApp1.Services
                 }
             }
 
-            return sb.ToString().Trim('_');
+            return sb.ToString().Trim('_').ToLowerInvariant();
+        }
+
+        private static string NormalizeSqlName(string name, bool allowTempPrefix = false)
+        {
+            string stripped = StripIdentifierDelimiters(name.Trim());
+            bool hasTempPrefix = allowTempPrefix && stripped.StartsWith("#", StringComparison.Ordinal);
+            string value = hasTempPrefix ? stripped[1..] : stripped;
+
+            var sb = new StringBuilder();
+            foreach (char c in value)
+            {
+                if (char.IsLetterOrDigit(c) || c == '_' || c > 127)
+                {
+                    sb.Append(c);
+                }
+                else
+                {
+                    sb.Append('_');
+                }
+            }
+
+            string normalized = sb.ToString().Trim('_').ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                normalized = "temp_table";
+            }
+
+            if (char.IsDigit(normalized[0]))
+            {
+                normalized = $"t_{normalized}";
+            }
+
+            return hasTempPrefix ? $"#{normalized}" : normalized;
         }
 
         private static string EscapeString(string value) => value.Replace("'", "''");

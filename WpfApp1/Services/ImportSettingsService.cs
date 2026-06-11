@@ -8,7 +8,7 @@ namespace WpfApp1.Services
     {
         public string DefaultDbType { get; set; } = "PostgreSQL";
 
-        public string DefaultTableName { get; set; } = "TempTable";
+        public string DefaultTableName { get; set; } = "temp_table";
 
         public string? TempTablePrefix { get; set; }
 

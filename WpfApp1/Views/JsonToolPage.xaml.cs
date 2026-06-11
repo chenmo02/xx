@@ -9,7 +9,6 @@ using System.Text.Json.Nodes;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -20,6 +19,7 @@ namespace WpfApp1.Views
     public partial class JsonToolPage : Page
     {
         private readonly DispatcherTimer _debounceTimer = new();
+        private readonly DispatcherTimer _searchDebounceTimer = new();
         private readonly DispatcherTimer _gridSearchDebounceTimer = new();
         private static readonly Brush BorderColor = MakeBrush("#E5E7EB");
         private static readonly Brush HeaderBg = MakeBrush("#0EA5E9");
@@ -43,8 +43,11 @@ namespace WpfApp1.Views
         private static readonly Brush EditorBorderBrush = MakeBrush("#93C5FD");
 
         // 左侧搜索
-        private List<TextRange> _searchMatches = new();
+        private List<int> _searchMatches = new();
         private int _currentMatchIndex = -1;
+        private int _lastHighlightedMatchIndex = -1;
+        private bool _editorSearchResultsTruncated = false;
+        private int _currentSearchKeywordLength = 0;
         private bool _isUpdatingText = false;
         private bool _isGridFullscreen = false;
         private bool _isGridEditMode = false;
@@ -72,10 +75,13 @@ namespace WpfApp1.Views
         // 右侧 GRID 搜索
         private List<TextBlock> _gridSearchMatches = new();
         private int _gridSearchCurrentIndex = -1;
+        private bool _gridSearchResultsTruncated = false;
+        private int _gridSearchCollapsedMatchCount = 0;
         private readonly List<(TextBlock tb, Brush originalBg, Brush originalFg)> _gridSearchHighlighted = new();
+        private readonly List<(TextBlock tb, Brush originalBg)> _linkedGridHighlighted = new();
 
         // 点击联动
-        private List<TextRange> _clickHighlights = new();
+        private List<int> _clickHighlights = new();
 
         // 所有 GRID 值 TextBlock
         private readonly List<TextBlock> _allGridValueTextBlocks = new();
@@ -84,23 +90,21 @@ namespace WpfApp1.Views
         private const int MaxGridSearchMatches = 500;
         private const int MaxJsonHighlights = 200;
         private const int MaxGridAutoExpand = 50;
+        private const int MaxAutoGridSyncCharacters = 500_000;
+        private const int MaxLinkedJsonHighlightCharacters = 800_000;
+        private const int MaxGridEditCharacters = MaxAutoGridSyncCharacters;
+        private const int MaxRenderedTableRows = 1_000;
+        private const int MaxEditableTableRows = 300;
+        private const int MaxRenderedTableColumns = 80;
+        private const int MaxRenderedTableCells = 12_000;
         // 每批展开的最大节点数
         private const int ExpandBatchSize = 8;
         // GRID 搜索取消令牌（用于中断上一次搜索）
         private CancellationTokenSource? _gridSearchCts;
-
-        private sealed class EditorTextSegment
-        {
-            public required int Start { get; init; }
-            public required int Length { get; init; }
-            public required TextPointer Pointer { get; init; }
-        }
-
-        private sealed class EditorTextSnapshot
-        {
-            public required string Text { get; init; }
-            public required List<EditorTextSegment> Segments { get; init; }
-        }
+        private CancellationTokenSource? _editorSearchCts;
+        private int _lastEditorTextLength = 0;
+        private string? _lastJsonErrorSignature;
+        private bool _isPastingIntoEditor = false;
 
         private sealed class JsonPathSegment
         {
@@ -108,11 +112,24 @@ namespace WpfApp1.Views
             public int? ArrayIndex { get; init; }
         }
 
+        private sealed class GridDataSearchResult
+        {
+            public required List<string> JsonPaths { get; init; }
+            public required bool IsTruncated { get; init; }
+        }
+
         public JsonToolPage()
         {
             InitializeComponent();
+            DataObject.AddPastingHandler(TxtJsonEditor, TxtJsonEditor_Pasting);
             _debounceTimer.Interval = TimeSpan.FromMilliseconds(600);
             _debounceTimer.Tick += (s, e) => { _debounceTimer.Stop(); RebuildGrid(); };
+            _searchDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+            _searchDebounceTimer.Tick += async (s, e) =>
+            {
+                _searchDebounceTimer.Stop();
+                await PerformSearchAsync();
+            };
 
             // GRID 搜索防抖 300ms
             _gridSearchDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
@@ -188,6 +205,16 @@ namespace WpfApp1.Views
 
         private void EnterGridEditMode()
         {
+            if (_lastEditorTextLength > MaxGridEditCharacters)
+            {
+                MessageBox.Show(
+                    $"当前 JSON 较大（约 {_lastEditorTextLength:N0} 字符），右侧表格编辑需要反复解析全文，容易造成长时间卡顿。\n请先在左侧 JSON 编辑，或拆分文件后再使用右侧编辑。",
+                    "JSON 过大",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
             _isGridEditMode = true;
             BtnToggleGridEdit.Content = "\u7ed3\u675f\u7f16\u8f91";
             RefreshGridPreservingState();
@@ -260,29 +287,102 @@ namespace WpfApp1.Views
         private static string GetSectionStateKey(bool isTable, JsonGridNode node)
             => $"{(isTable ? "tbl" : "obj")}::{node.JsonPath}";
 
-        // ==================== RichTextBox 文本辅助 ====================
+        // ==================== JSON 文本辅助 ====================
 
         private string GetEditorText()
         {
-            var range = new TextRange(TxtJsonEditor.Document.ContentStart, TxtJsonEditor.Document.ContentEnd);
-            return range.Text.TrimEnd();
+            return TxtJsonEditor.Text.TrimEnd('\r', '\n');
         }
 
         private void SetEditorText(string text)
         {
             _isUpdatingText = true;
-            TxtJsonEditor.Document.Blocks.Clear();
-            var paragraph = new Paragraph();
-            paragraph.Inlines.Add(new Run(text) { Foreground = NormalJsonFg });
-            TxtJsonEditor.Document.Blocks.Add(paragraph);
-            _isUpdatingText = false;
+            try
+            {
+                TxtJsonEditor.Text = NormalizeEditorNewLines(text);
+                TxtJsonEditor.CaretIndex = 0;
+                TxtJsonEditor.ScrollToHome();
+                _lastEditorTextLength = text.Length;
+            }
+            finally
+            {
+                _isUpdatingText = false;
+            }
         }
+
+        private static string NormalizeEditorNewLines(string text)
+            => text.Replace("\r\n", "\n").Replace('\r', '\n').Replace("\n", Environment.NewLine);
 
         private void TxtJsonEditor_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_isUpdatingText) return;
+            TrackEditorTextLength(e);
+
+            if (_isPastingIntoEditor)
+            {
+                _debounceTimer.Stop();
+                return;
+            }
+
+            if (_lastEditorTextLength > MaxAutoGridSyncCharacters)
+            {
+                _debounceTimer.Stop();
+                SetStatus($"JSON 较大（约 {_lastEditorTextLength:N0} 字符），已暂停自动同步 GRID");
+                return;
+            }
+
             _debounceTimer.Stop();
             _debounceTimer.Start();
+        }
+
+        private void TxtJsonEditor_Pasting(object sender, DataObjectPastingEventArgs e)
+        {
+            _isPastingIntoEditor = true;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _isPastingIntoEditor = false;
+                ValidatePastedJson();
+            }), DispatcherPriority.Background);
+        }
+
+        private void ValidatePastedJson()
+        {
+            _debounceTimer.Stop();
+            ClearGridState();
+
+            string json = GetEditorText();
+            _lastEditorTextLength = json.Length;
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                _lastJsonErrorSignature = null;
+                SetStatus("就绪");
+                return;
+            }
+
+            try
+            {
+                using var _ = JsonDocument.Parse(json);
+                _lastJsonErrorSignature = null;
+                SetStatus("✅ 粘贴内容是标准 JSON");
+            }
+            catch (JsonException ex)
+            {
+                SetStatus("粘贴内容不是标准 JSON");
+                ShowJsonFormatError("粘贴内容不是标准 JSON。", ex, true);
+            }
+        }
+
+        private void TrackEditorTextLength(TextChangedEventArgs e)
+        {
+            foreach (var change in e.Changes)
+            {
+                _lastEditorTextLength += change.AddedLength - change.RemovedLength;
+            }
+
+            if (_lastEditorTextLength < 0)
+            {
+                _lastEditorTextLength = 0;
+            }
         }
 
         // ==================== Ctrl+F 智能判断 ====================
@@ -335,6 +435,7 @@ namespace WpfApp1.Views
             }
             else
             {
+                CancelEditorSearch();
                 ClearSearchHighlights();
                 TxtSearchKeyword.Text = "";
                 TxtSearchCount.Text = "";
@@ -343,16 +444,20 @@ namespace WpfApp1.Views
         }
 
         private void TxtSearchKeyword_TextChanged(object sender, TextChangedEventArgs e)
-            => PerformSearch();
+            => QueueEditorSearch();
 
         private void SearchOptionChanged(object sender, RoutedEventArgs e)
-            => PerformSearch();
+            => QueueEditorSearch();
 
-        private void TxtSearchKeyword_KeyDown(object sender, KeyEventArgs e)
+        private async void TxtSearchKeyword_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
-                NavigateMatch(Keyboard.Modifiers == ModifierKeys.Shift ? -1 : 1);
+                _searchDebounceTimer.Stop();
+                if (_searchMatches.Count == 0 && !string.IsNullOrWhiteSpace(TxtSearchKeyword.Text))
+                    await PerformSearchAsync();
+                else
+                    NavigateMatch(Keyboard.Modifiers == ModifierKeys.Shift ? -1 : 1);
                 e.Handled = true;
             }
             else if (e.Key == Key.Escape)
@@ -365,33 +470,70 @@ namespace WpfApp1.Views
         private void BtnSearchPrev_Click(object sender, RoutedEventArgs e) => NavigateMatch(-1);
         private void BtnSearchNext_Click(object sender, RoutedEventArgs e) => NavigateMatch(1);
 
-        private void PerformSearch()
+        private void QueueEditorSearch()
         {
-            _isUpdatingText = true;
+            string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
+            CancelEditorSearch();
+
+            if (string.IsNullOrEmpty(keyword))
+            {
+                ClearSearchHighlights();
+                ClearGridHighlights();
+                TxtSearchCount.Text = "";
+                return;
+            }
+
+            _searchDebounceTimer.Start();
+        }
+
+        private void CancelEditorSearch()
+        {
+            _searchDebounceTimer.Stop();
+            _editorSearchCts?.Cancel();
+            _editorSearchCts?.Dispose();
+            _editorSearchCts = null;
+        }
+
+        private async Task PerformSearchAsync()
+        {
+            CancelEditorSearch();
+            var cts = new CancellationTokenSource();
+            _editorSearchCts = cts;
+            var token = cts.Token;
+
             try
             {
                 ClearSearchHighlights();
                 ClearGridHighlights();
                 _searchMatches.Clear();
                 _currentMatchIndex = -1;
+                _lastHighlightedMatchIndex = -1;
+                _editorSearchResultsTruncated = false;
 
                 string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
                 if (string.IsNullOrEmpty(keyword)) { TxtSearchCount.Text = ""; return; }
                 StringComparison comparison = GetLeftSearchComparison();
 
-                foreach (var range in FindEditorMatches(keyword, comparison, MaxJsonHighlights))
-                {
-                    _searchMatches.Add(range);
-                    range.ApplyPropertyValue(TextElement.BackgroundProperty, HighlightBg);
-                    range.ApplyPropertyValue(TextElement.ForegroundProperty, HighlightFg);
-                }
+                TxtSearchCount.Text = "搜索中...";
+                string editorText = GetEditorText();
+                var offsets = await Task.Run(
+                    () => FindEditorMatchOffsets(editorText, keyword, comparison, MaxJsonHighlights + 1, token),
+                    token);
+
+                if (!IsCurrentEditorSearch(cts, token)) return;
+
+                int highlightCount = Math.Min(offsets.Count, MaxJsonHighlights);
+                _editorSearchResultsTruncated = offsets.Count > MaxJsonHighlights;
+                _currentSearchKeywordLength = keyword.Length;
+                _searchMatches.AddRange(offsets.Take(highlightCount));
+
+                if (!IsCurrentEditorSearch(cts, token)) return;
 
                 if (_searchMatches.Count > 0)
                 {
                     _currentMatchIndex = 0;
                     HighlightCurrentMatch();
-                    string suffix = _searchMatches.Count >= MaxJsonHighlights ? "+" : "";
-                    TxtSearchCount.Text = $"1/{_searchMatches.Count}{suffix}";
+                    TxtSearchCount.Text = FormatEditorSearchCount();
                     HighlightGridMatches(keyword, comparison);
                 }
                 else
@@ -399,22 +541,66 @@ namespace WpfApp1.Views
                     TxtSearchCount.Text = "无匹配";
                 }
             }
-            finally { _isUpdatingText = false; }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                if (ReferenceEquals(_editorSearchCts, cts))
+                {
+                    _editorSearchCts = null;
+                    cts.Dispose();
+                }
+            }
+        }
+
+        private void PerformSearch()
+        {
+            ClearSearchHighlights();
+            ClearGridHighlights();
+            _searchMatches.Clear();
+            _currentMatchIndex = -1;
+
+            string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
+            if (string.IsNullOrEmpty(keyword)) { TxtSearchCount.Text = ""; return; }
+            StringComparison comparison = GetLeftSearchComparison();
+
+            _currentSearchKeywordLength = keyword.Length;
+            _searchMatches.AddRange(FindEditorMatches(keyword, comparison, MaxJsonHighlights));
+
+            if (_searchMatches.Count > 0)
+            {
+                _currentMatchIndex = 0;
+                HighlightCurrentMatch();
+                string suffix = _searchMatches.Count >= MaxJsonHighlights ? "+" : "";
+                TxtSearchCount.Text = $"1/{_searchMatches.Count}{suffix}";
+                HighlightGridMatches(keyword, comparison);
+            }
+            else
+            {
+                TxtSearchCount.Text = "无匹配";
+            }
         }
 
         private StringComparison GetLeftSearchComparison()
             => ChkSearchCaseSensitive?.IsChecked == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-        private List<TextRange> FindEditorMatches(string keyword, StringComparison comparison, int maxMatches)
-        {
-            var matches = new List<TextRange>();
-            if (string.IsNullOrEmpty(keyword) || maxMatches <= 0)
-            {
-                return matches;
-            }
+        private bool IsCurrentEditorSearch(CancellationTokenSource cts, CancellationToken token)
+            => ReferenceEquals(_editorSearchCts, cts) && !token.IsCancellationRequested;
 
-            var snapshot = CaptureEditorTextSnapshot();
-            if (string.IsNullOrEmpty(snapshot.Text))
+        private string FormatEditorSearchCount()
+        {
+            string suffix = _editorSearchResultsTruncated ? "+" : "";
+            return $"{_currentMatchIndex + 1}/{_searchMatches.Count}{suffix}";
+        }
+
+        private static List<int> FindEditorMatchOffsets(
+            string text,
+            string keyword,
+            StringComparison comparison,
+            int maxMatches,
+            CancellationToken token)
+        {
+            var matches = new List<int>();
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(keyword) || maxMatches <= 0)
             {
                 return matches;
             }
@@ -422,119 +608,58 @@ namespace WpfApp1.Views
             int startIndex = 0;
             while (matches.Count < maxMatches)
             {
-                int matchIndex = snapshot.Text.IndexOf(keyword, startIndex, comparison);
+                token.ThrowIfCancellationRequested();
+
+                int matchIndex = text.IndexOf(keyword, startIndex, comparison);
                 if (matchIndex < 0)
                 {
                     break;
                 }
 
-                var range = CreateEditorTextRange(snapshot, matchIndex, keyword.Length);
-                if (range != null)
-                {
-                    matches.Add(range);
-                }
-
+                matches.Add(matchIndex);
                 startIndex = matchIndex + Math.Max(keyword.Length, 1);
             }
 
             return matches;
         }
 
-        private EditorTextSnapshot CaptureEditorTextSnapshot()
+        private List<int> FindEditorMatches(string keyword, StringComparison comparison, int maxMatches)
         {
-            var segments = new List<EditorTextSegment>();
-            var textBuilder = new StringBuilder();
-            var current = TxtJsonEditor.Document.ContentStart;
-            var contentEnd = TxtJsonEditor.Document.ContentEnd;
-
-            while (current != null && current.CompareTo(contentEnd) < 0)
+            var matches = new List<int>();
+            if (string.IsNullOrEmpty(keyword) || maxMatches <= 0)
             {
-                if (current.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+                return matches;
+            }
+
+            string text = GetEditorText();
+            if (string.IsNullOrEmpty(text))
+            {
+                return matches;
+            }
+
+            int startIndex = 0;
+            while (matches.Count < maxMatches)
+            {
+                int matchIndex = text.IndexOf(keyword, startIndex, comparison);
+                if (matchIndex < 0)
                 {
-                    string textRun = current.GetTextInRun(LogicalDirection.Forward);
-                    if (!string.IsNullOrEmpty(textRun))
-                    {
-                        segments.Add(new EditorTextSegment
-                        {
-                            Start = textBuilder.Length,
-                            Length = textRun.Length,
-                            Pointer = current
-                        });
-                        textBuilder.Append(textRun);
-                    }
+                    break;
                 }
 
-                current = current.GetNextContextPosition(LogicalDirection.Forward);
+                matches.Add(matchIndex);
+                startIndex = matchIndex + Math.Max(keyword.Length, 1);
             }
 
-            return new EditorTextSnapshot
-            {
-                Text = textBuilder.ToString(),
-                Segments = segments
-            };
-        }
-
-        private TextRange? CreateEditorTextRange(EditorTextSnapshot snapshot, int startOffset, int length)
-        {
-            if (startOffset < 0 || length <= 0)
-            {
-                return null;
-            }
-
-            var start = GetEditorTextPointerAtOffset(snapshot, startOffset);
-            var end = GetEditorTextPointerAtOffset(snapshot, startOffset + length);
-            if (start == null || end == null)
-            {
-                return null;
-            }
-
-            return new TextRange(start, end);
-        }
-
-        private TextPointer? GetEditorTextPointerAtOffset(EditorTextSnapshot snapshot, int offset)
-        {
-            if (offset < 0)
-            {
-                return null;
-            }
-
-            foreach (var segment in snapshot.Segments)
-            {
-                if (offset < segment.Start || offset > segment.Start + segment.Length)
-                {
-                    continue;
-                }
-
-                return segment.Pointer.GetPositionAtOffset(offset - segment.Start);
-            }
-
-            if (offset == snapshot.Text.Length)
-            {
-                var lastSegment = snapshot.Segments.LastOrDefault();
-                if (lastSegment != null)
-                {
-                    return lastSegment.Pointer.GetPositionAtOffset(lastSegment.Length);
-                }
-            }
-
-            return offset == 0 ? TxtJsonEditor.Document.ContentStart : null;
+            return matches;
         }
 
         private void HighlightCurrentMatch()
         {
             if (_currentMatchIndex < 0 || _currentMatchIndex >= _searchMatches.Count) return;
-            bool wasUpdating = _isUpdatingText;
-            _isUpdatingText = true;
-            try
-            {
-                foreach (var match in _searchMatches)
-                    match.ApplyPropertyValue(TextElement.BackgroundProperty, HighlightBg);
-                var current = _searchMatches[_currentMatchIndex];
-                current.ApplyPropertyValue(TextElement.BackgroundProperty, CurrentHighlightBg);
-                var rect = current.Start.GetCharacterRect(LogicalDirection.Forward);
-                TxtJsonEditor.ScrollToVerticalOffset(TxtJsonEditor.VerticalOffset + rect.Top - TxtJsonEditor.ActualHeight / 3);
-            }
-            finally { _isUpdatingText = wasUpdating; }
+            int start = _searchMatches[_currentMatchIndex];
+            int length = Math.Max(_currentSearchKeywordLength, 0);
+            SelectEditorRange(start, length);
+            _lastHighlightedMatchIndex = _currentMatchIndex;
         }
 
         private void NavigateMatch(int direction)
@@ -544,25 +669,38 @@ namespace WpfApp1.Views
             if (_currentMatchIndex >= _searchMatches.Count) _currentMatchIndex = 0;
             if (_currentMatchIndex < 0) _currentMatchIndex = _searchMatches.Count - 1;
             HighlightCurrentMatch();
-            TxtSearchCount.Text = $"{_currentMatchIndex + 1}/{_searchMatches.Count}";
+            TxtSearchCount.Text = FormatEditorSearchCount();
         }
 
         private void ClearSearchHighlights()
         {
-            if (_searchMatches.Count == 0) { _currentMatchIndex = -1; return; }
-            bool wasUpdating = _isUpdatingText;
-            _isUpdatingText = true;
-            try
+            if (_searchMatches.Count == 0)
             {
-                foreach (var match in _searchMatches)
-                {
-                    match.ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
-                    match.ApplyPropertyValue(TextElement.ForegroundProperty, NormalJsonFg);
-                }
-                _searchMatches.Clear();
                 _currentMatchIndex = -1;
+                _lastHighlightedMatchIndex = -1;
+                _editorSearchResultsTruncated = false;
+                _currentSearchKeywordLength = 0;
+                return;
             }
-            finally { _isUpdatingText = wasUpdating; }
+            _searchMatches.Clear();
+            _currentMatchIndex = -1;
+            _lastHighlightedMatchIndex = -1;
+            _editorSearchResultsTruncated = false;
+            _currentSearchKeywordLength = 0;
+        }
+
+        private void SelectEditorRange(int start, int length)
+        {
+            if (start < 0 || start > TxtJsonEditor.Text.Length)
+                return;
+
+            length = Math.Min(length, TxtJsonEditor.Text.Length - start);
+            TxtJsonEditor.Focus();
+            TxtJsonEditor.Select(start, length);
+
+            int lineIndex = TxtJsonEditor.GetLineIndexFromCharacterIndex(start);
+            if (lineIndex >= 0)
+                TxtJsonEditor.ScrollToLine(lineIndex);
         }
 
         // ==================== 左侧搜索 → 右侧 GRID 联动（只高亮已渲染的，不强制展开） ====================
@@ -570,19 +708,23 @@ namespace WpfApp1.Views
         private void HighlightGridMatches(string keyword, StringComparison comparison)
         {
             if (_currentNodes == null) return;
-            ExpandMatchingGridSections(keyword, comparison, MaxGridAutoExpand);
-            // 只高亮已展开的节点标题，不强制展开
-            foreach (var kvp in _gridSections.ToList())
+            HighlightRenderedGridMatches(keyword, comparison);
+        }
+
+        private void HighlightRenderedGridMatches(string keyword, StringComparison comparison)
+        {
+            int highlightedCount = 0;
+            foreach (var tb in EnumerateSearchableGridTextBlocks(GridContainer))
             {
-                var (header, content, node, _) = kvp.Value;
-                if (NodeContainsKeyword(node, keyword, comparison))
-                {
-                    header.Background = NodeHighlightBg;
-                    header.FontWeight = FontWeights.Bold;
-                }
+                if (highlightedCount >= MaxGridSearchMatches) break;
+                if (string.IsNullOrEmpty(tb.Text)) continue;
+                if (!IsTextBlockVisible(tb)) continue;
+                if (!ContainsKeyword(tb.Text, keyword, comparison)) continue;
+
+                _linkedGridHighlighted.Add((tb, tb.Background));
+                tb.Background = NodeHighlightBg;
+                highlightedCount++;
             }
-            // 只高亮已渲染的单元格
-            HighlightGridCells(GridContainer, keyword, comparison);
         }
 
         private bool NodeContainsKeyword(JsonGridNode node, string keyword, StringComparison comparison = StringComparison.OrdinalIgnoreCase)
@@ -706,13 +848,11 @@ namespace WpfApp1.Views
 
         private void ClearGridHighlights()
         {
-            foreach (var kvp in _gridSections.ToList())
+            foreach (var (tb, originalBg) in _linkedGridHighlighted)
             {
-                var (header, _, _, _) = kvp.Value;
-                header.Background = Brushes.Transparent;
-                header.FontWeight = FontWeights.SemiBold;
+                tb.Background = originalBg;
             }
-            ClearCellHighlights(GridContainer);
+            _linkedGridHighlighted.Clear();
         }
 
         private void ClearCellHighlights(Panel container)
@@ -816,17 +956,24 @@ namespace WpfApp1.Views
             ClearClickHighlights();
             _gridSearchMatches.Clear();
             _gridSearchCurrentIndex = -1;
+            _gridSearchResultsTruncated = false;
+            _gridSearchCollapsedMatchCount = 0;
 
             string keyword = TxtGridSearchKeyword.Text?.Trim() ?? "";
             if (string.IsNullOrEmpty(keyword)) { TxtGridSearchCount.Text = ""; return; }
             StringComparison comparison = GetGridSearchComparison();
+
+            if (_currentNodes == null || _currentNodes.Count == 0)
+            {
+                TxtGridSearchCount.Text = "GRID 暂无可查找内容";
+                return;
+            }
 
             TxtGridSearchCount.Text = "搜索中...";
 
             _gridSearchCts = new CancellationTokenSource();
             var token = _gridSearchCts.Token;
 
-            // 启动分批展开搜索
             _ = ExpandAndSearchAsync(keyword, comparison, token);
         }
 
@@ -841,62 +988,171 @@ namespace WpfApp1.Views
         {
             try
             {
-                int totalExpanded = 0;
-                int maxTotalExpand = 50; // 最多展开 50 个节点
+                var nodes = _currentNodes?.ToList();
+                if (nodes == null || nodes.Count == 0) return;
 
-                // 循环：每轮找出需要展开的折叠节点，分批展开
-                while (totalExpanded < maxTotalExpand)
-                {
-                    if (token.IsCancellationRequested) return;
-
-                    // 找出当前所有折叠且包含关键字的节点
-                    var toExpand = new List<(TextBlock header, FrameworkElement content, JsonGridNode node)>();
-                    foreach (var kvp in _gridSections.ToList())
-                    {
-                        if (token.IsCancellationRequested) return;
-                        var (header, content, node, _) = kvp.Value;
-                        if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword, comparison))
-                            toExpand.Add((header, content, node));
-                    }
-
-                    if (toExpand.Count == 0) break; // 没有更多需要展开的
-
-                    // 分批展开
-                    int batchCount = 0;
-                    foreach (var (header, content, node) in toExpand)
-                    {
-                        if (token.IsCancellationRequested) return;
-                        if (batchCount >= ExpandBatchSize)
-                        {
-                            // 让出 UI 线程，让界面有时间渲染
-                            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
-                            batchCount = 0;
-                        }
-
-                        ExpandGridSection(header, content, node);
-
-                        totalExpanded++;
-                        batchCount++;
-
-                        if (totalExpanded >= maxTotalExpand) break;
-                    }
-
-                    // 每轮展开后让 UI 喘息
-                    await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
-                }
+                var dataMatches = await Task.Run(
+                    () => CollectGridDataSearchResults(nodes, keyword, comparison, MaxGridSearchMatches + 1, token),
+                    token);
 
                 if (token.IsCancellationRequested) return;
 
-                // 展开完成后，搜索所有可见的 TextBlock
+                _gridSearchResultsTruncated = dataMatches.IsTruncated;
+
+                if (dataMatches.JsonPaths.Count == 0)
+                {
+                    TxtGridSearchCount.Text = dataMatches.IsTruncated ? "无匹配（已限量扫描）" : "无匹配";
+                    return;
+                }
+
+                var pathsToReveal = dataMatches.JsonPaths
+                    .Take(MaxGridAutoExpand)
+                    .ToList();
+
+                await RevealGridSearchPathsAsync(pathsToReveal, token);
+
+                if (token.IsCancellationRequested) return;
+
                 CollectGridSearchMatches(keyword, comparison, token);
 
                 if (token.IsCancellationRequested) return;
 
-                // 联动左侧 JSON
-                if (_gridSearchMatches.Count > 0)
+                _gridSearchCollapsedMatchCount = Math.Max(0, dataMatches.JsonPaths.Count - _gridSearchMatches.Count);
+                UpdateGridSearchCountText();
+
+                if (_gridSearchMatches.Count > 0 && _lastEditorTextLength <= MaxLinkedJsonHighlightCharacters)
                     HighlightJsonForKeyword(keyword, comparison);
+                else if (_gridSearchMatches.Count > 0)
+                    SetStatus("已找到 GRID 匹配项，左侧 JSON 较大，跳过联动高亮");
             }
             catch (OperationCanceledException) { }
+        }
+
+        private static GridDataSearchResult CollectGridDataSearchResults(
+            IReadOnlyList<JsonGridNode> nodes,
+            string keyword,
+            StringComparison comparison,
+            int maxMatches,
+            CancellationToken token)
+        {
+            var paths = new List<string>();
+            bool truncated = false;
+
+            foreach (var node in nodes)
+            {
+                ScanNode(node);
+                if (truncated) break;
+            }
+
+            return new GridDataSearchResult
+            {
+                JsonPaths = paths,
+                IsTruncated = truncated
+            };
+
+            void ScanNode(JsonGridNode node)
+            {
+                token.ThrowIfCancellationRequested();
+                if (truncated) return;
+
+                AddIfMatch(node.JsonPath, node.Key, node.Value);
+
+                foreach (var child in node.Children)
+                {
+                    ScanNode(child);
+                    if (truncated) return;
+                }
+
+                foreach (var row in node.TableRows)
+                {
+                    foreach (var cell in row.Cells)
+                    {
+                        AddIfMatch(cell.JsonPath, cell.ColumnName, cell.Value, cell.NestedSummary);
+                        foreach (var nested in cell.NestedChildren)
+                        {
+                            ScanNode(nested);
+                            if (truncated) return;
+                        }
+
+                        if (truncated) return;
+                    }
+                }
+            }
+
+            void AddIfMatch(string path, params string?[] values)
+            {
+                token.ThrowIfCancellationRequested();
+                if (truncated) return;
+
+                foreach (var value in values)
+                {
+                    if (string.IsNullOrEmpty(value)) continue;
+
+                    if (value.Contains(keyword, comparison))
+                    {
+                        if (!string.IsNullOrEmpty(path) && !paths.Contains(path))
+                            paths.Add(path);
+
+                        if (paths.Count >= maxMatches)
+                        {
+                            truncated = true;
+                        }
+
+                        return;
+                    }
+                }
+            }
+        }
+
+        private async Task RevealGridSearchPathsAsync(IReadOnlyList<string> jsonPaths, CancellationToken token)
+        {
+            int expanded = 0;
+            var uniqueSectionKeys = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var path in jsonPaths)
+            {
+                token.ThrowIfCancellationRequested();
+                bool expandedInPass;
+                int guard = 0;
+
+                do
+                {
+                    expandedInPass = false;
+                    foreach (var section in _gridSections.Values.ToList())
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (!IsAncestorPath(section.node.JsonPath, path)) continue;
+                        if (section.content.Visibility == Visibility.Visible) continue;
+
+                        string sectionKey = GetSectionStateKey(section.isTable, section.node);
+                        if (uniqueSectionKeys.Add(sectionKey))
+                        {
+                            ExpandGridSection(section.header, section.content, section.node);
+                            expanded++;
+                            expandedInPass = true;
+                            if (expanded % ExpandBatchSize == 0)
+                                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+                        }
+
+                        if (expanded >= MaxGridAutoExpand)
+                            return;
+                    }
+
+                    if (expandedInPass)
+                        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
+                }
+                while (expandedInPass && ++guard < 20);
+            }
+        }
+
+        private static bool IsAncestorPath(string ancestorPath, string targetPath)
+        {
+            if (string.IsNullOrEmpty(ancestorPath) || string.IsNullOrEmpty(targetPath))
+                return false;
+
+            return targetPath.Equals(ancestorPath, StringComparison.Ordinal) ||
+                   targetPath.StartsWith(ancestorPath + ".", StringComparison.Ordinal) ||
+                   targetPath.StartsWith(ancestorPath + "[", StringComparison.Ordinal);
         }
 
         /// <summary>在所有已渲染且可见的 TextBlock 中收集匹配项并高亮</summary>
@@ -917,35 +1173,10 @@ namespace WpfApp1.Views
                 matchCount++;
             }
 
-            // 标记仍然折叠的节点（如果还有超出展开限制的）
-            int collapsedMatchCount = 0;
-            foreach (var kvp in _gridSections.ToList())
-            {
-                if (token.IsCancellationRequested) return;
-                var (header, content, node, _) = kvp.Value;
-                if (content.Visibility == Visibility.Collapsed && NodeContainsKeyword(node, keyword, comparison))
-                {
-                    header.Background = NodeHighlightBg;
-                    header.FontWeight = FontWeights.Bold;
-                    collapsedMatchCount++;
-                }
-            }
-
             if (_gridSearchMatches.Count > 0)
             {
                 _gridSearchCurrentIndex = 0;
                 HighlightCurrentGridMatch();
-                string suffix = matchCount >= MaxGridSearchMatches ? "+" : "";
-                string extra = collapsedMatchCount > 0 ? $" (还有 {collapsedMatchCount} 个折叠节点)" : "";
-                TxtGridSearchCount.Text = $"1/{_gridSearchMatches.Count}{suffix}{extra}";
-            }
-            else if (collapsedMatchCount > 0)
-            {
-                TxtGridSearchCount.Text = $"展开高亮节点可查看 ({collapsedMatchCount} 个)";
-            }
-            else
-            {
-                TxtGridSearchCount.Text = "无匹配";
             }
         }
 
@@ -1009,7 +1240,29 @@ namespace WpfApp1.Views
             if (_gridSearchCurrentIndex >= _gridSearchMatches.Count) _gridSearchCurrentIndex = 0;
             if (_gridSearchCurrentIndex < 0) _gridSearchCurrentIndex = _gridSearchMatches.Count - 1;
             HighlightCurrentGridMatch();
-            TxtGridSearchCount.Text = $"{_gridSearchCurrentIndex + 1}/{_gridSearchMatches.Count}";
+            UpdateGridSearchCountText();
+        }
+
+        private void UpdateGridSearchCountText()
+        {
+            string suffix = _gridSearchResultsTruncated ? "+" : "";
+
+            if (_gridSearchMatches.Count > 0)
+            {
+                string extra = _gridSearchCollapsedMatchCount > 0
+                    ? $"（另有 {_gridSearchCollapsedMatchCount:N0}{suffix} 个未渲染匹配）"
+                    : suffix;
+                TxtGridSearchCount.Text = $"{_gridSearchCurrentIndex + 1}/{_gridSearchMatches.Count}{extra}";
+                return;
+            }
+
+            if (_gridSearchCollapsedMatchCount > 0)
+            {
+                TxtGridSearchCount.Text = $"找到 {_gridSearchCollapsedMatchCount:N0}{suffix} 个匹配，当前未渲染显示";
+                return;
+            }
+
+            TxtGridSearchCount.Text = _gridSearchResultsTruncated ? "无匹配（已限量扫描）" : "无匹配";
         }
 
         private void ClearGridSearchHighlights()
@@ -1022,6 +1275,8 @@ namespace WpfApp1.Views
             _gridSearchHighlighted.Clear();
             _gridSearchMatches.Clear();
             _gridSearchCurrentIndex = -1;
+            _gridSearchResultsTruncated = false;
+            _gridSearchCollapsedMatchCount = 0;
 
             // 清除折叠节点标题高亮
             foreach (var kvp in _gridSections.ToList())
@@ -1038,23 +1293,10 @@ namespace WpfApp1.Views
         /// <summary>GRID 搜索联动左侧 JSON（限量高亮，防止大文档卡死）</summary>
         private void HighlightJsonForKeyword(string keyword, StringComparison comparison)
         {
-            _isUpdatingText = true;
-            try
-            {
-                ClearClickHighlights();
-                foreach (var range in FindEditorMatches(keyword, comparison, MaxJsonHighlights))
-                {
-                    _clickHighlights.Add(range);
-                    range.ApplyPropertyValue(TextElement.BackgroundProperty, HighlightBg);
-                    range.ApplyPropertyValue(TextElement.ForegroundProperty, HighlightFg);
-                }
-                if (_clickHighlights.Count > 0)
-                {
-                    var rect = _clickHighlights[0].Start.GetCharacterRect(LogicalDirection.Forward);
-                    TxtJsonEditor.ScrollToVerticalOffset(TxtJsonEditor.VerticalOffset + rect.Top - TxtJsonEditor.ActualHeight / 3);
-                }
-            }
-            finally { _isUpdatingText = false; }
+            ClearClickHighlights();
+            _clickHighlights.AddRange(FindEditorMatches(keyword, comparison, MaxJsonHighlights));
+            if (_clickHighlights.Count > 0)
+                SelectEditorRange(_clickHighlights[0], keyword.Length);
         }
 
         // ==================== 右侧 GRID 点击值 → 左侧 JSON 联动 ====================
@@ -1063,68 +1305,78 @@ namespace WpfApp1.Views
         {
             if (string.IsNullOrEmpty(clickedValue) || clickedValue == "null") return;
 
-            _isUpdatingText = true;
-            try
+            ClearClickHighlights();
+            _clickHighlights.AddRange(FindEditorMatches(clickedValue, StringComparison.Ordinal, MaxJsonHighlights));
+
+            if (_clickHighlights.Count > 0)
             {
-                ClearClickHighlights();
-
-                foreach (var range in FindEditorMatches(clickedValue, StringComparison.Ordinal, MaxJsonHighlights))
-                {
-                    _clickHighlights.Add(range);
-                    range.ApplyPropertyValue(TextElement.BackgroundProperty, ClickHighlightBg);
-                    range.ApplyPropertyValue(TextElement.ForegroundProperty, HighlightFg);
-                }
-
-                if (_clickHighlights.Count > 0)
-                {
-                    var rect = _clickHighlights[0].Start.GetCharacterRect(LogicalDirection.Forward);
-                    TxtJsonEditor.ScrollToVerticalOffset(TxtJsonEditor.VerticalOffset + rect.Top - TxtJsonEditor.ActualHeight / 3);
-                    string suffix = _clickHighlights.Count >= MaxJsonHighlights ? "+" : "";
-                    SetStatus($"🔗 已定位: \"{clickedValue}\" ({_clickHighlights.Count}{suffix} 处)");
-                }
-                else
-                {
-                    SetStatus($"⚠️ 未找到: \"{clickedValue}\"");
-                }
+                SelectEditorRange(_clickHighlights[0], clickedValue.Length);
+                string suffix = _clickHighlights.Count >= MaxJsonHighlights ? "+" : "";
+                SetStatus($"🔗 已定位: \"{clickedValue}\" ({_clickHighlights.Count}{suffix} 处)");
             }
-            finally { _isUpdatingText = false; }
+            else
+            {
+                SetStatus($"⚠️ 未找到: \"{clickedValue}\"");
+            }
         }
 
         private void ClearClickHighlights()
         {
             if (_clickHighlights.Count == 0) return;
-            bool wasUpdating = _isUpdatingText;
-            _isUpdatingText = true;
-            try
-            {
-                foreach (var range in _clickHighlights)
-                {
-                    range.ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
-                    range.ApplyPropertyValue(TextElement.ForegroundProperty, NormalJsonFg);
-                }
-                _clickHighlights.Clear();
-            }
-            finally { _isUpdatingText = wasUpdating; }
+            _clickHighlights.Clear();
         }
 
         // ==================== 核心：构建嵌套网格 ====================
 
         private void RebuildGrid()
         {
-            GridContainer.Children.Clear();
-            _gridSections.Clear();
-            _allGridValueTextBlocks.Clear();
+            ClearGridState();
+
+            if (_lastEditorTextLength > MaxAutoGridSyncCharacters)
+            {
+                SetStatus($"JSON 较大（约 {_lastEditorTextLength:N0} 字符），已暂停自动同步 GRID");
+                return;
+            }
+
             string json = GetEditorText();
-            if (string.IsNullOrEmpty(json)) { SetStatus("就绪"); return; }
+            _lastEditorTextLength = json.Length;
+            if (string.IsNullOrEmpty(json)) { _lastJsonErrorSignature = null; SetStatus("就绪"); return; }
 
             try
             {
                 _currentNodes = JsonGridParser.Parse(json);
+                _lastJsonErrorSignature = null;
                 if (_currentNodes.Count > 0)
                     RenderNode(_currentNodes[0], GridContainer, 0);
                 SetStatus("✅ 已同步");
             }
-            catch { SetStatus("⚠️ JSON 格式错误"); }
+            catch (JsonException ex)
+            {
+                SetStatus("JSON 格式错误，无法生成 GRID");
+                ShowJsonFormatError("左侧内容不是标准 JSON，无法生成右侧 GRID。", ex, false);
+            }
+        }
+
+        private void ClearGridState()
+        {
+            CancelGridSearch();
+            ClearGridSearchHighlights();
+            ClearGridHighlights();
+            GridContainer.Children.Clear();
+            _gridSections.Clear();
+            _allGridValueTextBlocks.Clear();
+            _linkedGridHighlighted.Clear();
+            _currentNodes = null;
+        }
+
+        private void RebuildGridAfterProgrammaticTextChange(string successStatus)
+        {
+            _debounceTimer.Stop();
+            RebuildGrid();
+            if (_lastEditorTextLength > MaxAutoGridSyncCharacters)
+                SetStatus($"{successStatus}，JSON 较大，已暂停自动同步 GRID");
+            else
+                SetStatus(successStatus);
         }
 
         private void RenderNode(JsonGridNode node, Panel container, int depth)
@@ -1233,10 +1485,13 @@ namespace WpfApp1.Views
 
         // ==================== 全部展开 / 全部折叠 ====================
 
-        private void BtnExpandAll_Click(object sender, RoutedEventArgs e)
+        private async void BtnExpandAll_Click(object sender, RoutedEventArgs e)
         {
             bool hasCollapsed = true;
             int maxIterations = 50;
+            int expandedCount = 0;
+            SetStatus("正在分批展开 GRID...");
+
             while (hasCollapsed && maxIterations-- > 0)
             {
                 hasCollapsed = false;
@@ -1254,6 +1509,13 @@ namespace WpfApp1.Views
                             if (node.HasTable) RenderTable(node, sp, 0);
                             else if (node.IsContainer)
                                 foreach (var child in node.Children) RenderNode(child, sp, 1);
+                        }
+
+                        expandedCount++;
+                        if (expandedCount % ExpandBatchSize == 0)
+                        {
+                            SetStatus($"正在分批展开 GRID...已展开 {expandedCount:N0} 个节点");
+                            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
                         }
                     }
                 }
@@ -1484,6 +1746,8 @@ namespace WpfApp1.Views
         private void RenderTable(JsonGridNode node, Panel container, int depth)
         {
             if (node.TableColumns.Count == 0 || node.TableRows.Count == 0) return;
+            var (rowsToRender, columnsToRender) = GetTablePreviewSize(node);
+            if (rowsToRender == 0 || columnsToRender == 0) return;
 
             var tableHost = new StackPanel
             {
@@ -1507,10 +1771,10 @@ namespace WpfApp1.Views
 
             var tableGrid = new Grid();
             tableGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            foreach (var _ in node.TableColumns)
+            for (int i = 0; i < columnsToRender; i++)
                 tableGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 100 });
             tableGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            foreach (var _ in node.TableRows)
+            for (int i = 0; i < rowsToRender; i++)
                 tableGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             if (hasSummaryRow)
                 tableGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1523,7 +1787,7 @@ namespace WpfApp1.Views
             Grid.SetColumn(menuBtn, 0);
             tableGrid.Children.Add(menuBtn);
 
-            for (int c = 0; c < node.TableColumns.Count; c++)
+            for (int c = 0; c < columnsToRender; c++)
             {
                 var headerCell = CreateHeaderCell(node.TableColumns[c]);
                 Grid.SetRow(headerCell, 0);
@@ -1537,7 +1801,7 @@ namespace WpfApp1.Views
             var summaryCells = new List<TextBlock?>();
             Action refreshSummary = static () => { };
 
-            for (int r = 0; r < node.TableRows.Count; r++)
+            for (int r = 0; r < rowsToRender; r++)
             {
                 var row = node.TableRows[r];
                 int gridRow = r + 1;
@@ -1560,7 +1824,8 @@ namespace WpfApp1.Views
                 Grid.SetColumn(rowNum, 0);
                 tableGrid.Children.Add(rowNum);
 
-                for (int c = 0; c < row.Cells.Count; c++)
+                int cellsToRender = Math.Min(row.Cells.Count, columnsToRender);
+                for (int c = 0; c < cellsToRender; c++)
                 {
                     var cell = row.Cells[c];
                     var cellBorder = new Border
@@ -1685,7 +1950,55 @@ namespace WpfApp1.Views
 
             tableBorder.Child = tableGrid;
             tableHost.Children.Add(tableBorder);
+            if (IsTablePreviewLimited(node, rowsToRender, columnsToRender))
+                tableHost.Children.Add(CreateTableLimitNotice(node, rowsToRender, columnsToRender));
             container.Children.Add(tableHost);
+        }
+
+        private (int rowsToRender, int columnsToRender) GetTablePreviewSize(JsonGridNode node)
+        {
+            int columnsToRender = Math.Min(node.TableColumns.Count, MaxRenderedTableColumns);
+            int maxRows = _isGridEditMode ? MaxEditableTableRows : MaxRenderedTableRows;
+            int maxRowsByCellCount = Math.Max(1, MaxRenderedTableCells / Math.Max(1, columnsToRender));
+            int rowsToRender = Math.Min(node.TableRows.Count, Math.Min(maxRows, maxRowsByCellCount));
+
+            return (rowsToRender, columnsToRender);
+        }
+
+        private static bool IsTablePreviewLimited(JsonGridNode node, int renderedRows, int renderedColumns)
+        {
+            return renderedRows < node.TableRows.Count ||
+                renderedRows < node.DisplayTableRowCount ||
+                renderedColumns < node.TableColumns.Count ||
+                node.IsTableColumnPreviewTruncated;
+        }
+
+        private Border CreateTableLimitNotice(JsonGridNode node, int renderedRows, int renderedColumns)
+        {
+            int totalRows = Math.Max(node.DisplayTableRowCount, node.TableRows.Count);
+            string rowText = renderedRows < totalRows
+                ? $"已显示前 {renderedRows:N0}/{totalRows:N0} 行"
+                : $"已显示 {renderedRows:N0} 行";
+            string columnText = node.IsTableColumnPreviewTruncated
+                ? $"已显示前 {renderedColumns:N0} 列，更多列未加载预览"
+                : renderedColumns < node.TableColumns.Count
+                    ? $"已显示前 {renderedColumns:N0}/{node.TableColumns.Count:N0} 列"
+                    : $"已显示 {renderedColumns:N0} 列";
+
+            return new Border
+            {
+                Background = MakeBrush("#F8FAFC"),
+                BorderBrush = BorderColor,
+                BorderThickness = new Thickness(1, 0, 1, 1),
+                CornerRadius = new CornerRadius(0, 0, 6, 6),
+                Padding = new Thickness(10, 6, 10, 6),
+                Child = new TextBlock
+                {
+                    Text = $"当前表格进入预览模式：{rowText}，{columnText}，避免大 JSON 一次性渲染导致卡顿。",
+                    Foreground = MakeBrush("#64748B"),
+                    FontSize = 12
+                }
+            };
         }
 
         private Border CreateEditModeBanner()
@@ -2107,6 +2420,17 @@ namespace WpfApp1.Views
             if (node.TableColumns.Count == 0 || node.TableRows.Count == 0)
             { MessageBox.Show("没有可导出的表格数据", "提示", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
 
+            if (node.IsTablePreviewTruncated)
+            {
+                var result = MessageBox.Show(
+                    "当前表格为大 JSON 预览模式，CSV 只会导出已加载预览的行和列。\n如需完整数据，请从左侧 JSON 导出后使用专门的数据处理工具转换。",
+                    "导出预览数据",
+                    MessageBoxButton.OKCancel,
+                    MessageBoxImage.Warning);
+                if (result != MessageBoxResult.OK)
+                    return;
+            }
+
             var sb = new StringBuilder();
             sb.AppendLine(string.Join(",", node.TableColumns.Select(EscapeCsvField)));
             foreach (var row in node.TableRows)
@@ -2195,14 +2519,30 @@ namespace WpfApp1.Views
 
         private void BtnBeautify_Click(object sender, RoutedEventArgs e)
         {
-            try { SetEditorText(JsonToolService.Beautify(GetEditorText())); SetStatus("✅ 格式化完成"); }
-            catch (JsonException ex) { SetStatus($"❌ {ex.Message}"); }
+            try
+            {
+                SetEditorText(BeautifyJsonForEditor(GetEditorText()));
+                RebuildGridAfterProgrammaticTextChange("✅ 格式化完成");
+            }
+            catch (JsonException ex)
+            {
+                SetStatus("JSON 格式错误，无法美化");
+                ShowJsonFormatError("左侧内容不是标准 JSON，无法美化。", ex, true);
+            }
         }
 
         private void BtnMinify_Click(object sender, RoutedEventArgs e)
         {
-            try { SetEditorText(JsonToolService.Minify(GetEditorText())); SetStatus("✅ 压缩完成"); }
-            catch (JsonException ex) { SetStatus($"❌ {ex.Message}"); }
+            try
+            {
+                SetEditorText(JsonToolService.Minify(GetEditorText()));
+                RebuildGridAfterProgrammaticTextChange("✅ 压缩完成");
+            }
+            catch (JsonException ex)
+            {
+                SetStatus("JSON 格式错误，无法压缩");
+                ShowJsonFormatError("左侧内容不是标准 JSON，无法压缩。", ex, true);
+            }
         }
 
         private void BtnValidate_Click(object sender, RoutedEventArgs e)
@@ -2220,11 +2560,145 @@ namespace WpfApp1.Views
             var dlg = new OpenFileDialog { Filter = "JSON 文件|*.json|所有文件|*.*" };
             if (dlg.ShowDialog() == true)
             {
-                string content = File.ReadAllText(dlg.FileName);
-                try { content = JsonToolService.Beautify(content); } catch { }
-                SetEditorText(content);
-                SetStatus($"✅ 已导入: {Path.GetFileName(dlg.FileName)}");
+                try
+                {
+                    string content = File.ReadAllText(dlg.FileName);
+                    content = RemoveUtf8Bom(content);
+                    string formatted = BeautifyJsonForEditor(content);
+                    SetEditorText(formatted);
+                    RebuildGridAfterProgrammaticTextChange($"✅ 已导入并自动美化: {Path.GetFileName(dlg.FileName)}");
+                }
+                catch (JsonException ex)
+                {
+                    SetStatus("导入失败：JSON 格式错误");
+                    ShowJsonFormatError("导入的文件不是标准 JSON，已取消导入。", ex, true);
+                }
+                catch (Exception ex)
+                {
+                    SetStatus("❌ 导入失败");
+                    MessageBox.Show(
+                        $"文件读取失败：\n{ex.Message}",
+                        "导入失败",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
             }
+        }
+
+        private static string RemoveUtf8Bom(string text)
+            => text.Length > 0 && text[0] == '\uFEFF' ? text[1..] : text;
+
+        private static string BeautifyJsonForEditor(string json)
+        {
+            using var _ = JsonDocument.Parse(json);
+
+            var sb = new StringBuilder(json.Length + Math.Min(json.Length, 4096));
+            int indent = 0;
+            bool inString = false;
+            bool escaped = false;
+
+            foreach (char ch in json)
+            {
+                if (inString)
+                {
+                    sb.Append(ch);
+                    if (escaped)
+                    {
+                        escaped = false;
+                    }
+                    else if (ch == '\\')
+                    {
+                        escaped = true;
+                    }
+                    else if (ch == '"')
+                    {
+                        inString = false;
+                    }
+
+                    continue;
+                }
+
+                if (char.IsWhiteSpace(ch))
+                    continue;
+
+                switch (ch)
+                {
+                    case '"':
+                        inString = true;
+                        sb.Append(ch);
+                        break;
+
+                    case '{':
+                    case '[':
+                        sb.Append(ch);
+                        indent++;
+                        AppendNewLineAndIndent(sb, indent);
+                        break;
+
+                    case '}':
+                    case ']':
+                        TrimTrailingIndentLine(sb);
+                        indent = Math.Max(0, indent - 1);
+                        AppendNewLineAndIndent(sb, indent);
+                        sb.Append(ch);
+                        break;
+
+                    case ',':
+                        sb.Append(ch);
+                        AppendNewLineAndIndent(sb, indent);
+                        break;
+
+                    case ':':
+                        sb.Append(": ");
+                        break;
+
+                    default:
+                        sb.Append(ch);
+                        break;
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private static void AppendNewLineAndIndent(StringBuilder sb, int indent)
+        {
+            sb.Append(Environment.NewLine);
+            sb.Append(' ', indent * 2);
+        }
+
+        private static void TrimTrailingIndentLine(StringBuilder sb)
+        {
+            int lineBreakLength = Environment.NewLine.Length;
+            if (sb.Length < lineBreakLength)
+                return;
+
+            int index = sb.Length - 1;
+            while (index >= 0 && sb[index] == ' ')
+                index--;
+
+            int newLength = index + 1;
+            if (newLength >= lineBreakLength &&
+                sb.ToString(newLength - lineBreakLength, lineBreakLength) == Environment.NewLine)
+            {
+                sb.Length = newLength - lineBreakLength;
+            }
+        }
+
+        private void ShowJsonFormatError(string message, JsonException ex, bool force)
+        {
+            int line = (int)(ex.LineNumber ?? 0) + 1;
+            long bytePosition = ex.BytePositionInLine ?? 0;
+            string signature = $"{line}:{bytePosition}:{ex.Message}";
+            if (!force && string.Equals(_lastJsonErrorSignature, signature, StringComparison.Ordinal))
+                return;
+
+            _lastJsonErrorSignature = signature;
+            MessageBox.Show(
+                $"{message}\n\n位置：第 {line} 行，第 {bytePosition + 1} 个字符",
+                "JSON 格式错误",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
 
         private void BtnExportJson_Click(object sender, RoutedEventArgs e)

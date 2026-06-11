@@ -37,9 +37,9 @@ namespace WpfApp1.Services
         public string ExpandLabel => NodeType switch
         {
             "Array" => IsObjectArray
-                ? $"[-] {Key}[{TableRows.Count}]"
+                ? $"[-] {Key}[{DisplayTableRowCount}]"
                 : IsSimpleArray
-                    ? $"[-] {Key}[{TableRows.Count}]"
+                    ? $"[-] {Key}[{DisplayTableRowCount}]"
                     : $"[-] {Key}[{Children.Count}]",
             "Object" => $"[-] {Key}{{{Children.Count} 项}}",
             _ => Key
@@ -58,6 +58,12 @@ namespace WpfApp1.Services
 
         public ObservableCollection<string> TableColumns { get; set; } = [];
         public ObservableCollection<JsonGridRow> TableRows { get; set; } = [];
+        public int TableTotalRows { get; set; } = 0;
+        public int TableTotalColumns { get; set; } = 0;
+        public int DisplayTableRowCount => TableTotalRows > 0 ? TableTotalRows : TableRows.Count;
+        public bool IsTableColumnPreviewTruncated { get; set; } = false;
+        public bool IsTablePreviewTruncated =>
+            TableTotalRows > TableRows.Count || IsTableColumnPreviewTruncated;
         /// <summary>对象数组（每个元素是 object）</summary>
         public bool IsObjectArray { get; set; } = false;
         /// <summary>简单数组（每个元素是标量值）</summary>
@@ -107,6 +113,9 @@ namespace WpfApp1.Services
 
     public static class JsonGridParser
     {
+        private const int MaxTablePreviewRows = 1_000;
+        private const int MaxTablePreviewColumns = 80;
+
         public static ObservableCollection<JsonGridNode> Parse(string json)
         {
             using var doc = JsonDocument.Parse(json);
@@ -182,11 +191,16 @@ namespace WpfApp1.Services
         /// </summary>
         private static void BuildSimpleArrayTable(JsonElement array, JsonGridNode node, string key, string parentPath)
         {
+            node.TableTotalRows = array.GetArrayLength();
+            node.TableTotalColumns = 1;
             node.TableColumns.Add(key);
 
             int idx = 0;
             foreach (var item in array.EnumerateArray())
             {
+                if (idx >= MaxTablePreviewRows)
+                    break;
+
                 idx++;
                 var row = new JsonGridRow { Index = idx };
                 var cell = new JsonGridCell
@@ -227,23 +241,47 @@ namespace WpfApp1.Services
         /// </summary>
         private static void BuildObjectArrayTable(JsonElement array, JsonGridNode node, string parentPath)
         {
-            var colSet = new LinkedHashSet<string>();
+            node.TableTotalRows = array.GetArrayLength();
+            var columns = new List<string>();
+            var seenColumns = new HashSet<string>(StringComparer.Ordinal);
+            int scannedRows = 0;
+
             foreach (var item in array.EnumerateArray())
             {
+                if (scannedRows >= MaxTablePreviewRows)
+                    break;
+
+                scannedRows++;
                 foreach (var prop in item.EnumerateObject())
-                    colSet.Add(prop.Name);
+                {
+                    if (seenColumns.Contains(prop.Name))
+                        continue;
+
+                    if (columns.Count >= MaxTablePreviewColumns)
+                    {
+                        node.IsTableColumnPreviewTruncated = true;
+                        continue;
+                    }
+
+                    seenColumns.Add(prop.Name);
+                    columns.Add(prop.Name);
+                }
             }
 
-            foreach (var col in colSet)
+            node.TableTotalColumns = columns.Count;
+            foreach (var col in columns)
                 node.TableColumns.Add(col);
 
             int rowIdx = 0;
             foreach (var item in array.EnumerateArray())
             {
+                if (rowIdx >= MaxTablePreviewRows)
+                    break;
+
                 rowIdx++;
                 var row = new JsonGridRow { Index = rowIdx };
 
-                foreach (var colName in colSet)
+                foreach (var colName in columns)
                 {
                     var cell = new JsonGridCell
                     {

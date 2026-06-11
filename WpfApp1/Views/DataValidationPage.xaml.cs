@@ -1196,6 +1196,51 @@ namespace WpfApp1.Views
             return pks;
         }
 
+        private static IReadOnlySet<string> ParseIgnoredActualValues(string? rawValues)
+        {
+            var values = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(rawValues))
+                return values;
+
+            char[] separators = ['\r', '\n', ',', '，', ';', '；', '|'];
+            foreach (var item in rawValues.Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(item))
+                    values.Add(item);
+            }
+
+            return values;
+        }
+
+        private void BtnAddSelectedActualValue_Click(object sender, RoutedEventArgs e)
+        {
+            if (DgIssues.SelectedItem is not DvIssue issue || string.IsNullOrWhiteSpace(issue.ActualValue))
+            {
+                SetStatus("请先在错误列表中选中一条带实际值的记录", true);
+                return;
+            }
+
+            string value = issue.ActualValue.Trim();
+            if (value.Length == 0)
+            {
+                SetStatus("当前记录的实际值为空，无需加入忽略列表", true);
+                return;
+            }
+
+            ChkSkipActualValues.IsChecked = true;
+            var existingValues = ParseIgnoredActualValues(TxtIgnoredActualValues.Text);
+            if (existingValues.Contains(value))
+            {
+                SetStatus($"忽略值已存在：{value}");
+                return;
+            }
+
+            TxtIgnoredActualValues.Text = string.IsNullOrWhiteSpace(TxtIgnoredActualValues.Text)
+                ? value
+                : $"{TxtIgnoredActualValues.Text.TrimEnd()}, {value}";
+            SetStatus($"已加入忽略值：{value}，重新点击「开始校验」生效");
+        }
+
         private void UpdateMappingInfo()
         {
             if (_mappings.Count == 0) return;
@@ -1307,12 +1352,16 @@ namespace WpfApp1.Views
                 bool skipIntFormat = ChkSkipIntFormat.IsChecked == true;
                 bool skipUuidFormat = ChkSkipUuidFormat.IsChecked == true;
                 bool skipDateTimeFormat = ChkSkipDateTimeFormat.IsChecked == true;
+                var ignoredActualValues = ChkSkipActualValues.IsChecked == true
+                    ? ParseIgnoredActualValues(TxtIgnoredActualValues.Text)
+                    : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _lastResult = await ValidationEngine.RunAsync(
                     _targetColumns, _sourceData, _mappings,
                     pkColumns.Count > 0 ? pkColumns : null,
                     skipIntFormat,
                     skipUuidFormat,
                     skipDateTimeFormat,
+                    ignoredActualValues,
                     progress, _cts.Token);
             }
             catch (OperationCanceledException)

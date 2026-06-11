@@ -85,13 +85,13 @@ namespace WpfApp1.Services
             };
         }
 
-        public static DelimitedTextLoadResult LoadFile(string filePath, int previewRows = 0)
+        public static DelimitedTextLoadResult LoadFile(string filePath, int previewRows = 0, bool preserveFieldFormatting = false)
         {
             string normalizedPath = Path.GetFullPath(filePath);
             var fileInfo = new FileInfo(normalizedPath);
             Encoding encoding = DetectEncoding(normalizedPath);
             string delimiter = DetectDelimiter(normalizedPath, encoding);
-            DataTable table = ParseDelimitedFile(normalizedPath, encoding, delimiter, previewRows);
+            DataTable table = ParseDelimitedFile(normalizedPath, encoding, delimiter, previewRows, preserveFieldFormatting);
 
             return new DelimitedTextLoadResult
             {
@@ -113,13 +113,13 @@ namespace WpfApp1.Services
             _ => delimiter
         };
 
-        private static DataTable ParseDelimitedFile(string filePath, Encoding encoding, string delimiter, int previewRows)
+        private static DataTable ParseDelimitedFile(string filePath, Encoding encoding, string delimiter, int previewRows, bool preserveFieldFormatting)
         {
             var table = new DataTable(Path.GetFileNameWithoutExtension(filePath));
 
             using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream, encoding, detectEncodingFromByteOrderMarks: true);
-            using var csv = new CsvReader(reader, CreateConfiguration(delimiter));
+            using var csv = new CsvReader(reader, CreateConfiguration(delimiter, preserveFieldFormatting));
 
             if (!csv.Read())
             {
@@ -127,7 +127,7 @@ namespace WpfApp1.Services
             }
 
             csv.ReadHeader();
-            IReadOnlyList<string> headers = BuildNormalizedHeaders(csv.HeaderRecord);
+            IReadOnlyList<string> headers = BuildNormalizedHeaders(csv.HeaderRecord, preserveFieldFormatting);
             for (int columnIndex = 0; columnIndex < headers.Count; columnIndex++)
             {
                 table.Columns.Add(headers[columnIndex], typeof(string));
@@ -161,7 +161,7 @@ namespace WpfApp1.Services
             return table;
         }
 
-        private static CsvConfiguration CreateConfiguration(string delimiter)
+        private static CsvConfiguration CreateConfiguration(string delimiter, bool preserveFieldFormatting = false)
         {
             return new CsvConfiguration(CultureInfo.InvariantCulture)
             {
@@ -169,11 +169,11 @@ namespace WpfApp1.Services
                 HasHeaderRecord = true,
                 MissingFieldFound = null,
                 BadDataFound = null,
-                TrimOptions = TrimOptions.Trim
+                TrimOptions = preserveFieldFormatting ? TrimOptions.None : TrimOptions.Trim
             };
         }
 
-        private static IReadOnlyList<string> BuildNormalizedHeaders(string[]? headers)
+        private static IReadOnlyList<string> BuildNormalizedHeaders(string[]? headers, bool preserveFieldFormatting = false)
         {
             headers ??= [];
             var normalizedHeaders = new List<string>(headers.Length);
@@ -181,7 +181,10 @@ namespace WpfApp1.Services
 
             for (int index = 0; index < headers.Length; index++)
             {
-                string baseName = string.IsNullOrWhiteSpace(headers[index]) ? $"Column{index + 1}" : headers[index].Trim();
+                string header = headers[index];
+                string baseName = string.IsNullOrWhiteSpace(header)
+                    ? $"Column{index + 1}"
+                    : preserveFieldFormatting ? header : header.Trim();
                 string columnName = baseName;
                 int suffix = 2;
 

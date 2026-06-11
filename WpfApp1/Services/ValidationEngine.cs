@@ -83,6 +83,7 @@ namespace WpfApp1.Services
             bool skipIntegerFormatErrors = false,
             bool skipGuidFormatErrors = false,
             bool skipDateTimeFormatErrors = false,
+            IReadOnlySet<string>? ignoredActualValues = null,
             IProgress<(int current, int total, int errors)>? progress = null,
             CancellationToken ct = default)
         {
@@ -182,7 +183,8 @@ namespace WpfApp1.Services
                             sourceName,
                             skipIntegerFormatErrors,
                             skipGuidFormatErrors,
-                            skipDateTimeFormatErrors))
+                            skipDateTimeFormatErrors,
+                            ignoredActualValues))
                         {
                             issue.PrimaryKeyDisplay = primaryKeyDisplay;
                             if (issue.Level == DvValidationLevel.Error)
@@ -257,7 +259,8 @@ namespace WpfApp1.Services
             string? sourceColumnName,
             bool skipIntegerFormatErrors = false,
             bool skipGuidFormatErrors = false,
-            bool skipDateTimeFormatErrors = false)
+            bool skipDateTimeFormatErrors = false,
+            IReadOnlySet<string>? ignoredActualValues = null)
         {
             bool isEmpty = string.IsNullOrWhiteSpace(value);
             if (!column.IsNullable && isEmpty)
@@ -281,6 +284,10 @@ namespace WpfApp1.Services
 
             string rawValue = value!;
             string normalizedValue = rawValue.Trim();
+            if (ignoredActualValues?.Contains(normalizedValue) == true)
+            {
+                yield break;
+            }
 
             switch (column.NormalizedType)
             {

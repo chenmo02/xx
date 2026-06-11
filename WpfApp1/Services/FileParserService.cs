@@ -1,10 +1,10 @@
 using System.Data;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using CsvHelper;
 using CsvHelper.Configuration;
 using ExcelDataReader;
+using OfficeOpenXml;
 
 namespace WpfApp1.Services
 {
@@ -25,11 +25,7 @@ namespace WpfApp1.Services
         {
             public required string Name { get; init; }
 
-            public required char Type { get; init; }
-
             public required byte Length { get; init; }
-
-            public required byte DecimalCount { get; init; }
         }
 
         private static readonly IReadOnlyList<string> DbfEncodings =
@@ -78,7 +74,7 @@ namespace WpfApp1.Services
             {
                 ".xlsx" or ".xls" => GetExcelFileInfo(filePath, sheetName, fileSize),
                 ".csv" => GetCsvFileInfo(filePath, fileSize),
-                ".dbf" => GetDbfFileInfo(filePath, fileSize, dbfEncoding),
+                ".dbf" or ".bdf" => GetDbfFileInfo(filePath, fileSize, dbfEncoding),
                 _ => throw new NotSupportedException($"不支持的文件格式: {ext}")
             };
         }
@@ -96,7 +92,7 @@ namespace WpfApp1.Services
             {
                 ".xlsx" or ".xls" => ParseExcel(filePath, sheetName, previewRows, progress),
                 ".csv" => ParseCsv(filePath, previewRows),
-                ".dbf" => ParseDbf(filePath, previewRows, dbfEncoding, progress),
+                ".dbf" or ".bdf" => ParseDbf(filePath, previewRows, dbfEncoding, progress),
                 _ => throw new NotSupportedException($"不支持的文件格式: {ext}")
             };
         }
@@ -135,6 +131,103 @@ namespace WpfApp1.Services
             int previewRows,
             IProgress<ImportProgressInfo>? progress)
         {
+            return string.Equals(Path.GetExtension(filePath), ".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? ParseOpenXmlExcel(filePath, sheetName, previewRows, progress)
+                : ParseExcelDataReader(filePath, sheetName, previewRows, progress);
+        }
+
+        private static DataTable ParseOpenXmlExcel(
+            string filePath,
+            string? sheetName,
+            int previewRows,
+            IProgress<ImportProgressInfo>? progress)
+        {
+            progress?.Report(new ImportProgressInfo
+            {
+                Stage = "正在读取 Excel 工作簿...",
+                Percentage = 5
+            });
+
+            ExcelPackage.License.SetNonCommercialPersonal("CCToolbox");
+
+            using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var package = new ExcelPackage(stream);
+            ExcelWorksheet? worksheet = string.IsNullOrWhiteSpace(sheetName)
+                ? package.Workbook.Worksheets.FirstOrDefault()
+                : package.Workbook.Worksheets.FirstOrDefault(item => string.Equals(item.Name, sheetName, StringComparison.Ordinal));
+
+            if (worksheet == null)
+            {
+                throw string.IsNullOrWhiteSpace(sheetName)
+                    ? new InvalidOperationException("Excel 文件中没有可用工作表。")
+                    : new InvalidOperationException($"找不到工作表: {sheetName}");
+            }
+
+            progress?.Report(new ImportProgressInfo
+            {
+                Stage = $"正在加载工作表 {worksheet.Name}...",
+                Percentage = 50
+            });
+
+            var dimension = worksheet.DimensionByValue ?? worksheet.Dimension;
+            var table = new DataTable(worksheet.Name);
+            if (dimension == null)
+            {
+                return table;
+            }
+
+            int startRow = dimension.Start.Row;
+            int endRow = dimension.End.Row;
+            int startColumn = dimension.Start.Column;
+            int endColumn = dimension.End.Column;
+
+            for (int column = startColumn; column <= endColumn; column++)
+            {
+                string columnName = GetUniqueColumnName(table, worksheet.Cells[startRow, column].Text, column - startColumn + 1);
+                table.Columns.Add(columnName, typeof(string));
+            }
+
+            int totalRows = Math.Max(0, endRow - startRow);
+            int maxRows = previewRows > 0 ? Math.Min(previewRows, totalRows) : totalRows;
+            for (int rowIndex = startRow + 1; rowIndex <= endRow && table.Rows.Count < maxRows; rowIndex++)
+            {
+                DataRow row = table.NewRow();
+                for (int column = startColumn; column <= endColumn; column++)
+                {
+                    row[column - startColumn] = worksheet.Cells[rowIndex, column].Text ?? string.Empty;
+                }
+
+                table.Rows.Add(row);
+
+                if (progress != null && maxRows > 0 && (table.Rows.Count == maxRows || table.Rows.Count % 2000 == 0))
+                {
+                    progress.Report(new ImportProgressInfo
+                    {
+                        Stage = "正在读取 Excel 文件...",
+                        Current = table.Rows.Count,
+                        Total = maxRows,
+                        Percentage = 50 + Math.Min(45, table.Rows.Count * 45 / maxRows)
+                    });
+                }
+            }
+
+            progress?.Report(new ImportProgressInfo
+            {
+                Stage = "Excel 读取完成",
+                Percentage = 100,
+                Current = table.Rows.Count,
+                Total = table.Rows.Count
+            });
+
+            return table;
+        }
+
+        private static DataTable ParseExcelDataReader(
+            string filePath,
+            string? sheetName,
+            int previewRows,
+            IProgress<ImportProgressInfo>? progress)
+        {
             progress?.Report(new ImportProgressInfo
             {
                 Stage = "正在读取 Excel 工作簿...",
@@ -146,6 +239,7 @@ namespace WpfApp1.Services
             string? expectedSheetName = sheetName;
             var dataSet = reader.AsDataSet(new ExcelDataSetConfiguration
             {
+                UseColumnDataType = false,
                 FilterSheet = (tableReader, sheetIndex) =>
                 {
                     if (!string.IsNullOrWhiteSpace(expectedSheetName))
@@ -157,7 +251,10 @@ namespace WpfApp1.Services
                 },
                 ConfigureDataTable = _ => new ExcelDataTableConfiguration
                 {
-                    UseHeaderRow = true
+                    UseHeaderRow = true,
+                    TransformValue = (_, _, value) => value == null || value == DBNull.Value
+                        ? string.Empty
+                        : value.ToString() ?? string.Empty
                 }
             });
 
@@ -199,7 +296,7 @@ namespace WpfApp1.Services
 
         private static DataTable ParseCsv(string filePath, int previewRows)
         {
-            return DelimitedTextFileService.LoadFile(filePath, previewRows).Table;
+            return DelimitedTextFileService.LoadFile(filePath, previewRows, preserveFieldFormatting: true).Table;
         }
 
         private static DataTable ParseDbf(
@@ -230,20 +327,18 @@ namespace WpfApp1.Services
             {
                 byte[] nameBytes = reader.ReadBytes(11);
                 string rawName = Encoding.ASCII.GetString(nameBytes).TrimEnd('\0', ' ');
-                char fieldType = (char)reader.ReadByte();
+                _ = reader.ReadByte();
                 _ = reader.ReadBytes(4);
                 byte length = reader.ReadByte();
-                byte decimalCount = reader.ReadByte();
+                _ = reader.ReadByte();
                 _ = reader.ReadBytes(14);
 
                 string columnName = GetUniqueColumnName(table, rawName, i + 1);
-                table.Columns.Add(columnName, GetDbfColumnType(fieldType));
+                table.Columns.Add(columnName, typeof(string));
                 fields.Add(new DbfField
                 {
                     Name = columnName,
-                    Type = fieldType,
-                    Length = length,
-                    DecimalCount = decimalCount
+                    Length = length
                 });
             }
 
@@ -270,7 +365,7 @@ namespace WpfApp1.Services
                 {
                     byte[] rawValue = reader.ReadBytes(field.Length);
                     string value = encoding.GetString(rawValue).Trim();
-                    row[field.Name] = ConvertDbfValue(value, field.Type, field.DecimalCount);
+                    row[field.Name] = value;
                 }
 
                 table.Rows.Add(row);
@@ -306,8 +401,7 @@ namespace WpfApp1.Services
             {
                 DataColumn sourceColumn = source.Columns[i];
                 string columnName = GetUniqueColumnName(normalized, sourceColumn.ColumnName, i + 1);
-                Type columnType = sourceColumn.DataType == typeof(DBNull) ? typeof(string) : sourceColumn.DataType;
-                normalized.Columns.Add(columnName, columnType);
+                normalized.Columns.Add(columnName, typeof(string));
             }
 
             int maxRows = previewRows > 0 ? Math.Min(previewRows, source.Rows.Count) : source.Rows.Count;
@@ -317,7 +411,7 @@ namespace WpfApp1.Services
                 for (int colIndex = 0; colIndex < normalized.Columns.Count; colIndex++)
                 {
                     object value = source.Rows[rowIndex][colIndex];
-                    newRow[colIndex] = value == DBNull.Value ? DBNull.Value : value;
+                    newRow[colIndex] = value == DBNull.Value ? string.Empty : value?.ToString() ?? string.Empty;
                 }
 
                 normalized.Rows.Add(newRow);
@@ -428,70 +522,5 @@ namespace WpfApp1.Services
             }
         }
 
-        private static Type GetDbfColumnType(char dbfType) => dbfType switch
-        {
-            'C' => typeof(string),
-            'M' => typeof(string),
-            'F' => typeof(decimal),
-            'N' => typeof(decimal),
-            'L' => typeof(bool),
-            'D' => typeof(DateTime),
-            'I' => typeof(int),
-            _ => typeof(string)
-        };
-
-        private static object ConvertDbfValue(string value, char fieldType, byte decimalCount)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return DBNull.Value;
-            }
-
-            try
-            {
-                return fieldType switch
-                {
-                    'C' or 'M' => value,
-                    'F' or 'N' => decimal.TryParse(value, out decimal decimalValue) ? decimalValue : DBNull.Value,
-                    'L' => ConvertDbfBoolean(value),
-                    'D' => ConvertDbfDate(value),
-                    'I' => int.TryParse(value, out int intValue) ? intValue : DBNull.Value,
-                    _ => value
-                };
-            }
-            catch
-            {
-                return DBNull.Value;
-            }
-        }
-
-        private static object ConvertDbfBoolean(string value)
-        {
-            string upper = value.Trim().ToUpperInvariant();
-            if (upper is "T" or "Y" or "1")
-            {
-                return true;
-            }
-
-            if (upper is "F" or "N" or "0")
-            {
-                return false;
-            }
-
-            return DBNull.Value;
-        }
-
-        private static object ConvertDbfDate(string value)
-        {
-            if (value.Length == 8 &&
-                int.TryParse(value[..4], out int year) &&
-                int.TryParse(value.Substring(4, 2), out int month) &&
-                int.TryParse(value.Substring(6, 2), out int day))
-            {
-                return new DateTime(year, month, day);
-            }
-
-            return DBNull.Value;
-        }
     }
 }

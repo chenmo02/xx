@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.Data;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -30,12 +31,23 @@ namespace WpfApp1.Views
         {
             var dialog = new OpenFileDialog
             {
-                Filter = "CSV 文件|*.csv|文本文件|*.txt;*.tsv|所有文件|*.*",
-                Title = "打开 CSV 文件"
+                Filter = "支持的文件|*.csv;*.txt;*.tsv;*.dbf;*.bdf|CSV / 文本文件|*.csv;*.txt;*.tsv|DBF / BDF 文件|*.dbf;*.bdf|所有文件|*.*",
+                Title = "打开数据文件"
             };
 
             if (dialog.ShowDialog() != true)
             {
+                return;
+            }
+
+            await LoadFileAsync(dialog.FileName);
+        }
+
+        private async Task LoadFileAsync(string filePath)
+        {
+            if (!IsSupportedFile(filePath))
+            {
+                MessageBox.Show("仅支持 CSV、TXT、TSV、DBF、BDF 文件。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -44,12 +56,12 @@ namespace WpfApp1.Views
 
             try
             {
-                DelimitedTextLoadResult result = await Task.Run(() => DelimitedTextFileService.LoadFile(dialog.FileName));
+                CsvViewerLoadResult result = await Task.Run(() => LoadPreviewFile(filePath));
                 _data = result.Table;
 
                 DgCsv.ItemsSource = _data.DefaultView;
-                TxtFileInfo.Text = $"{result.FileName}  |  {FormatFileSize(result.FileSize)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  分隔符: {DelimitedTextFileService.GetDelimiterName(result.Delimiter)}";
-                TxtEncoding.Text = $"编码: {result.Encoding.EncodingName}";
+                TxtFileInfo.Text = $"{result.FileName}  |  {FormatFileSize(result.FileSize)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  {result.Detail}";
+                TxtEncoding.Text = result.EncodingLabel;
                 TxtStatus.Text = $"已加载 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
 
                 ClearSearch(clearKeyword: true);
@@ -63,6 +75,23 @@ namespace WpfApp1.Views
             {
                 BtnOpen.IsEnabled = true;
             }
+        }
+
+        private void Page_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effects = GetDroppedSupportedFile(e) == null ? DragDropEffects.None : DragDropEffects.Copy;
+            e.Handled = true;
+        }
+
+        private async void Page_Drop(object sender, DragEventArgs e)
+        {
+            string? filePath = GetDroppedSupportedFile(e);
+            if (filePath == null)
+            {
+                return;
+            }
+
+            await LoadFileAsync(filePath);
         }
 
         private void TxtSearch_KeyDown(object sender, KeyEventArgs e)
@@ -281,6 +310,65 @@ namespace WpfApp1.Views
             }
 
             return $"{fileSize / 1024.0:F1} KB";
+        }
+
+        private static CsvViewerLoadResult LoadPreviewFile(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            if (ext is ".dbf" or ".bdf")
+            {
+                DataTable table = FileParserService.ParseFile(filePath, dbfEncoding: "GBK");
+                var fileInfo = new FileInfo(filePath);
+                return new CsvViewerLoadResult
+                {
+                    FileName = fileInfo.Name,
+                    FileSize = fileInfo.Length,
+                    Detail = $"类型: {(ext == ".bdf" ? "BDF" : "DBF")}",
+                    EncodingLabel = "编码: GBK",
+                    Table = table
+                };
+            }
+
+            DelimitedTextLoadResult result = DelimitedTextFileService.LoadFile(filePath);
+            return new CsvViewerLoadResult
+            {
+                FileName = result.FileName,
+                FileSize = result.FileSize,
+                Detail = $"分隔符: {DelimitedTextFileService.GetDelimiterName(result.Delimiter)}",
+                EncodingLabel = $"编码: {result.Encoding.EncodingName}",
+                Table = result.Table
+            };
+        }
+
+        private static string? GetDroppedSupportedFile(DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                return null;
+            }
+
+            string[]? files = e.Data.GetData(DataFormats.FileDrop) as string[];
+            string? filePath = files?.FirstOrDefault();
+            return filePath != null && IsSupportedFile(filePath) ? filePath : null;
+        }
+
+        private static bool IsSupportedFile(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext is ".csv" or ".txt" or ".tsv" or ".dbf" or ".bdf";
+        }
+
+        private sealed class CsvViewerLoadResult
+        {
+            public required string FileName { get; init; }
+
+            public required long FileSize { get; init; }
+
+            public required string Detail { get; init; }
+
+            public required string EncodingLabel { get; init; }
+
+            public required DataTable Table { get; init; }
         }
     }
 }

@@ -177,7 +177,11 @@
 
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="目标数据库类型" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                            <ComboBox x:Name="CbDatabaseType" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="DbType_Changed">
+                            <ComboBox x:Name="CbDatabaseType"
+                                      Style="{DynamicResource ComboBoxStandard}"
+                                      ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"
+                                      Height="40"
+                                      SelectionChanged="DbType_Changed">
                                 <ComboBoxItem Content="PostgreSQL" IsSelected="True"/>
                                 <ComboBoxItem Content="SQL Server"/>
                                 <ComboBoxItem Content="MySQL"/>
@@ -187,7 +191,11 @@
 
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="表名" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                            <TextBox x:Name="TxtTableName" Style="{DynamicResource TextBoxStandard}" Text="TempTable"/>
+                            <TextBox x:Name="TxtTableName"
+                                     Style="{DynamicResource TextBoxStandard}"
+                                     Height="40"
+                                     Padding="10,5"
+                                     Text="temp_table"/>
                         </StackPanel>
                     </Grid>
 

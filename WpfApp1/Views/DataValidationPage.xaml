@@ -846,7 +846,7 @@
                                                            FontSize="12"
                                                            Foreground="#94A3B8"/>
                                             </DockPanel>
-                                            <UniformGrid Columns="3" Margin="0,12,0,0">
+                                            <UniformGrid Columns="4" Margin="0,12,0,0">
                                                 <CheckBox x:Name="ChkSkipIntFormat"
                                                           Style="{StaticResource ValidationOptionChip}"
                                                           Content="忽略整数格式错误"
@@ -862,7 +862,56 @@
                                                           Content="忽略日期时间格式错误"
                                                           IsChecked="False"
                                                           ToolTip="勾选后将跳过 datetime / timestamp 等字段的日期时间格式错误校验"/>
+                                                <CheckBox x:Name="ChkSkipActualValues"
+                                                          Style="{StaticResource ValidationOptionChip}"
+                                                          Content="忽略指定实际值"
+                                                          IsChecked="True"
+                                                          ToolTip="勾选后，命中下方列表的实际值将跳过类型和格式校验"/>
                                             </UniformGrid>
+                                            <Border Background="White"
+                                                    BorderBrush="#DCE5F3"
+                                                    BorderThickness="1"
+                                                    CornerRadius="12"
+                                                    Padding="14,12"
+                                                    Margin="0,12,12,0">
+                                                <StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="忽略值"
+                                                                   FontSize="12.5"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#334155"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,12,0"/>
+                                                        <TextBox x:Name="TxtIgnoredActualValues"
+                                                                 Grid.Column="1"
+                                                                 Text="-"
+                                                                 Style="{StaticResource RoundedInputBox}"
+                                                                 MinHeight="36"
+                                                                 Padding="10,7"
+                                                                 VerticalContentAlignment="Center"
+                                                                 ToolTip="多个值用逗号、分号、竖线或换行分隔，例如：-, /, 无"/>
+                                                        <Button x:Name="BtnAddSelectedActualValue"
+                                                                Grid.Column="2"
+                                                                Content="加入选中实际值"
+                                                                Style="{DynamicResource ButtonGhost}"
+                                                                Padding="14,7"
+                                                                FontSize="12"
+                                                                Margin="10,0,0,0"
+                                                                Click="BtnAddSelectedActualValue_Click"/>
+                                                    </Grid>
+                                                    <TextBlock Text="多个值用逗号、分号、竖线或换行分隔；空白仍按必填校验。"
+                                                               Margin="52,7,0,0"
+                                                               FontSize="11.5"
+                                                               Foreground="#94A3B8"/>
+                                                </StackPanel>
+                                            </Border>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
