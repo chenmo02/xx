@@ -3,6 +3,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:local="clr-namespace:WpfApp1.Views"
       xmlns:conv="clr-namespace:WpfApp1.Converters"
+      xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
       Background="{DynamicResource PageBackgroundAltBrush}"
       x:Name="PageRoot">
 
@@ -224,6 +225,44 @@
             <Setter Property="Height" Value="Auto"/>
             <Setter Property="MinHeight" Value="36"/>
             <Setter Property="BorderBrush" Value="#EEF2F7"/>
+        </Style>
+
+        <Style x:Key="DvResizableHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DvHeader}">
+            <Style.Resources>
+                <Style x:Key="DvHeaderGripper" TargetType="primitives:Thumb">
+                    <Setter Property="Width" Value="8"/>
+                    <Setter Property="Cursor" Value="SizeWE"/>
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="primitives:Thumb">
+                                <Border Background="Transparent"/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Style.Resources>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Border>
+                            <primitives:Thumb x:Name="PART_LeftHeaderGripper"
+                                              HorizontalAlignment="Left"
+                                              Style="{StaticResource DvHeaderGripper}"/>
+                            <primitives:Thumb x:Name="PART_RightHeaderGripper"
+                                              HorizontalAlignment="Right"
+                                              Style="{StaticResource DvHeaderGripper}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- 页面专属单元格（原始边框/间距与全局不同） -->
@@ -986,6 +1025,7 @@
                                   CanUserDeleteRows="False"
                                   CanUserReorderColumns="False"
                                   CanUserSortColumns="True"
+                                  CanUserResizeColumns="True"
                                   CanUserResizeRows="False"
                                   IsReadOnly="True"
                                   GridLinesVisibility="Horizontal"
@@ -993,7 +1033,7 @@
                                   BorderThickness="0"
                                   Background="White"
                                   AlternationCount="2"
-                                  ColumnHeaderStyle="{StaticResource DvHeader}"
+                                  ColumnHeaderStyle="{StaticResource DvResizableHeader}"
                                   CellStyle="{StaticResource DvCell}"
                                   RowStyle="{StaticResource DgIssueRow}"
                                   SelectionMode="Single"

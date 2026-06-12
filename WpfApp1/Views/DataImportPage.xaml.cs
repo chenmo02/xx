@@ -253,12 +253,6 @@ namespace WpfApp1.Views
                 return;
             }
 
-            if (!int.TryParse(TxtBatchSize.Text, out int batchSize) || batchSize <= 0)
-            {
-                MessageBox.Show("每批行数必须是正整数。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             CommitPendingGridEdits();
             DataTable dataSnapshot = _currentData.Copy();
 
@@ -281,6 +275,7 @@ namespace WpfApp1.Views
             string tableName = SqlGeneratorService.NormalizeTableName(dbType, TxtTableName.Text);
             bool dropIfExists = ChkDropIfExists.IsChecked == true;
             bool batchInsert = ChkBatchInsert.IsChecked == true;
+            int batchSize = _importSettings.BatchSize > 0 ? _importSettings.BatchSize : 1000;
             bool limitFieldLength = ChkLimitFieldLength.IsChecked == true;
 
             try
@@ -418,6 +413,8 @@ namespace WpfApp1.Views
                 FileName = $"{TxtTableName.Text}_{DateTime.Now:yyyyMMdd_HHmmss}.json",
                 Title = "导出 JSON"
             };
+
+            ApplyDefaultExportPath(dialog);
 
             if (dialog.ShowDialog() == true)
             {
@@ -569,7 +566,6 @@ namespace WpfApp1.Views
         private void ApplyImportSettingsToUi(bool forceTableName)
         {
             SelectDbType(_importSettings.DefaultDbType);
-            TxtBatchSize.Text = _importSettings.BatchSize.ToString();
             ChkDropIfExists.IsChecked = _importSettings.DropIfExists;
             ChkBatchInsert.IsChecked = _importSettings.BatchInsert;
             ChkLimitFieldLength.IsChecked = _importSettings.LimitFieldLength;
@@ -599,14 +595,6 @@ namespace WpfApp1.Views
             }
 
             SqlGeneratorService.DbType dbType = GetSelectedDbType();
-            TxtTableHint.Text = dbType switch
-            {
-                SqlGeneratorService.DbType.SqlServer => "提示：SQL Server 临时表建议使用 # 前缀，批量 INSERT 自动限制为 1000 行。",
-                SqlGeneratorService.DbType.MySQL => "提示：MySQL 使用 CREATE TEMPORARY TABLE，布尔值会输出为 1 / 0。",
-                SqlGeneratorService.DbType.Oracle => "提示：Oracle 使用 CREATE GLOBAL TEMPORARY TABLE，日期会输出为 TO_DATE(...)。",
-                _ => "提示：PostgreSQL 使用 CREATE TEMPORARY TABLE，布尔值会输出为 TRUE / FALSE。"
-            };
-
             TxtTableHint.Text = dbType switch
             {
                 SqlGeneratorService.DbType.SqlServer => "提示：SQL Server 临时表建议使用 # 前缀，批量 INSERT 会自动限制为 1000 行；导入值会按原样输出。",

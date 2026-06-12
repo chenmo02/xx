@@ -69,13 +69,13 @@
 
     <Grid Margin="20,16">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240"/>
+            <ColumnDefinition x:Name="LeftPanelColumn" Width="240"/>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="280"/>
         </Grid.ColumnDefinitions>
 
         <!-- ═══ 左侧：文件列表 ═══ -->
-        <Border Grid.Column="0" Style="{DynamicResource CardBorder}" Padding="16,14" Margin="0,0,10,0">
+        <Border x:Name="LeftFilePanel" Grid.Column="0" Style="{DynamicResource CardBorder}" Padding="16,14" Margin="0,0,10,0">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="🖨️ 发票打印工具" FontSize="16" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
                 <TextBlock DockPanel.Dock="Top" Text="导入 PDF/OFD/图片，排版打印" FontSize="11.5" Foreground="#999" Margin="0,0,0,12"/>
@@ -110,9 +110,10 @@
         </Border>
 
         <!-- ═══ 中间：预览区 ═══ -->
-        <Border Grid.Column="1" Style="{DynamicResource CardBorder}" Padding="16,14" Margin="0,0,10,0">
+        <Border x:Name="PreviewPanel" Grid.Column="1" Style="{DynamicResource CardBorder}" Padding="16,14" Margin="0,0,10,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                    <Button x:Name="BtnToggleLeftPanel" Content="隐藏左侧" Style="{DynamicResource ButtonSmall}" Background="#EDF0FF" Foreground="#4E6EF2" Padding="10,6" FontSize="12" Margin="0,0,8,0" Click="BtnToggleLeftPanel_Click"/>
                     <TextBlock Text="📄 打印预览" FontSize="14" FontWeight="SemiBold" Foreground="#222"
                                VerticalAlignment="Center" Margin="0,0,16,0"/>
                     <Button Content="↻ 旋转90°" Style="{DynamicResource ButtonSmall}" Background="#EDF0FF" Foreground="#4E6EF2" Padding="10,6" FontSize="12" Margin="0,0,6,0" Click="BtnRotate_Click"/>

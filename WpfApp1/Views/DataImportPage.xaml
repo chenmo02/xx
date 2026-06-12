@@ -211,22 +211,6 @@
                         <CheckBox x:Name="ChkLimitFieldLength" Content="限制文本字段长度(1000)" IsChecked="True" FontSize="13"/>
                     </WrapPanel>
 
-                    <WrapPanel Margin="0,0,0,14">
-                        <TextBlock Text="每批行数：" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center"/>
-                        <TextBox x:Name="TxtBatchSize"
-                                 Style="{DynamicResource TextBoxStandard}"
-                                 Width="90"
-                                 Margin="8,0,0,0"
-                                 Padding="8,5"
-                                 TextAlignment="Center"
-                                 Text="1000"/>
-                        <TextBlock Text="  SQL Server 单批最大 1000，Oracle 批量时会转成 INSERT ALL。"
-                                   FontSize="11"
-                                   Foreground="#9CA3AF"
-                                   VerticalAlignment="Center"
-                                   Margin="12,0,0,0"/>
-                    </WrapPanel>
-
                     <StackPanel Orientation="Horizontal">
                         <Button x:Name="BtnGenerateSql"
                                 Content="生成 SQL"

@@ -145,16 +145,14 @@
             <!-- ═══════════════════════════════════════ -->
             <Border Height="1" Background="#E5E5E5" Margin="0,0,0,20"/>
             <TextBlock Text="🔧 实用小工具" FontSize="18" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
-            <TextBlock Text="待后续安排" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
+            <TextBlock Text="广告位招租" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
 
-            <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16" MinHeight="120">
+            <Border Style="{DynamicResource CardBorder}" Padding="0" Margin="0,0,0,16" Height="680">
                 <Grid>
-                    <TextBlock Text="广告位招租"
-                               FontSize="14"
-                               FontWeight="SemiBold"
-                               Foreground="#94A3B8"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
+                    <Image Source="/img/ggw.png"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
                 </Grid>
             </Border>
         </StackPanel>

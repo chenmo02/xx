@@ -31,6 +31,7 @@ namespace WpfApp1.Views
         private List<PrintTemplate> _templates = new();
         private double _zoomLevel = 1.0;
         private bool _isInitialized = false;
+        private bool _isLeftPanelHidden = false;
         private int _selectedLayout = 1; // 1, 2, 4
 
         private sealed class PrinterOption
@@ -117,6 +118,14 @@ namespace WpfApp1.Views
                 SetStatus($"已刷新打印机列表，当前打印机：{((PrinterOption?)CmbPrinter.SelectedItem)?.Name}");
             else
                 SetStatus("未找到可用的打印机。");
+        }
+
+        private void BtnToggleLeftPanel_Click(object sender, RoutedEventArgs e)
+        {
+            _isLeftPanelHidden = !_isLeftPanelHidden;
+            LeftFilePanel.Visibility = _isLeftPanelHidden ? Visibility.Collapsed : Visibility.Visible;
+            LeftPanelColumn.Width = _isLeftPanelHidden ? new GridLength(0) : new GridLength(240);
+            BtnToggleLeftPanel.Content = _isLeftPanelHidden ? "显示左侧" : "隐藏左侧";
         }
 
         // ═══════════════════════════════════════
