@@ -153,17 +153,10 @@ dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-
 
 ## 更新记录
 
-> 手动维护，按版本倒序记录。
 
 ### v2.1.2 (2026-06-12)
 - 更新优化SQL临时表生成
 
-
--
-
-## License
-
-MIT
 
 ---
 
