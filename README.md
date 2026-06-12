@@ -157,6 +157,11 @@ dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-
 
 - 优化已知问题
 - 调整UI显示
+- 本次主要改了数据导入页：
+修复 JSON 导出不使用默认导出路径的问题。
+删除 ApplyDatabaseHint 里被覆盖的重复提示赋值。
+从数据导入页面移除“每批行数”输入框。
+生成 SQL 时改为使用设置页里的默认批量行数，异常时回退 1000。
 
 ---
 
