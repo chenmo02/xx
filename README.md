@@ -11,6 +11,7 @@
 
 ## 功能模块
 
+<<<<<<< HEAD
 | 模块 | 说明 |
 |---|---|
 | **首页概览** | 版本信息、快捷入口、系统信息面板，统一导航中枢 |
@@ -23,6 +24,20 @@
 | **发票打印工具** | 支持 PDF / OFD / 图片的排版与打印，多种模板、纸张方向、边距配置 |
 | **Excalidraw 画板** | 流程图、草图和示意图绘制，适合与实施方案沟通配套使用 |
 | **系统设置** | 应用级配置项与通用参数维护 |
+=======
+| 模块                | 说明                                                         |
+| ------------------- | ------------------------------------------------------------ |
+| **首页概览**        | 版本信息、快捷入口、系统信息面板，统一导航中枢               |
+| **数据导入临时表**  | Excel / CSV / DBF → SQL 临时表脚本，适配 SQL Server / PostgreSQL |
+| **CSV 预览工具**    | 稳定打开大文件分隔文本，支持搜索定位与编码识别               |
+| **CSV 对比工具**    | 按行号或复合主键比较两个 CSV 数据集的差异，结果可筛选导出    |
+| **数据验证排查**    | DDL 建表 + INSERT 数据 → 自动字段映射 → 逐行类型校验 → 导出错误报告 |
+| **JSON 处理工具**   | 格式化、校验、搜索、嵌套 GRID 浏览、表格编辑同步回写、导出 JSON/CSV |
+| **JSON 对比工具**   | 两个 JSON 文本的结构与内容差异比较，快速定位新增、删除和变更字段 |
+| **发票打印工具**    | 支持 PDF / OFD / 图片的排版与打印，多种模板、纸张方向、边距配置 |
+| **Excalidraw 画板** | 流程图、草图和示意图绘制，适合与实施方案沟通配套使用         |
+| **系统设置**        | 应用级配置项与通用参数维护                                   |
+>>>>>>> e60fac4f12d5712f3b1432b48e5441a1fc1b86ea
 
 ## 数据验证排查（核心模块）
 
@@ -142,6 +157,7 @@ dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-
 
 ## NuGet 依赖
 
+<<<<<<< HEAD
 | 包 | 用途 |
 |---|---|
 | [CsvHelper](https://joshclose.github.io/CsvHelper/) | CSV 读写 |
@@ -149,6 +165,15 @@ dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-
 | [ExcelDataReader](https://github.com/ExcelDataReader/ExcelDataReader) | Excel 导入 |
 | [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | SQL Server 连接 |
 | [Npgsql](https://www.npgsql.org/) | PostgreSQL 连接 |
+=======
+| 包                                                           | 用途                |
+| ------------------------------------------------------------ | ------------------- |
+| [CsvHelper](https://joshclose.github.io/CsvHelper/)          | CSV 读写            |
+| [EPPlus](https://www.epplussoftware.com/)                    | Excel 导出          |
+| [ExcelDataReader](https://github.com/ExcelDataReader/ExcelDataReader) | Excel 导入          |
+| [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | SQL Server 连接     |
+| [Npgsql](https://www.npgsql.org/)                            | PostgreSQL 连接     |
+>>>>>>> e60fac4f12d5712f3b1432b48e5441a1fc1b86ea
 | [WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2) | Excalidraw 画板嵌入 |
 
 ## 更新记录
@@ -157,6 +182,14 @@ dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-
 
 - 优化已知问题
 - 调整UI显示
+<<<<<<< HEAD
+=======
+- 本次主要改了数据导入页：
+修复 JSON 导出不使用默认导出路径的问题。
+删除 ApplyDatabaseHint 里被覆盖的重复提示赋值。
+从数据导入页面移除“每批行数”输入框。
+生成 SQL 时改为使用设置页里的默认批量行数，异常时回退 1000。
+>>>>>>> e60fac4f12d5712f3b1432b48e5441a1fc1b86ea
 
 ---
 
