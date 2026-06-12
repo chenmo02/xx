@@ -11,18 +11,18 @@
 
 ## 功能模块
 
-| 模块                | 说明                                                         |
-| ------------------- | ------------------------------------------------------------ |
-| **首页概览**        | 版本信息、快捷入口、系统信息面板，统一导航中枢               |
-| **数据导入临时表**  | Excel / CSV / DBF → SQL 临时表脚本，适配 SQL Server / PostgreSQL |
-| **CSV 预览工具**    | 稳定打开大文件分隔文本，支持搜索定位与编码识别               |
-| **CSV 对比工具**    | 按行号或复合主键比较两个 CSV 数据集的差异，结果可筛选导出    |
-| **数据验证排查**    | DDL 建表 + INSERT 数据 → 自动字段映射 → 逐行类型校验 → 导出错误报告 |
-| **JSON 处理工具**   | 格式化、校验、搜索、嵌套 GRID 浏览、表格编辑同步回写、导出 JSON/CSV |
-| **JSON 对比工具**   | 两个 JSON 文本的结构与内容差异比较，快速定位新增、删除和变更字段 |
-| **发票打印工具**    | 支持 PDF / OFD / 图片的排版与打印，多种模板、纸张方向、边距配置 |
-| **Excalidraw 画板** | 流程图、草图和示意图绘制，适合与实施方案沟通配套使用         |
-| **系统设置**        | 应用级配置项与通用参数维护                                   |
+| 模块 | 说明 |
+|---|---|
+| **首页概览** | 版本信息、快捷入口、系统信息面板，统一导航中枢 |
+| **数据导入临时表** | Excel / CSV / DBF → SQL 临时表脚本，适配 SQL Server / PostgreSQL |
+| **CSV 预览工具** | 稳定打开大文件分隔文本，支持搜索定位与编码识别 |
+| **CSV 对比工具** | 按行号或复合主键比较两个 CSV 数据集的差异，结果可筛选导出 |
+| **数据验证排查** | DDL 建表 + INSERT 数据 → 自动字段映射 → 逐行类型校验 → 导出错误报告 |
+| **JSON 处理工具** | 格式化、校验、搜索、嵌套 GRID 浏览、表格编辑同步回写、导出 JSON/CSV |
+| **JSON 对比工具** | 两个 JSON 文本的结构与内容差异比较，快速定位新增、删除和变更字段 |
+| **发票打印工具** | 支持 PDF / OFD / 图片的排版与打印，多种模板、纸张方向、边距配置 |
+| **Excalidraw 画板** | 流程图、草图和示意图绘制，适合与实施方案沟通配套使用 |
+| **系统设置** | 应用级配置项与通用参数维护 |
 
 ## 数据验证排查（核心模块）
 
@@ -142,14 +142,24 @@ dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-
 
 ## NuGet 依赖
 
-| 包                                                           | 用途                |
-| ------------------------------------------------------------ | ------------------- |
-| [CsvHelper](https://joshclose.github.io/CsvHelper/)          | CSV 读写            |
-| [EPPlus](https://www.epplussoftware.com/)                    | Excel 导出          |
-| [ExcelDataReader](https://github.com/ExcelDataReader/ExcelDataReader) | Excel 导入          |
-| [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | SQL Server 连接     |
-| [Npgsql](https://www.npgsql.org/)                            | PostgreSQL 连接     |
+| 包 | 用途 |
+|---|---|
+| [CsvHelper](https://joshclose.github.io/CsvHelper/) | CSV 读写 |
+| [EPPlus](https://www.epplussoftware.com/) | Excel 导出 |
+| [ExcelDataReader](https://github.com/ExcelDataReader/ExcelDataReader) | Excel 导入 |
+| [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | SQL Server 连接 |
+| [Npgsql](https://www.npgsql.org/) | PostgreSQL 连接 |
 | [WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2) | Excalidraw 画板嵌入 |
+
+## 更新记录
+
+> 手动维护，按版本倒序记录。
+
+### v2.1.2 (2026-06-12)
+- 更新优化SQL临时表生成
+
+
+-
 
 ## License
 
