@@ -1,4 +1,3 @@
-using System;
 using System.Windows;
 using System.Windows.Controls;
 using WpfApp1;
@@ -10,9 +9,7 @@ namespace WpfApp1.Views
         public HomePage()
         {
             InitializeComponent();
-            TxtDate.Text = DateTime.Now.ToString("yyyy-MM-dd");
             TxtRuntime.Text = $".NET {Environment.Version.Major}";
-            TxtVersionBadge.Text = TxtVersion.Text;
         }
 
         private void GoToImport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

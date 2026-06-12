@@ -1,292 +1,132 @@
 # CC 实施工具箱
 
-一款基于 WPF 的本地桌面工具，面向实施、数据处理、办公输出和日常辅助场景。当前版本围绕“数据验证排查、JSON 处理、发票打印、CSV 工具、首页聚合入口”持续迭代，强调离线可用、操作直观和问题定位效率。
+> 一款基于 WPF 的本地桌面工具，面向数据实施、数据校验、JSON 处理、办公输出等日常场景。离线可用，操作直观，旨在降低实施人员的数据处理和问题排查成本。
 
-## 项目概览
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue)](https://www.microsoft.com/windows)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.1.2-orange)](https://github.com)
 
-- 技术栈：`.NET / WPF / XAML`
-- 应用定位：实施辅助工具箱
-- 当前主线能力：
-  - 数据导入临时表
-  - CSV 预览工具
-  - CSV 对比工具
-  - 数据验证排查
-  - JSON 处理工具
-  - JSON 对比工具
-  - Excalidraw 画板
-  - 发票打印工具
-  - 系统设置
+---
 
-## 首页概览
+## 功能模块
 
-首页不是单纯的默认入口页，而是一个正式功能模块，承担以下职责：
+| 模块 | 说明 |
+|---|---|
+| **首页概览** | 版本信息、快捷入口、系统信息面板，统一导航中枢 |
+| **数据导入临时表** | Excel / CSV / DBF → SQL 临时表脚本，适配 SQL Server / PostgreSQL |
+| **CSV 预览工具** | 稳定打开大文件分隔文本，支持搜索定位与编码识别 |
+| **CSV 对比工具** | 按行号或复合主键比较两个 CSV 数据集的差异，结果可筛选导出 |
+| **数据验证排查** | DDL 建表 + INSERT 数据 → 自动字段映射 → 逐行类型校验 → 导出错误报告 |
+| **JSON 处理工具** | 格式化、校验、搜索、嵌套 GRID 浏览、表格编辑同步回写、导出 JSON/CSV |
+| **JSON 对比工具** | 两个 JSON 文本的结构与内容差异比较，快速定位新增、删除和变更字段 |
+| **发票打印工具** | 支持 PDF / OFD / 图片的排版与打印，多种模板、纸张方向、边距配置 |
+| **Excalidraw 画板** | 流程图、草图和示意图绘制，适合与实施方案沟通配套使用 |
+| **系统设置** | 应用级配置项与通用参数维护 |
 
-- 展示欢迎信息、版本号和产品定位
-- 汇总全部核心工具的快捷入口
-- 按业务分组展示左侧导航：
-  - 数据工具
-  - 开发工具
-  - 办公工具
-  - 系统
-- 展示系统信息面板，作为用户进入各模块前的总览页
+## 数据验证排查（核心模块）
 
-当前首页可直接跳转到以下模块：
+这是当前功能最完整、迭代最多的模块，完整流程 4 步走：
 
-- 数据导入临时表
-- CSV 预览工具
-- CSV 对比工具
-- JSON 处理工具
-- JSON 对比工具
-- Excalidraw 画板
-- 发票打印工具
-- 数据验证排查
-
-## 核心模块
-
-### 1. 数据验证排查
-
-这是当前项目里功能最完整、迭代最多的模块之一，整体流程分为 4 步：
-
-1. 结构输入
-2. 数据输入
-3. 字段映射
-4. 校验结果
-
-#### 结构输入
-
-支持两种方式导入目标表结构：
-
-- 直接粘贴 DDL 建表语句自动解析字段
-- 通过 SQL 查询导出 Excel，再导入结构结果
-
-支持数据库类型切换，目前界面已覆盖：
-
-- SQL Server
-- PostgreSQL
-
-#### 数据输入
-
-支持两种数据来源：
-
-- 粘贴 `INSERT INTO` 语句批量解析
-- 导入 Excel 数据文件
-
-近期已针对 `INSERT` 解析器做过增强，重点解决了“实际 886 行但只解析出 861 行”这类问题。当前解析器已改为按字符扫描而不是简单正则截取，能更稳地处理：
-
-- 多条 `INSERT INTO`
-- 批量 `VALUES`
-- 字符串中的逗号、括号、关键字
-- SQL 注释
-- 转义单引号
-
-#### 字段映射
-
-支持源字段与目标字段自动匹配，并在映射表中确认映射关系，适用于结构和入库字段名称不完全一致的场景。
-
-#### 校验结果
-
-校验结果页目前支持：
-
-- 展示异常记录数、错误项数、警告记录数、耗时等概览信息
-- 结果表格复制：
-  - 支持右键复制当前单元格
-  - 支持右键复制当前行
-  - 支持 `Ctrl + C`
-- 导出 Excel 报告
-- 顶部规则区快速切换忽略项
-
-当前可选忽略规则包括：
-
-- 忽略整数格式错误
-- 忽略 UUID 格式错误
-- 忽略日期时间格式错误
-
-为避免统计口径误解，结果页已明确区分：
-
-- 异常记录：去重后的问题记录数
-- 错误项数：所有错误明细条目总数
-
-也就是说，一条记录中多个字段同时报错时，异常记录可能是 `1`，错误项数可能是 `2` 或更多。
-
-### 2. JSON 处理工具
-
-JSON 处理工具当前支持：
-
-- JSON 格式化
-- 校验
-- 搜索
-- 右侧 GRID 预览
-- 右侧 GRID 真全屏查看
-- 展开表格后按按钮开启编辑
-- 编辑内容同步回写左侧原始 JSON
-- 导出 JSON
-- 导出 CSV
-
-近期增强点包括：
-
-- 右侧 GRID 支持真正的全屏视图，进入后会隐藏左侧编辑区和页面头部，让 GRID 直接铺满内容区
-- 展开后的表格支持按钮控制开启编辑，避免误触改值
-- 编辑后可同步回原始 JSON，中文内容会保持原样，不再被写回成 `\uXXXX`
-- 按 `Esc` 可退出当前编辑模式，并撤销当前单元格未提交的修改
-
-这部分现在更适合做“结构化 JSON 快速检查 + 局部修正”的轻量场景，重点是可视化查看、局部编辑、快速导出，而不是复杂汇总计算。
-
-### 3. 发票打印工具
-
-发票打印工具面向 PDF / OFD / 图片等票据类文件的排版与打印，近期围绕“方向正确、预览可用、边距可控、设置区更统一”做了多轮优化。
-
-当前能力包括：
-
-- 导入单文件或文件夹
-- 打印预览
-- 选择打印机
-- 纸张大小与方向配置
-- 多种排版模板
-- 打印份数控制
-- 裁剪线显示
-- 边距设置
-- 打印质量设置
-
-近期已完成的重点优化：
-
-- 修复横向打印实际输出成纵向的问题
-- 新增基于当前打印机的预览流程
-- 默认边距调整为 `0mm`
-- 修复 2x2 排版时右侧和下侧多余留白
-- 避开系统打印窗口“不支持打印预览”的体验问题，改为页面内选择打印机并直接输出
-- 统一打印份数输入框和纸张大小选择框的视觉样式
-- 美化打印机刷新按钮
-
-需要注意：即使应用侧默认边距为 `0mm`，部分打印机仍可能受硬件不可打印区域影响而保留物理边距。
-
-### 4. CSV 预览工具
-
-用于快速打开 CSV 或分隔文本文件，适合查看原始内容、搜索定位和基础编码识别。
-
-### 5. CSV 对比工具
-
-用于对比两个 CSV 数据集的差异，支持按主键或多字段进行记录级比较，并输出差异结果。
-
-### 6. 数据导入临时表
-
-用于将 Excel、CSV、DBF 等源数据快速转换为 SQL 临时表脚本，适合实施阶段的中间表导入和临时数据落库准备。
-
-### 7. JSON 对比工具
-
-用于两个 JSON 文本的结构和内容差异比较，便于快速定位新增、删除和变更字段。
-
-### 8. Excalidraw 画板
-
-用于流程图、草图和示意图绘制，适合与实施方案沟通配套使用。
-
-### 9. 系统设置
-
-用于维护应用级配置项和通用参数。
-
-## 典型流程
-
-### 数据验证排查流程
-
-```text
-首页概览
-  -> 数据验证排查
-  -> 结构输入（DDL / SQL 结果导入）
-  -> 数据输入（INSERT / Excel）
-  -> 字段映射
-  -> 执行校验
-  -> 查看异常记录 / 错误项数 / 警告
-  -> 导出 Excel 报告
+```
+结构输入 → 数据输入 → 字段映射 → 校验结果
 ```
 
-### 发票打印流程
+### 1. 结构输入
 
-```text
-首页概览
-  -> 发票打印工具
-  -> 导入文件
-  -> 选择打印机
-  -> 选择纸张、方向、排版模板
-  -> 页面内预览
-  -> 开始打印
+- **DDL 粘贴**：直接粘贴 CREATE TABLE 语句，自动解析字段名、类型、必填、长度/精度
+- **SQL 查询导入**：在数据库执行查询 → 导出 Excel → 导入结构
+- 支持 SQL Server 和 PostgreSQL 两种数据库类型
+
+### 2. 数据输入
+
+- **INSERT 语句**：直接粘贴 INSERT INTO 语句，支持多表、批量 VALUES、字符串中特殊字符、SQL 注释
+- **Excel 导入**：导入中间表数据 Excel，首行为表头
+- 内置增强版 INSERT 解析器，按字符扫描而非正则截取，稳定处理千行级别的批量 SQL
+
+### 3. 字段映射
+
+- 源字段与目标字段自动匹配（支持精确/标准化/前缀剥离/语义优先/包含等多种匹配方式）
+- 支持源字段映射、固定值、忽略三种模式
+- 必填字段未映射红色高亮提醒
+- 一键自动映射、全部确认、忽略自动生成 UUID
+
+### 4. 校验结果
+
+- 总行数 / 异常记录（去重）/ 错误项数（明细）/ 警告记录 / 耗时 概览
+- 逐行逐字段校验：必填为空、字符超长、整数溢出、数值精度溢出、日期/时间/GUID/布尔/JSON 格式错误
+- 可配置忽略项：整数格式、UUID 格式、日期时间格式、指定实际值
+- 结果表格支持排序、右键复制单元格/行、Ctrl+C
+- 导出 Excel 错误报告（含主键定位信息）
+
+## 技术栈
+
+```
+.NET 10.0  |  WPF / XAML  |  CsvHelper  |  EPPlus  |  ExcelDataReader
+Microsoft.Data.SqlClient  |  Npgsql  |  WebView2  |  System.Text.Json
 ```
 
-### JSON 处理流程
+## 项目结构
 
-```text
-首页概览
-  -> JSON 处理工具
-  -> 粘贴或打开 JSON
-  -> 格式化 / 校验 / 搜索
-  -> 右侧 GRID 查看
-  -> 全屏 / 编辑 / 同步回写
 ```
-
-## 目录结构
-
-```text
 xx
-├─ README.md
-├─ WpfApp1
-│  ├─ Views
-│  │  ├─ HomePage.xaml
-│  │  ├─ DataImportPage.xaml
-│  │  ├─ CsvViewerPage.xaml
-│  │  ├─ CsvComparePage.xaml
-│  │  ├─ DataValidationPage.xaml
-│  │  ├─ JsonToolPage.xaml
-│  │  ├─ JsonDiffPage.xaml
-│  │  ├─ DrawBoardPage.xaml
-│  │  ├─ InvoicePrintPage.xaml
-│  │  └─ SettingsPage.xaml
-│  ├─ Services
-│  │  ├─ DdlParser.cs
-│  │  ├─ InsertStatementParser.cs
-│  │  ├─ ValidationEngine.cs
-│  │  ├─ ValidationReportService.cs
-│  │  ├─ JsonGridParser.cs
-│  │  ├─ JsonToolService.cs
-│  │  ├─ InvoicePrintService.cs
-│  │  ├─ CsvCompareService.cs
-│  │  └─ ...
-│  └─ Models / Assets / Config...
-└─ ...
+├── WpfApp1/
+│   ├── Views/              # 所有页面 (XAML + code-behind)
+│   │   ├── HomePage.xaml              # 首页概览
+│   │   ├── DataImportPage.xaml        # 数据导入临时表
+│   │   ├── CsvViewerPage.xaml         # CSV 预览工具
+│   │   ├── CsvComparePage.xaml        # CSV 对比工具
+│   │   ├── DataValidationPage.xaml    # 数据验证排查（核心）
+│   │   ├── JsonToolPage.xaml          # JSON 处理工具
+│   │   ├── JsonDiffPage.xaml          # JSON 对比工具
+│   │   ├── DrawBoardPage.xaml         # Excalidraw 画板
+│   │   ├── InvoicePrintPage.xaml      # 发票打印工具
+│   │   └── SettingsPage.xaml          # 系统设置
+│   ├── Services/           # 业务逻辑层
+│   │   ├── ValidationEngine.cs        # 核心校验引擎
+│   │   ├── DdlParser.cs               # DDL 建表语句解析器
+│   │   ├── InsertStatementParser.cs   # INSERT 语句解析器
+│   │   ├── ValidationReportService.cs # Excel 校验报告生成
+│   │   ├── JsonToolService.cs         # JSON 处理服务
+│   │   ├── JsonGridParser.cs          # JSON → DataTable 解析
+│   │   ├── InvoicePrintService.cs     # 票据打印服务
+│   │   ├── CsvCompareService.cs       # CSV 对比服务
+│   │   ├── SqlGeneratorService.cs     # SQL 临时表生成
+│   │   ├── FieldMatcherService.cs     # 字段自动匹配
+│   │   └── ...
+│   ├── Models/             # 数据模型
+│   ├── Themes/             # 主题与控件样式
+│   ├── Converters/         # 值转换器
+│   ├── MainWindow.xaml     # 主窗口（导航框架）
+│   └── App.xaml            # 应用入口
+├── docs/                   # 文档
+└── README.md
 ```
-
-## 关键实现说明
-
-- `HomePage`：首页概览与功能导航入口
-- `DataValidationPage`：数据验证排查主流程页面
-- `InsertStatementParser`：INSERT 语句解析器，负责把 SQL 输入转换为可校验的数据行
-- `ValidationEngine`：核心校验引擎，执行字段类型与规则校验
-- `ValidationReportService`：生成 Excel 校验报告
-- `JsonToolPage` + `JsonGridParser`：JSON 结构可视化、编辑与表格展示
-- `InvoicePrintPage` + `InvoicePrintService`：票据排版、预览与打印输出
 
 ## 本地运行
 
-本项目是 Windows WPF 桌面程序，入口项目为 `WpfApp1/WpfApp1.csproj`，应用程序集名为 `CCToolbox`，目标框架为 `net10.0-windows10.0.19041.0`。
-
 ### 环境要求
 
-- Windows 10 19041 或更高版本
-- .NET 10 SDK（包含 Windows Desktop Runtime）
-- 首次还原依赖时需要访问 NuGet 源
+- Windows 10 19041 及以上
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)（含 Windows Desktop Runtime）
 
-如果本机 `dotnet` 已加入 `PATH`，在项目根目录执行：
+### 启动
 
 ```powershell
+# 还原依赖
 dotnet restore .\WpfApp1\WpfApp1.csproj --configfile .\NuGet.Config
+
+# 运行
 dotnet run --project .\WpfApp1\WpfApp1.csproj --launch-profile CCToolbox-DebugLocal
 ```
 
-如果本机没有全局 `dotnet`，可以使用本地 SDK。当前环境已验证可用的 SDK 路径为 `C:\tmp\dotnet-10\dotnet.exe`，版本为 `10.0.203`：
+### 从本地 SDK 运行（无需全局安装 dotnet）
 
 ```powershell
-Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile C:\tmp\dotnet-install.ps1
+# 安装 .NET SDK 到本地目录
 powershell -NoProfile -ExecutionPolicy Bypass -File C:\tmp\dotnet-install.ps1 -Channel 10.0 -InstallDir C:\tmp\dotnet-10 -Architecture x64
-```
 
-```powershell
+# 编译运行
 C:\tmp\dotnet-10\dotnet.exe restore .\WpfApp1\WpfApp1.csproj --configfile .\NuGet.Config
 C:\tmp\dotnet-10\dotnet.exe build .\WpfApp1\WpfApp1.csproj --no-restore
 $env:DOTNET_ROOT="C:\tmp\dotnet-10"
@@ -294,35 +134,30 @@ $env:PATH="C:\tmp\dotnet-10;$env:PATH"
 .\WpfApp1\bin\Debug\net10.0-windows10.0.19041.0\CCToolbox.exe
 ```
 
-在受限沙箱或用户目录不可写的环境中，先把 .NET/NuGet 缓存指向仓库内目录：
-
-```powershell
-$env:DOTNET_CLI_HOME="$PWD\.dotnet_cli"
-$env:APPDATA="$PWD\.dotnet_user\AppData\Roaming"
-$env:LOCALAPPDATA="$PWD\.dotnet_user\AppData\Local"
-$env:NUGET_PACKAGES="$PWD\.nuget\packages"
-$env:NUGET_HTTP_CACHE_PATH="$PWD\.nuget\http-cache"
-```
-
-如果需要发布：
+### 发布单文件
 
 ```powershell
 dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
 ```
 
-## 最近更新
+## NuGet 依赖
 
-本轮根据实际开发和联调过程，README 已同步补充以下内容：
+| 包 | 用途 |
+|---|---|
+| [CsvHelper](https://joshclose.github.io/CsvHelper/) | CSV 读写 |
+| [EPPlus](https://www.epplussoftware.com/) | Excel 导出 |
+| [ExcelDataReader](https://github.com/ExcelDataReader/ExcelDataReader) | Excel 导入 |
+| [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | SQL Server 连接 |
+| [Npgsql](https://www.npgsql.org/) | PostgreSQL 连接 |
+| [WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2) | Excalidraw 画板嵌入 |
 
-- 重新确认首页概览是正式模块，而不是单纯入口页
-- 数据验证排查补充结构输入、数据输入、字段映射、结果页的完整流程说明
-- 补充结果表格复制能力、忽略整数/UUID/日期时间格式错误、错误统计口径说明
-- 补充 INSERT 解析器增强，修复大批量 SQL 解析行数不完整的问题
-- 补充 JSON 处理工具的 GRID 真全屏、表格编辑、中文不转义回写、`Esc` 退出编辑模式等能力
-- 补充发票打印工具的打印机预览、横纵向修复、零边距默认值、样式统一等优化
+## 更新记录
 
-## 说明
+### v2.1.3 (2026-06-12)
 
-- 本项目以桌面端本地工具为主，适合实施、数据核对、差异比对和打印输出场景
-- 文档内容已按当前代码结构和最近一轮迭代结果更新
-- 若后续模块继续扩展，建议同步维护本 README，避免文档与实际界面能力脱节
+- 优化已知问题
+- 调整UI显示
+
+---
+
+**by 悲伤番茄** · 持续迭代中，欢迎 Issue & PR。
