@@ -40,7 +40,7 @@ namespace WpfApp1.Services
     // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
     public class PrintTemplate
     {
-        public string Name { get; set; } = "榛樿妯℃澘";
+        public string Name { get; set; } = "默认模板";
         public string PaperMode { get; set; } = "A4"; // A4 / Invoice (鍙戠エ涓撶敤绾?
         public int LayoutCount { get; set; } = 1; // 姣忛〉鍙戠エ鏁? 1, 2, 4
         public double MarginTop { get; set; } = 0;
@@ -49,7 +49,7 @@ namespace WpfApp1.Services
         public double MarginRight { get; set; } = 0;
         public double OffsetX { get; set; } = 0; // 濂楁墦鍋忕ЩX (mm)
         public double OffsetY { get; set; } = 0; // 濂楁墦鍋忕ЩY (mm)
-        public string PrintQuality { get; set; } = "鏍囧噯"; // 鑽夌/鏍囧噯/楂樼敾璐?
+        public string PrintQuality { get; set; } = "标准"; // 鑽夌/鏍囧噯/楂樼敾璐?
     }
 
     // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
@@ -74,6 +74,7 @@ namespace WpfApp1.Services
             public Size MediaSize { get; set; }
             public Point ContentOrigin { get; set; }
             public Size ContentSize { get; set; }
+            public int OutputDpi { get; set; } = 300;
         }
 
         // 鈹€鈹€ 鏂囦欢瀵煎叆 鈹€鈹€
@@ -394,6 +395,7 @@ namespace WpfApp1.Services
             var requestedMediaSize = GetRequestedPaperSize(template, isLandscape);
             var ticket = dialog.PrintTicket ?? new PrintTicket();
             ticket.PageOrientation = isLandscape ? PageOrientation.Landscape : PageOrientation.Portrait;
+            ticket.Duplexing = Duplexing.OneSided;
             ticket.PageMediaSize = template.PaperMode == "Invoice"
                 ? new PageMediaSize(requestedMediaSize.Width, requestedMediaSize.Height)
                 : new PageMediaSize(PageMediaSizeName.ISOA4);
@@ -411,6 +413,7 @@ namespace WpfApp1.Services
             }
 
             effectiveTicket.PageOrientation = isLandscape ? PageOrientation.Landscape : PageOrientation.Portrait;
+            effectiveTicket.Duplexing = Duplexing.OneSided;
             dialog.PrintTicket = effectiveTicket;
 
             var mediaSize = NormalizeOrientation(GetMediaSizeFromTicket(effectiveTicket, requestedMediaSize), isLandscape);
@@ -442,7 +445,8 @@ namespace WpfApp1.Services
                 PrintTicket = effectiveTicket,
                 MediaSize = mediaSize,
                 ContentOrigin = contentOrigin,
-                ContentSize = contentSize
+                ContentSize = contentSize,
+                OutputDpi = GetDpiFromQuality(template.PrintQuality)
             };
         }
 
@@ -459,10 +463,11 @@ namespace WpfApp1.Services
                     Height = context.MediaSize.Height
                 };
 
-                int pixelWidth = Math.Max(1, (int)Math.Ceiling(context.ContentSize.Width * 2));
-                int pixelHeight = Math.Max(1, (int)Math.Ceiling(context.ContentSize.Height * 2));
+                double dpiScale = Math.Max(1, context.OutputDpi) / 96.0;
+                int pixelWidth = Math.Max(1, (int)Math.Ceiling(context.ContentSize.Width * dpiScale));
+                int pixelHeight = Math.Max(1, (int)Math.Ceiling(context.ContentSize.Height * dpiScale));
 
-                var rtb = new RenderTargetBitmap(pixelWidth, pixelHeight, 192, 192, PixelFormats.Pbgra32);
+                var rtb = new RenderTargetBitmap(pixelWidth, pixelHeight, context.OutputDpi, context.OutputDpi, PixelFormats.Pbgra32);
                 rtb.Render(visual);
                 rtb.Freeze();
 
@@ -491,6 +496,7 @@ namespace WpfApp1.Services
             return quality switch
             {
                 "草稿" => 150,
+                "高画质" => 600,
                 "高质量" => 600,
                 _ => 300
             };
@@ -498,7 +504,7 @@ namespace WpfApp1.Services
 
         // 鈹€鈹€ 鎵撳嵃鎵ц 鈹€鈹€
 
-        public static bool PrintPages(List<DrawingVisual> pages, int copies, PrintDialog? dialog = null)
+        public static bool PrintPages(List<DrawingVisual> pages, int copies, PrintDialog? dialog = null, int outputDpi = 300)
         {
             if (pages.Count == 0) return false;
 
@@ -507,6 +513,9 @@ namespace WpfApp1.Services
                 dialog = new PrintDialog();
                 if (dialog.ShowDialog() != true) return false;
             }
+
+            dialog.PrintTicket ??= new PrintTicket();
+            dialog.PrintTicket.Duplexing = Duplexing.OneSided;
 
             for (int c = 0; c < copies; c++)
             {
@@ -526,7 +535,13 @@ namespace WpfApp1.Services
                         // 灏?DrawingVisual 杞负 Image
                         int w = (int)pageSize.Width;
                         int h = (int)pageSize.Height;
-                        var rtb = new RenderTargetBitmap(w * 2, h * 2, 192, 192, PixelFormats.Pbgra32);
+                        double dpiScale = Math.Max(1, outputDpi) / 96.0;
+                        var rtb = new RenderTargetBitmap(
+                            (int)Math.Ceiling(w * dpiScale),
+                            (int)Math.Ceiling(h * dpiScale),
+                            outputDpi,
+                            outputDpi,
+                            PixelFormats.Pbgra32);
                         rtb.Render(visual);
                         rtb.Freeze();
 
@@ -544,7 +559,7 @@ namespace WpfApp1.Services
                     }
 
                     var writer = System.Printing.PrintQueue.CreateXpsDocumentWriter(dialog.PrintQueue);
-                    writer.Write(doc);
+                    writer.Write(doc.DocumentPaginator, dialog.PrintTicket);
                 }
             }
 
@@ -609,7 +624,9 @@ namespace WpfApp1.Services
             {
                 if (!File.Exists(_templatePath)) return GetDefaultTemplates();
                 var json = File.ReadAllText(_templatePath);
-                return JsonSerializer.Deserialize<List<PrintTemplate>>(json) ?? GetDefaultTemplates();
+                var templates = JsonSerializer.Deserialize<List<PrintTemplate>>(json) ?? GetDefaultTemplates();
+                NormalizeTemplateNames(templates);
+                return templates;
             }
             catch { return GetDefaultTemplates(); }
         }
@@ -630,6 +647,15 @@ namespace WpfApp1.Services
                 new() { Name = "发票专用纸", PaperMode = "Invoice", LayoutCount = 1,
                          MarginTop = 0, MarginBottom = 0, MarginLeft = 0, MarginRight = 0 }
             };
+        }
+
+        private static void NormalizeTemplateNames(List<PrintTemplate> templates)
+        {
+            foreach (var template in templates)
+            {
+                if (string.IsNullOrWhiteSpace(template.Name) || template.Name == "榛樿妯℃澘")
+                    template.Name = "默认模板";
+            }
         }
 
         // 鈹€鈹€ 鎵撳嵃鍘嗗彶 鈹€鈹€

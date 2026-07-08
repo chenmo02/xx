@@ -1,4 +1,7 @@
-﻿using System.Data;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -14,6 +17,18 @@ namespace WpfApp1.Services
     /// </summary>
     public static class JsonToolService
     {
+        private static readonly JsonSerializerOptions IndentedOptions = new()
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        private static readonly JsonSerializerOptions CompactOptions = new()
+        {
+            WriteIndented = false,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
         // ==================== 格式化 ====================
 
         /// <summary>
@@ -22,11 +37,7 @@ namespace WpfApp1.Services
         public static string Beautify(string json)
         {
             using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
+            return JsonSerializer.Serialize(doc.RootElement, IndentedOptions);
         }
 
         /// <summary>
@@ -35,11 +46,7 @@ namespace WpfApp1.Services
         public static string Minify(string json)
         {
             using var doc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions
-            {
-                WriteIndented = false,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
+            return JsonSerializer.Serialize(doc.RootElement, CompactOptions);
         }
 
         // ==================== 校验 ====================
@@ -59,12 +66,13 @@ namespace WpfApp1.Services
                     AllowTrailingCommas = false,
                     CommentHandling = JsonCommentHandling.Disallow
                 });
-                
+
                 var root = doc.RootElement;
                 int depth = GetMaxDepth(root);
                 int nodeCount = CountNodes(root);
                 string rootType = root.ValueKind.ToString();
 
+                // 注意：普通插值字符串不能跨行，这里用 \n 表示换行
                 return (true, $"✅ JSON 格式正确\n类型: {rootType} | 节点数: {nodeCount} | 最大深度: {depth}", 0);
             }
             catch (JsonException ex)
@@ -110,7 +118,11 @@ namespace WpfApp1.Services
                 }
 
                 foreach (var col in columns)
-                    dt.Columns.Add(col, typeof(string));
+                {
+                    // DataTable 列名默认不区分大小写，避免仅大小写不同的键抛 DuplicateNameException
+                    if (!dt.Columns.Contains(col))
+                        dt.Columns.Add(col, typeof(string));
+                }
 
                 foreach (var item in root.EnumerateArray())
                 {
@@ -128,7 +140,7 @@ namespace WpfApp1.Services
             }
             else if (root.ValueKind == JsonValueKind.Object)
             {
-                // 单个对象：key-value 两列
+                // 单个对象：key-value 三列
                 dt.Columns.Add("键 (Key)", typeof(string));
                 dt.Columns.Add("值 (Value)", typeof(string));
                 dt.Columns.Add("类型 (Type)", typeof(string));
@@ -152,24 +164,22 @@ namespace WpfApp1.Services
         /// </summary>
         public static string DataTableToJson(DataTable dt, bool isKeyValueMode)
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-
             if (isKeyValueMode && dt.Columns.Contains("键 (Key)") && dt.Columns.Contains("值 (Value)"))
             {
+                bool hasTypeCol = dt.Columns.Contains("类型 (Type)");
+
                 // key-value 模式 → 对象
                 var dict = new Dictionary<string, object?>();
                 foreach (DataRow row in dt.Rows)
                 {
                     string key = row["键 (Key)"]?.ToString() ?? "";
                     string val = row["值 (Value)"]?.ToString() ?? "";
-                    if (!string.IsNullOrEmpty(key))
-                        dict[key] = ParseValue(val);
+                    if (string.IsNullOrEmpty(key)) continue;
+
+                    string? type = hasTypeCol ? row["类型 (Type)"]?.ToString() : null;
+                    dict[key] = ParseValueWithType(val, type);
                 }
-                return JsonSerializer.Serialize(dict, options);
+                return JsonSerializer.Serialize(dict, IndentedOptions);
             }
             else
             {
@@ -184,7 +194,7 @@ namespace WpfApp1.Services
                     }
                     list.Add(dict);
                 }
-                return JsonSerializer.Serialize(list, options);
+                return JsonSerializer.Serialize(list, IndentedOptions);
             }
         }
 
@@ -214,7 +224,7 @@ namespace WpfApp1.Services
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    node.Value = $"{{{element.EnumerateObject().Count()} 项}}";
+                    node.Value = "";
                     foreach (var prop in element.EnumerateObject())
                         BuildTree(prop.Value, prop.Name, node.Children, currentPath);
                     break;
@@ -256,6 +266,8 @@ namespace WpfApp1.Services
                     {
                         if (current.ValueKind != JsonValueKind.Array)
                             return $"错误: '{seg.Key}' 不是数组";
+                        if (seg.Index < 0 || seg.Index >= current.GetArrayLength())
+                            return $"错误: 数组下标越界 '{seg.Key}'";
                         current = current[seg.Index];
                     }
                     else
@@ -270,11 +282,7 @@ namespace WpfApp1.Services
 
                 if (current.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
                 {
-                    return JsonSerializer.Serialize(current, new JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                    });
+                    return JsonSerializer.Serialize(current, IndentedOptions);
                 }
 
                 return GetElementValue(current);
@@ -294,23 +302,26 @@ namespace WpfApp1.Services
         {
             var dt = ParseToDataTable(json);
             using var writer = new StringWriter();
-            using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture));
 
-            // 写入表头
-            foreach (DataColumn col in dt.Columns)
+            // 用内层 using，确保 CsvWriter 在 ToString() 之前 Flush/Dispose，避免尾部内容丢失
+            using (var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)))
             {
-                csv.WriteField(col.ColumnName);
-            }
-            csv.NextRecord();
-
-            // 写入数据
-            foreach (DataRow row in dt.Rows)
-            {
+                // 写入表头
                 foreach (DataColumn col in dt.Columns)
                 {
-                    csv.WriteField(row[col]?.ToString() ?? "");
+                    csv.WriteField(col.ColumnName);
                 }
                 csv.NextRecord();
+
+                // 写入数据
+                foreach (DataRow row in dt.Rows)
+                {
+                    foreach (DataColumn col in dt.Columns)
+                    {
+                        csv.WriteField(row[col]?.ToString() ?? "");
+                    }
+                    csv.NextRecord();
+                }
             }
 
             return writer.ToString();
@@ -333,17 +344,42 @@ namespace WpfApp1.Services
             };
         }
 
+        /// <summary>
+        /// 根据网格里记录的类型来还原值；type 为 "String" 时强制保持字符串，避免 "007" 被转成数字
+        /// </summary>
+        private static object? ParseValueWithType(string val, string? type)
+        {
+            return type switch
+            {
+                "String" => val,
+                "Null" => null,
+                _ => ParseValue(val)
+            };
+        }
+
         private static object? ParseValue(string val)
         {
             if (string.IsNullOrEmpty(val) || val == "null") return null;
             if (val == "true") return true;
             if (val == "false") return false;
-            if (long.TryParse(val, out long l)) return l;
-            if (double.TryParse(val, out double d)) return d;
+
+            // 避免把有语义的字符串（前导零如 "007"、前导加号如 "+1"）误判为数字
+            bool preserveAsString =
+                (val.Length > 1 && val[0] == '0' && val[1] != '.') ||
+                val[0] == '+';
+
+            if (!preserveAsString)
+            {
+                if (long.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out long l))
+                    return l;
+                if (double.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                    return d;
+            }
+
             // 尝试解析嵌套 JSON
             if ((val.StartsWith('{') && val.EndsWith('}')) || (val.StartsWith('[') && val.EndsWith(']')))
             {
-                try { return JsonSerializer.Deserialize<JsonNode>(val); } catch { }
+                try { return JsonSerializer.Deserialize<JsonNode>(val); } catch { /* 解析失败则保持原字符串 */ }
             }
             return val;
         }
@@ -390,8 +426,10 @@ namespace WpfApp1.Services
                 if (part.StartsWith('[') && part.EndsWith(']'))
                 {
                     var idxStr = part[1..^1];
-                    if (int.TryParse(idxStr, out int idx))
+                    if (int.TryParse(idxStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx))
                         segments.Add(new PathSegment { Key = part, IsIndex = true, Index = idx });
+                    else
+                        throw new FormatException($"非法数组下标: '{part}'");
                 }
                 else
                 {
@@ -430,20 +468,19 @@ namespace WpfApp1.Services
     /// </summary>
     public class LinkedHashSet<T> : IEnumerable<T> where T : notnull
     {
-        private readonly Dictionary<T, int> _dict = [];
+        private readonly HashSet<T> _set = [];
         private readonly List<T> _list = [];
 
         public int Count => _list.Count;
 
         public bool Add(T item)
         {
-            if (_dict.ContainsKey(item)) return false;
-            _dict[item] = _list.Count;
+            if (!_set.Add(item)) return false;
             _list.Add(item);
             return true;
         }
 
         public IEnumerator<T> GetEnumerator() => _list.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

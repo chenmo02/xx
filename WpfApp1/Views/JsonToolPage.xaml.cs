@@ -87,6 +87,7 @@ namespace WpfApp1.Views
         private readonly List<TextBlock> _allGridValueTextBlocks = new();
 
         // 搜索结果限制（防止大 JSON 卡死）
+        private const int MinAutoSearchKeywordLength = 2;
         private const int MaxGridSearchMatches = 500;
         private const int MaxJsonHighlights = 200;
         private const int MaxGridAutoExpand = 50;
@@ -124,15 +125,15 @@ namespace WpfApp1.Views
             DataObject.AddPastingHandler(TxtJsonEditor, TxtJsonEditor_Pasting);
             _debounceTimer.Interval = TimeSpan.FromMilliseconds(600);
             _debounceTimer.Tick += (s, e) => { _debounceTimer.Stop(); RebuildGrid(); };
-            _searchDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+            _searchDebounceTimer.Interval = TimeSpan.FromMilliseconds(900);
             _searchDebounceTimer.Tick += async (s, e) =>
             {
                 _searchDebounceTimer.Stop();
                 await PerformSearchAsync();
             };
 
-            // GRID 搜索防抖 300ms
-            _gridSearchDebounceTimer.Interval = TimeSpan.FromMilliseconds(300);
+            // GRID 搜索防抖 900ms，避免用户还没输入完就自动定位
+            _gridSearchDebounceTimer.Interval = TimeSpan.FromMilliseconds(900);
             _gridSearchDebounceTimer.Tick += (s, e) => { _gridSearchDebounceTimer.Stop(); PerformGridSearchAsync(); };
         }
 
@@ -417,6 +418,23 @@ namespace WpfApp1.Views
             return false;
         }
 
+        private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+        {
+            int childCount = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match)
+                    return match;
+
+                var descendant = FindDescendant<T>(child);
+                if (descendant != null)
+                    return descendant;
+            }
+
+            return null;
+        }
+
         // ==================== 左侧 JSON 搜索 ====================
 
         private void BtnToggleSearch_Click(object sender, RoutedEventArgs e)
@@ -480,6 +498,14 @@ namespace WpfApp1.Views
                 ClearSearchHighlights();
                 ClearGridHighlights();
                 TxtSearchCount.Text = "";
+                return;
+            }
+
+            if (keyword.Length < MinAutoSearchKeywordLength)
+            {
+                ClearSearchHighlights();
+                ClearGridHighlights();
+                TxtSearchCount.Text = "继续输入...";
                 return;
             }
 
@@ -653,12 +679,12 @@ namespace WpfApp1.Views
             return matches;
         }
 
-        private void HighlightCurrentMatch()
+        private void HighlightCurrentMatch(bool focusEditor = false, bool scrollToMatch = true)
         {
             if (_currentMatchIndex < 0 || _currentMatchIndex >= _searchMatches.Count) return;
             int start = _searchMatches[_currentMatchIndex];
             int length = Math.Max(_currentSearchKeywordLength, 0);
-            SelectEditorRange(start, length);
+            SelectEditorRange(start, length, focusEditor, scrollToMatch);
             _lastHighlightedMatchIndex = _currentMatchIndex;
         }
 
@@ -689,18 +715,29 @@ namespace WpfApp1.Views
             _currentSearchKeywordLength = 0;
         }
 
-        private void SelectEditorRange(int start, int length)
+        private void SelectEditorRange(int start, int length, bool focusEditor = true, bool scrollToMatch = true)
         {
             if (start < 0 || start > TxtJsonEditor.Text.Length)
                 return;
 
             length = Math.Min(length, TxtJsonEditor.Text.Length - start);
+            var previousFocus = Keyboard.FocusedElement as IInputElement;
+
             TxtJsonEditor.Focus();
             TxtJsonEditor.Select(start, length);
 
             int lineIndex = TxtJsonEditor.GetLineIndexFromCharacterIndex(start);
-            if (lineIndex >= 0)
-                TxtJsonEditor.ScrollToLine(lineIndex);
+            if (scrollToMatch && lineIndex >= 0)
+            {
+                int targetLine = Math.Max(0, lineIndex - 2);
+                TxtJsonEditor.ScrollToLine(targetLine);
+                Dispatcher.BeginInvoke(new Action(() => TxtJsonEditor.ScrollToLine(targetLine)), DispatcherPriority.Background);
+            }
+
+            if (!focusEditor && previousFocus is { } focusTarget && focusTarget != TxtJsonEditor)
+            {
+                Dispatcher.BeginInvoke(new Action(() => focusTarget.Focus()), DispatcherPriority.Input);
+            }
         }
 
         // ==================== 左侧搜索 → 右侧 GRID 联动（只高亮已渲染的，不强制展开） ====================
@@ -1151,8 +1188,7 @@ namespace WpfApp1.Views
                 return false;
 
             return targetPath.Equals(ancestorPath, StringComparison.Ordinal) ||
-                   targetPath.StartsWith(ancestorPath + ".", StringComparison.Ordinal) ||
-                   targetPath.StartsWith(ancestorPath + "[", StringComparison.Ordinal);
+                   targetPath.StartsWith(ancestorPath + "/", StringComparison.Ordinal);
         }
 
         /// <summary>在所有已渲染且可见的 TextBlock 中收集匹配项并高亮</summary>
@@ -1296,7 +1332,7 @@ namespace WpfApp1.Views
             ClearClickHighlights();
             _clickHighlights.AddRange(FindEditorMatches(keyword, comparison, MaxJsonHighlights));
             if (_clickHighlights.Count > 0)
-                SelectEditorRange(_clickHighlights[0], keyword.Length);
+                SelectEditorRange(_clickHighlights[0], keyword.Length, focusEditor: false);
         }
 
         // ==================== 右侧 GRID 点击值 → 左侧 JSON 联动 ====================
@@ -2238,13 +2274,13 @@ namespace WpfApp1.Views
             switch (cell.NodeType)
             {
                 case "Number":
-                    if (!decimal.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                    if (!TryCreateJsonNumberNode(trimmed, out var numberNode))
                     {
                         errorMessage = $"列“{cell.ColumnName}”要求数值格式。";
                         return null;
                     }
                     normalizedValue = trimmed;
-                    return JsonNode.Parse(trimmed);
+                    return numberNode;
 
                 case "True":
                 case "False":
@@ -2269,10 +2305,10 @@ namespace WpfApp1.Views
                         return JsonValue.Create(nullAsBool);
                     }
 
-                    if (decimal.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _))
+                    if (TryCreateJsonNumberNode(trimmed, out var nullNumberNode))
                     {
                         normalizedValue = trimmed;
-                        return JsonNode.Parse(trimmed);
+                        return nullNumberNode;
                     }
 
                     normalizedValue = newValue;
@@ -2281,6 +2317,28 @@ namespace WpfApp1.Views
                 default:
                     normalizedValue = newValue;
                     return JsonValue.Create(newValue);
+            }
+        }
+
+        private static bool TryCreateJsonNumberNode(string text, out JsonNode? valueNode)
+        {
+            valueNode = null;
+            try
+            {
+                valueNode = JsonNode.Parse(text);
+                if (valueNode is not JsonValue jsonValue ||
+                    jsonValue.GetValueKind() != JsonValueKind.Number)
+                {
+                    valueNode = null;
+                    return false;
+                }
+
+                return true;
+            }
+            catch (JsonException)
+            {
+                valueNode = null;
+                return false;
             }
         }
 
@@ -2305,9 +2363,12 @@ namespace WpfApp1.Views
                 return true;
             }
 
-            if (last.ArrayIndex.HasValue && current is JsonArray jsonArray && last.ArrayIndex.Value >= 0 && last.ArrayIndex.Value < jsonArray.Count)
+            if (current is JsonArray jsonArray &&
+                TryGetArrayIndex(last, out var arrayIndex) &&
+                arrayIndex >= 0 &&
+                arrayIndex < jsonArray.Count)
             {
-                jsonArray[last.ArrayIndex.Value] = newValue;
+                jsonArray[arrayIndex] = newValue;
                 return true;
             }
 
@@ -2322,9 +2383,8 @@ namespace WpfApp1.Views
             if (segment.PropertyName != null && current is JsonObject jsonObject)
                 return jsonObject[segment.PropertyName];
 
-            if (segment.ArrayIndex.HasValue && current is JsonArray jsonArray)
+            if (current is JsonArray jsonArray && TryGetArrayIndex(segment, out var index))
             {
-                int index = segment.ArrayIndex.Value;
                 if (index >= 0 && index < jsonArray.Count)
                     return jsonArray[index];
             }
@@ -2332,64 +2392,38 @@ namespace WpfApp1.Views
             return null;
         }
 
+        private static bool TryGetArrayIndex(JsonPathSegment segment, out int index)
+        {
+            if (segment.ArrayIndex.HasValue)
+            {
+                index = segment.ArrayIndex.Value;
+                return true;
+            }
+
+            return int.TryParse(segment.PropertyName, NumberStyles.Integer, CultureInfo.InvariantCulture, out index);
+        }
+
         private static List<JsonPathSegment> ParseJsonPath(string jsonPath)
         {
             var segments = new List<JsonPathSegment>();
-            if (string.IsNullOrWhiteSpace(jsonPath))
+            if (string.IsNullOrWhiteSpace(jsonPath) || jsonPath == "root")
                 return segments;
 
-            string path = jsonPath.StartsWith("root", StringComparison.Ordinal)
-                ? jsonPath.Substring(4)
-                : jsonPath;
+            string path = jsonPath.StartsWith("root/", StringComparison.Ordinal)
+                ? jsonPath.Substring(5)
+                : jsonPath.TrimStart('/');
 
-            if (path.StartsWith(".", StringComparison.Ordinal))
-                path = path.Substring(1);
-
-            int index = 0;
-            while (index < path.Length)
+            foreach (var rawSegment in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (path[index] == '.')
-                {
-                    index++;
-                    continue;
-                }
-
-                if (path[index] == '[')
-                {
-                    int closeIndex = path.IndexOf(']', index + 1);
-                    if (closeIndex <= index)
-                        break;
-
-                    string numberText = path.Substring(index + 1, closeIndex - index - 1);
-                    if (int.TryParse(numberText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var arrayIndex))
-                        segments.Add(new JsonPathSegment { ArrayIndex = arrayIndex });
-
-                    index = closeIndex + 1;
-                    continue;
-                }
-
-                int nextDot = path.IndexOf('.', index);
-                int nextBracket = path.IndexOf('[', index);
-                int endIndex;
-
-                if (nextDot < 0 && nextBracket < 0)
-                    endIndex = path.Length;
-                else if (nextDot < 0)
-                    endIndex = nextBracket;
-                else if (nextBracket < 0)
-                    endIndex = nextDot;
-                else
-                    endIndex = Math.Min(nextDot, nextBracket);
-
-                string propertyName = path.Substring(index, endIndex - index);
-                if (!string.IsNullOrEmpty(propertyName))
-                    segments.Add(new JsonPathSegment { PropertyName = propertyName });
-
-                index = endIndex;
+                string segment = UnescapeJsonPathSegment(rawSegment);
+                segments.Add(new JsonPathSegment { PropertyName = segment });
             }
 
             return segments;
         }
+
+        private static string UnescapeJsonPathSegment(string segment)
+            => segment.Replace("~1", "/").Replace("~0", "~");
 
         private static bool TryParseDecimalValue(JsonGridCell cell, out decimal value)
         {

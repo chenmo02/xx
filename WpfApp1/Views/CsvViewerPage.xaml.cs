@@ -63,6 +63,7 @@ namespace WpfApp1.Views
                 TxtFileInfo.Text = $"{result.FileName}  |  {FormatFileSize(result.FileSize)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  {result.Detail}";
                 TxtEncoding.Text = result.EncodingLabel;
                 TxtStatus.Text = $"已加载 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
+                TxtStatus.Foreground = MutedBrush;
 
                 ClearSearch(clearKeyword: true);
             }
@@ -154,8 +155,10 @@ namespace WpfApp1.Views
                 TxtMatchInfo.Text = $"未找到 “{keyword}”";
                 TxtMatchInfo.Foreground = ErrorBrush;
                 TxtStatus.Text = "未找到匹配项";
+                TxtStatus.Foreground = ErrorBrush;
                 ResetSelection();
                 TxtRowCol.Text = $"共 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
+                TxtRowCol.Foreground = MutedBrush;
                 return;
             }
 
@@ -198,7 +201,9 @@ namespace WpfApp1.Views
 
             TxtMatchInfo.Text = $"匹配 {index + 1}/{_matchPositions.Count}";
             TxtStatus.Text = $"定位到第 {rowIndex + 1} 行，第 {columnIndex + 1} 列 ({_data.Columns[columnIndex].ColumnName})";
+            TxtStatus.Foreground = ErrorBrush;
             TxtRowCol.Text = $"第 {rowIndex + 1} 行，第 {columnIndex + 1} 列 ({_data.Columns[columnIndex].ColumnName})";
+            TxtRowCol.Foreground = ErrorBrush;
         }
 
         private void ClearSearch(bool clearKeyword)
@@ -217,11 +222,14 @@ namespace WpfApp1.Views
             if (_data == null)
             {
                 TxtRowCol.Text = "未选择单元格";
+                TxtRowCol.Foreground = MutedBrush;
                 return;
             }
 
             TxtStatus.Text = $"已加载 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
+            TxtStatus.Foreground = MutedBrush;
             TxtRowCol.Text = $"共 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
+            TxtRowCol.Foreground = MutedBrush;
         }
 
         private void ResetSelection()
@@ -249,6 +257,7 @@ namespace WpfApp1.Views
             if (rowIndex >= 0 && columnIndex >= 0 && columnIndex < _data.Columns.Count)
             {
                 TxtRowCol.Text = $"第 {rowIndex + 1} 行，第 {columnIndex + 1} 列 ({_data.Columns[columnIndex].ColumnName})";
+                TxtRowCol.Foreground = MutedBrush;
             }
         }
 
@@ -369,6 +378,11 @@ namespace WpfApp1.Views
             public required string EncodingLabel { get; init; }
 
             public required DataTable Table { get; init; }
+        }
+
+        private void DgCsv_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+
         }
     }
 }

@@ -188,6 +188,8 @@
                              AcceptsReturn="True" AcceptsTab="True"
                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                              TextWrapping="NoWrap"
+                             IsInactiveSelectionHighlightEnabled="True"
+                             SelectionBrush="#FDE68A" SelectionOpacity="0.45"
                              FontSize="13" FontFamily="Consolas, 'Courier New'"
                              Background="#1E293B" Foreground="#A5F3FC" CaretBrush="#F59E0B"
                              Padding="12,8" BorderThickness="0"

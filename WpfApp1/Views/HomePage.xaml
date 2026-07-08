@@ -55,11 +55,12 @@
                             CornerRadius="10"
                             VerticalAlignment="Center">
                         <StackPanel>
+							<!-- 发布前改版本号 -->
                             <TextBlock Text="当前版本"
                                        FontSize="11"
                                        Foreground="#6366F1"/>
                             <TextBlock x:Name="TxtVersionBadge"
-                                       Text="v2.1.3"
+                                       Text="v2.1.5"
                                        FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="#4338CA"
@@ -320,16 +321,16 @@
 
                     <Border Grid.Column="0" BorderBrush="#E5E7EB" BorderThickness="0,0,1,0" Padding="16,0">
                         <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="运行环境" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
-                            <TextBlock x:Name="TxtRuntime" Text=".NET 10" FontSize="18" FontWeight="Bold"
-                                       Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                            <TextBlock Text="作者" FontSize="12" Foreground="#fe491a" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="TxtRuntime" Text="悲伤番茄" FontSize="18" FontWeight="Bold"
+                                       Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
 					<!-- 发布前改日期 -->
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                         <TextBlock Text="最新发布日期" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
-                        <TextBlock Text="2026-06-12" FontSize="18" FontWeight="Bold"
-                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        <TextBlock FontSize="18" FontWeight="Bold"
+                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"><Run Text="2026-0"/><Run Language="zh-cn" Text="7-08"/></TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>

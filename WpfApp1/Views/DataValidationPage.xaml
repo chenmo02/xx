@@ -265,8 +265,105 @@
             </Setter>
         </Style>
 
+        <Style x:Key="DashboardPanel" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E5ECF7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+
+        <Style x:Key="MetricCard" TargetType="Border" BasedOn="{StaticResource DashboardPanel}">
+            <Setter Property="Padding" Value="16,14"/>
+            <Setter Property="Margin" Value="0,0,14,0"/>
+        </Style>
+
+        <Style x:Key="DashboardRuleSwitch" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#172033"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="RuleBorder"
+                                Background="White"
+                                BorderBrush="#E7EDF5"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Width="22"
+                                        Height="22"
+                                        CornerRadius="6"
+                                        Background="#EFF6FF"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{TemplateBinding Tag}"
+                                               Foreground="#4076EE"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+
+                                <ContentPresenter Grid.Column="1"
+                                                  Margin="10,0,16,0"
+                                                  VerticalAlignment="Center"/>
+
+                                <Border x:Name="SwitchTrack"
+                                        Grid.Column="2"
+                                        Width="34"
+                                        Height="18"
+                                        CornerRadius="9"
+                                        Background="#CBD5E1"
+                                        VerticalAlignment="Center">
+                                    <Ellipse x:Name="SwitchThumb"
+                                             Width="14"
+                                             Height="14"
+                                             Margin="2"
+                                             Fill="White"
+                                             HorizontalAlignment="Left"
+                                             VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RuleBorder" Property="Background" Value="#F8FBFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#4E6EF2"/>
+                                <Setter TargetName="SwitchThumb" Property="HorizontalAlignment" Value="Right"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="RuleBorder" Property="Opacity" Value="0.48"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="IssueTypePill" TargetType="Border">
+            <Setter Property="Background" Value="#FEE2E2"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+
+        <Style x:Key="FilterCombo" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStandard}">
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Width" Value="160"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
+
         <!-- 页面专属单元格（原始边框/间距与全局不同） -->
         <Style x:Key="DvCell" TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellStyle}">
+            <Setter Property="Background" Value="{Binding Background, RelativeSource={RelativeSource AncestorType=DataGridRow}}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="BorderBrush" Value="#EEF2F7"/>
             <Setter Property="Padding" Value="10,6"/>
@@ -290,6 +387,10 @@
                 <!-- 必填未映射行红色背景 -->
                 <DataTrigger Binding="{Binding NeedsHighlight}" Value="True">
                     <Setter Property="Background" Value="#FEF2F2"/>
+                </DataTrigger>
+                <!-- UUID 类型行淡黄色提示 -->
+                <DataTrigger Binding="{Binding NeedsUuidHighlight}" Value="True">
+                    <Setter Property="Background" Value="#FEF9C3"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -335,14 +436,14 @@
     <DockPanel Margin="24,16,24,20">
 
         <!-- ══ 页头 ══════════════════════════════════════════════ -->
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+        <StackPanel x:Name="WizardTitlePanel" DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Text="数据验证排查" FontSize="22" FontWeight="Bold" Foreground="#111827"/>
             <TextBlock Text="粘贴建表语句和插入语句，自动完成字段映射与入库前校验，生成错误报告。"
                        Margin="0,4,0,0" FontSize="13" Foreground="#64748B"/>
         </StackPanel>
 
         <!-- ══ 步骤指示器 ════════════════════════════════════════ -->
-        <Border DockPanel.Dock="Top" Style="{DynamicResource CardBorder}" Padding="20,14" Margin="0,0,0,12">
+        <Border x:Name="WizardStepPanel" DockPanel.Dock="Top" Style="{DynamicResource CardBorder}" Padding="20,14" Margin="0,0,0,12">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
 
                 <!-- Step 1 -->
@@ -398,6 +499,101 @@
                                Foreground="#9CA3AF" Margin="0,4,0,0"/>
                 </StackPanel>
             </StackPanel>
+        </Border>
+
+        <!-- ══ 第 4 步专用结果页头 ════════════════════════════════ -->
+        <Border x:Name="ResultHeaderPanel"
+                DockPanel.Dock="Top"
+                Visibility="Collapsed"
+                Background="White"
+                BorderBrush="#E1E8F2"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="18,14"
+                Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="42"
+                            Height="42"
+                            CornerRadius="21"
+                            Background="#EEF4FF"
+                            BorderBrush="#CBDAFF"
+                            BorderThickness="1"
+                            Margin="0,0,12,0">
+                        <TextBlock Text="🔎"
+                                   Foreground="#4E6EF2"
+                                   FontSize="18"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="数据验证排查"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="#111827"/>
+                        <TextBlock Text="粘贴表结构或输入语句，自动完成字段映射与入库前校验，生成错误报告。"
+                                   Margin="0,4,0,0"
+                                   FontSize="12.5"
+                                   Foreground="#7B8798"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="26,0,24,0">
+                    <StackPanel HorizontalAlignment="Center" Width="80">
+                        <Border Width="28" Height="28" CornerRadius="14" Background="#10B981" HorizontalAlignment="Center">
+                            <TextBlock Text="✓" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="结构输入" Margin="0,5,0,0" FontSize="11" Foreground="#334155" TextAlignment="Center"/>
+                    </StackPanel>
+                    <Border Width="72" Height="1" Background="#10B981" Margin="0,0,0,18" VerticalAlignment="Center"/>
+                    <StackPanel HorizontalAlignment="Center" Width="80">
+                        <Border Width="28" Height="28" CornerRadius="14" Background="#10B981" HorizontalAlignment="Center">
+                            <TextBlock Text="✓" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="数据输入" Margin="0,5,0,0" FontSize="11" Foreground="#334155" TextAlignment="Center"/>
+                    </StackPanel>
+                    <Border Width="72" Height="1" Background="#10B981" Margin="0,0,0,18" VerticalAlignment="Center"/>
+                    <StackPanel HorizontalAlignment="Center" Width="80">
+                        <Border Width="28" Height="28" CornerRadius="14" Background="#10B981" HorizontalAlignment="Center">
+                            <TextBlock Text="✓" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="字段映射" Margin="0,5,0,0" FontSize="11" Foreground="#334155" TextAlignment="Center"/>
+                    </StackPanel>
+                    <Border Width="72" Height="1" Background="#10B981" Margin="0,0,0,18" VerticalAlignment="Center"/>
+                    <StackPanel HorizontalAlignment="Center" Width="80">
+                        <Border Width="28" Height="28" CornerRadius="14" Background="#4E6EF2" HorizontalAlignment="Center">
+                            <TextBlock Text="4" FontSize="13" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="校验结果" Margin="0,5,0,0" FontSize="11" Foreground="#4E6EF2" FontWeight="SemiBold" TextAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnRunValidation"
+                            Content="▶ 开始校验"
+                            Style="{DynamicResource ButtonPrimary}"
+                            Padding="18,10"
+                            MinWidth="128"
+                            Margin="0,0,10,0"
+                            Click="BtnRunValidation_Click"/>
+                    <Button x:Name="BtnExportReport"
+                            Content="▣ 导出 Excel 报告"
+                            Style="{DynamicResource ButtonSuccess}"
+                            Padding="18,10"
+                            MinWidth="150"
+                            Visibility="Collapsed"
+                            Click="BtnExportReport_Click"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- ══ 导航按钮行（固定底部）══════════════════════════════ -->
@@ -653,7 +849,7 @@
                             </TextBlock>
                             <TextBlock x:Name="TxtMappingHint" FontSize="12" Foreground="#EF4444"
                                        Margin="0,2,0,0" Visibility="Collapsed"
-                                       Text="存在待处理映射，请先处理红色高亮行后再继续"/>
+                                       Text="存在待处理映射，请先处理高亮行后再继续"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
                             <Button Content="忽略自动生成UUID" Style="{DynamicResource ButtonGhost}"
@@ -679,13 +875,14 @@
                                   CanUserDeleteRows="False"
                                   CanUserReorderColumns="False"
                                   CanUserSortColumns="False"
+                                  CanUserResizeColumns="True"
                                   CanUserResizeRows="False"
                                   GridLinesVisibility="Horizontal"
                                   HorizontalGridLinesBrush="#EEF2F7"
                                   BorderThickness="0"
                                   Background="White"
                                   AlternationCount="2"
-                                  ColumnHeaderStyle="{StaticResource DvHeader}"
+                                  ColumnHeaderStyle="{StaticResource DvResizableHeader}"
                                   CellStyle="{StaticResource DvCell}"
                                   RowStyle="{StaticResource DgMappingRow}"
                                   SelectionMode="Single"
@@ -792,286 +989,485 @@
                 <!-- ─── Step 4：校验结果 ─────────────────────── -->
                 <DockPanel x:Name="Panel4" Visibility="Collapsed" LastChildFill="True">
 
-                    <!-- 操作区 -->
+                    <Border x:Name="ExportStatusPanel"
+                            DockPanel.Dock="Bottom"
+                            Visibility="Collapsed"
+                            Background="#F8FBFF"
+                            BorderBrush="#D8E6FF"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,9"
+                            Margin="0,12,0,0">
+                        <TextBlock FontSize="12.5" Foreground="#334155" VerticalAlignment="Center">
+                            <Run Text="报告已导出："/>
+                            <Hyperlink Click="ExportedReportLink_Click">
+                                <Run x:Name="RunExportedReportName" Text=""/>
+                            </Hyperlink>
+                        </TextBlock>
+                    </Border>
+
+                    <Border x:Name="SummaryCard"
+                            DockPanel.Dock="Top"
+                            Visibility="Collapsed"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Margin="0,0,0,12">
+                        <UniformGrid Columns="5">
+                            <Border Style="{StaticResource MetricCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="46"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="20" Background="#EAF1FF">
+                                        <TextBlock Text="📋" Foreground="#4076EE" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="总记录数" FontSize="11.5" Foreground="#64748B"/>
+                                        <TextBlock x:Name="TxtTotalRows" Text="0" Margin="0,6,0,0" FontSize="22" FontWeight="Bold" Foreground="#172033"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource MetricCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="46"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="20" Background="#FFE9E9">
+                                        <TextBlock Text="❗" Foreground="#EF4444" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="异常记录数" FontSize="11.5" Foreground="#64748B"/>
+                                        <TextBlock x:Name="TxtErrorCount" Text="0" Margin="0,6,0,0" FontSize="22" FontWeight="Bold" Foreground="#EF4444"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource MetricCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="46"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="20" Background="#FFF4D7">
+                                        <TextBlock Text="❌" Foreground="#F59E0B" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="错误项数" FontSize="11.5" Foreground="#64748B"/>
+                                        <TextBlock x:Name="TxtRawErrorCount" Text="0" Margin="0,6,0,0" FontSize="22" FontWeight="Bold" Foreground="#F59E0B"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource MetricCard}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="46"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="20" Background="#F0E9FF">
+                                        <TextBlock Text="🚫" Foreground="#7C3AED" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="警告记录数" FontSize="11.5" Foreground="#64748B"/>
+                                        <TextBlock x:Name="TxtWarningCount" Text="0" Margin="0,6,0,0" FontSize="22" FontWeight="Bold" Foreground="#7C3AED"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource DashboardPanel}" Padding="16,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="46"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="40" Height="40" CornerRadius="20" Background="#E7F8F0">
+                                        <TextBlock Text="🕛" Foreground="#059669" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                        <TextBlock Text="耗时" FontSize="11.5" Foreground="#64748B"/>
+                                        <TextBlock x:Name="TxtElapsed" Text="0.0s" Margin="0,6,0,0" FontSize="22" FontWeight="Bold" Foreground="#172033"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </UniformGrid>
+                    </Border>
+
+                    <Border x:Name="ProgressPanel"
+                            DockPanel.Dock="Top"
+                            Visibility="Collapsed"
+                            Background="#EEF2FF"
+                            BorderBrush="#DDE5FF"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="16,12"
+                            Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="TxtProgress"
+                                           Text="校验中..."
+                                           FontSize="13"
+                                           Foreground="#1E3A8A"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,8"/>
+                                <ProgressBar x:Name="PbProgress"
+                                             Height="8"
+                                             Value="0"
+                                             Maximum="100"
+                                             Background="#CBD5E1"
+                                             Foreground="#4E6EF2"/>
+                            </StackPanel>
+                            <Button x:Name="BtnCancelValidation"
+                                    Grid.Column="1"
+                                    Content="取消"
+                                    Style="{DynamicResource ButtonGhost}"
+                                    Padding="14,6"
+                                    FontSize="12"
+                                    Margin="14,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Click="BtnCancelValidation_Click"/>
+                        </Grid>
+                    </Border>
+
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.18*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                        <Border Grid.Row="0"
-                                Background="White"
-                                BorderBrush="#E4EAF3"
-                                BorderThickness="1"
-                                CornerRadius="16"
-                                Padding="18,16">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0"
+                                Style="{StaticResource DashboardPanel}"
+                                Padding="16,14"
+                                Margin="0,0,12,0">
+                            <StackPanel>
+                                <DockPanel LastChildFill="True">
+                                    <TextBlock Text="校验规则"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#172033"/>
+                                    <TextBlock Text="仅影响格式校验，适合在明确了解数据来源时临时放宽。"
+                                               Margin="12,2,0,0"
+                                               FontSize="11.5"
+                                               Foreground="#8291A7"/>
+                                </DockPanel>
 
-                                <StackPanel Grid.Column="0">
+                                <Border BorderBrush="#E7EDF5"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Margin="0,12,0,0"
+                                        ClipToBounds="True">
+                                    <StackPanel>
+                                        <CheckBox x:Name="ChkSkipIntFormat"
+                                                  Style="{StaticResource DashboardRuleSwitch}"
+                                                  Tag="✏️"
+                                                  IsChecked="True"
+                                                  ToolTip="存储过程会做类型转换时可勾选，跳过整数/长整数格式校验">
+                                            <StackPanel>
+                                                <TextBlock Text="忽略整数格式错误" FontWeight="SemiBold" Foreground="#172033"/>
+                                                <TextBlock Text="忽略整数值字段的格式错误" Margin="0,2,0,0" FontSize="11" Foreground="#8291A7"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <CheckBox x:Name="ChkSkipUuidFormat"
+                                                  Style="{StaticResource DashboardRuleSwitch}"
+                                                  Tag="✏️"
+                                                  IsChecked="False"
+                                                  ToolTip="勾选后将跳过 UUID / UNIQUEIDENTIFIER 字段的格式错误校验">
+                                            <StackPanel>
+                                                <TextBlock Text="忽略 UUID 格式错误" FontWeight="SemiBold" Foreground="#172033"/>
+                                                <TextBlock Text="忽略非 UUID 字符串的格式错误" Margin="0,2,0,0" FontSize="11" Foreground="#8291A7"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <CheckBox x:Name="ChkSkipDateTimeFormat"
+                                                  Style="{StaticResource DashboardRuleSwitch}"
+                                                  Tag="✏️"
+                                                  IsChecked="False"
+                                                  ToolTip="勾选后将跳过 datetime / timestamp 等字段的日期时间格式错误校验">
+                                            <StackPanel>
+                                                <TextBlock Text="忽略日期时间格式错误" FontWeight="SemiBold" Foreground="#172033"/>
+                                                <TextBlock Text="忽略非日期时间导致的格式错误" Margin="0,2,0,0" FontSize="11" Foreground="#8291A7"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <CheckBox x:Name="ChkSkipActualValues"
+                                                  Style="{StaticResource DashboardRuleSwitch}"
+                                                  Tag="✏️"
+                                                  IsChecked="True"
+                                                  BorderThickness="0"
+                                                  ToolTip="勾选后，命中下方列表的实际值将跳过类型和格式校验">
+                                            <StackPanel>
+                                                <TextBlock Text="忽略指定实际值" FontWeight="SemiBold" Foreground="#172033"/>
+                                                <TextBlock Text="对指定值不进行格式校验" Margin="0,2,0,0" FontSize="11" Foreground="#8291A7"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                    </StackPanel>
+                                </Border>
+
+                                <DockPanel Margin="0,14,0,8" LastChildFill="True">
+                                    <TextBlock Text="忽略值设置"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#172033"/>
+                                    <TextBlock Text="输入多个值用逗号、分号、换行或空格分隔，空白值仍按必填校验。"
+                                               Margin="12,1,0,0"
+                                               FontSize="11"
+                                               Foreground="#8291A7"/>
+                                </DockPanel>
+
+                                <Border BorderBrush="#E1E8F2" BorderThickness="1" CornerRadius="8" Padding="10,8">
                                     <DockPanel LastChildFill="True">
-                                        <TextBlock Text="结果概览"
-                                                   FontSize="15"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#111827"/>
-                                        <TextBlock Text="校验完成后可在此快速查看摘要并按需放宽规则。"
-                                                   Margin="12,1,0,0"
-                                                   FontSize="12"
-                                                   Foreground="#94A3B8"/>
+                                        <Button x:Name="BtnClearIgnoredActualValues"
+                                                DockPanel.Dock="Right"
+                                                Content="清空"
+                                                Style="{DynamicResource ButtonGhost}"
+                                                Padding="12,6"
+                                                FontSize="12"
+                                                Margin="8,0,0,0"
+                                                Click="BtnClearIgnoredActualValues_Click"/>
+                                        <Button x:Name="BtnAddSelectedActualValue"
+                                                DockPanel.Dock="Right"
+                                                Content="加入选中实际值"
+                                                Style="{DynamicResource ButtonGhost}"
+                                                Padding="12,6"
+                                                FontSize="12"
+                                                Margin="8,0,0,0"
+                                                Click="BtnAddSelectedActualValue_Click"/>
+                                        <WrapPanel VerticalAlignment="Center">
+                                            <ItemsControl x:Name="IgnoredValuesItems">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="#F3F6FC"
+                                                                BorderBrush="#DCE5F3"
+                                                                BorderThickness="1"
+                                                                CornerRadius="7"
+                                                                Padding="8,4"
+                                                                Margin="0,0,6,6">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding}"
+                                                                           FontSize="12"
+                                                                           Foreground="#334155"
+                                                                           VerticalAlignment="Center"/>
+                                                                <Button Content="×"
+                                                                        Tag="{Binding}"
+                                                                        Width="18"
+                                                                        Height="18"
+                                                                        Margin="4,0,0,0"
+                                                                        Padding="0"
+                                                                        FontSize="12"
+                                                                        Foreground="#94A3B8"
+                                                                        Background="Transparent"
+                                                                        BorderThickness="0"
+                                                                        Cursor="Hand"
+                                                                        Click="IgnoredValueTagRemove_Click"/>
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </WrapPanel>
+                                        <TextBox x:Name="TxtIgnoredActualValues"
+                                                 Text="-"
+                                                 Visibility="Collapsed"/>
                                     </DockPanel>
-
-                                    <Border x:Name="SummaryCard"
-                                            Visibility="Collapsed"
-                                            Background="#F8FBFF"
-                                            BorderBrush="#E5ECF7"
-                                            BorderThickness="1"
-                                            CornerRadius="12"
-                                            Padding="14,12"
-                                            Margin="0,14,0,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
-                                                <TextBlock Text="总行数" FontSize="11.5" Foreground="#6B7280"/>
-                                                <TextBlock x:Name="TxtTotalRows" Text="0" Margin="0,7,0,0"
-                                                           FontSize="20" FontWeight="Bold" Foreground="#1F2937"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="14,0,14,0">
-                                                <TextBlock Text="异常记录" FontSize="11.5" Foreground="#6B7280"/>
-                                                <TextBlock x:Name="TxtErrorCount" Text="0" Margin="0,7,0,0"
-                                                           FontSize="20" FontWeight="Bold" Foreground="#DC2626"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2" Margin="14,0,14,0">
-                                                <TextBlock Text="错误项数" FontSize="11.5" Foreground="#6B7280"/>
-                                                <TextBlock x:Name="TxtRawErrorCount" Text="0" Margin="0,7,0,0"
-                                                           FontSize="20" FontWeight="Bold" Foreground="#2563EB"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="3" Margin="14,0,14,0">
-                                                <TextBlock Text="警告记录" FontSize="11.5" Foreground="#6B7280"/>
-                                                <TextBlock x:Name="TxtWarningCount" Text="0" Margin="0,7,0,0"
-                                                           FontSize="20" FontWeight="Bold" Foreground="#D97706"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="4" Margin="14,0,0,0">
-                                                <TextBlock Text="耗时" FontSize="11.5" Foreground="#6B7280"/>
-                                                <TextBlock x:Name="TxtElapsed" Text="0.0s" Margin="0,7,0,0"
-                                                           FontSize="20" FontWeight="Bold" Foreground="#1F2937"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-
-                                    <Border Background="#FBFCFE"
-                                            BorderBrush="#E7EDF5"
-                                            BorderThickness="1"
-                                            CornerRadius="12"
-                                            Padding="16,14"
-                                            Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <DockPanel LastChildFill="True">
-                                                <TextBlock Text="校验规则"
-                                                           FontSize="13.5"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="#1F2937"/>
-                                                <TextBlock Text="仅影响格式校验，适合在明确了解数据来源时临时放宽。"
-                                                           Margin="12,1,0,0"
-                                                           FontSize="12"
-                                                           Foreground="#94A3B8"/>
-                                            </DockPanel>
-                                            <UniformGrid Columns="4" Margin="0,12,0,0">
-                                                <CheckBox x:Name="ChkSkipIntFormat"
-                                                          Style="{StaticResource ValidationOptionChip}"
-                                                          Content="忽略整数格式错误"
-                                                          IsChecked="True"
-                                                          ToolTip="存储过程会做类型转换时可勾选，跳过整数/长整数格式校验"/>
-                                                <CheckBox x:Name="ChkSkipUuidFormat"
-                                                          Style="{StaticResource ValidationOptionChip}"
-                                                          Content="忽略 UUID 格式错误"
-                                                          IsChecked="False"
-                                                          ToolTip="勾选后将跳过 UUID / UNIQUEIDENTIFIER 字段的格式错误校验"/>
-                                                <CheckBox x:Name="ChkSkipDateTimeFormat"
-                                                          Style="{StaticResource ValidationOptionChip}"
-                                                          Content="忽略日期时间格式错误"
-                                                          IsChecked="False"
-                                                          ToolTip="勾选后将跳过 datetime / timestamp 等字段的日期时间格式错误校验"/>
-                                                <CheckBox x:Name="ChkSkipActualValues"
-                                                          Style="{StaticResource ValidationOptionChip}"
-                                                          Content="忽略指定实际值"
-                                                          IsChecked="True"
-                                                          ToolTip="勾选后，命中下方列表的实际值将跳过类型和格式校验"/>
-                                            </UniformGrid>
-                                            <Border Background="White"
-                                                    BorderBrush="#DCE5F3"
-                                                    BorderThickness="1"
-                                                    CornerRadius="12"
-                                                    Padding="14,12"
-                                                    Margin="0,12,12,0">
-                                                <StackPanel>
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <TextBlock Grid.Column="0"
-                                                                   Text="忽略值"
-                                                                   FontSize="12.5"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="#334155"
-                                                                   VerticalAlignment="Center"
-                                                                   Margin="0,0,12,0"/>
-                                                        <TextBox x:Name="TxtIgnoredActualValues"
-                                                                 Grid.Column="1"
-                                                                 Text="-"
-                                                                 Style="{StaticResource RoundedInputBox}"
-                                                                 MinHeight="36"
-                                                                 Padding="10,7"
-                                                                 VerticalContentAlignment="Center"
-                                                                 ToolTip="多个值用逗号、分号、竖线或换行分隔，例如：-, /, 无"/>
-                                                        <Button x:Name="BtnAddSelectedActualValue"
-                                                                Grid.Column="2"
-                                                                Content="加入选中实际值"
-                                                                Style="{DynamicResource ButtonGhost}"
-                                                                Padding="14,7"
-                                                                FontSize="12"
-                                                                Margin="10,0,0,0"
-                                                                Click="BtnAddSelectedActualValue_Click"/>
-                                                    </Grid>
-                                                    <TextBlock Text="多个值用逗号、分号、竖线或换行分隔；空白仍按必填校验。"
-                                                               Margin="52,7,0,0"
-                                                               FontSize="11.5"
-                                                               Foreground="#94A3B8"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="1"
-                                            Margin="18,32,0,0"
-                                            VerticalAlignment="Top">
-                                    <Button x:Name="BtnRunValidation"
-                                            Content="▶ 开始校验"
-                                            Style="{DynamicResource ButtonPrimary}"
-                                            Padding="20,11"
-                                            MinWidth="148"
-                                            Margin="0,0,0,10"
-                                            Click="BtnRunValidation_Click"/>
-                                    <Button x:Name="BtnExportReport"
-                                            Content="导出 Excel 报告"
-                                            Style="{DynamicResource ButtonSuccess}"
-                                            Padding="20,11"
-                                            MinWidth="148"
-                                            Visibility="Collapsed"
-                                            Click="BtnExportReport_Click"/>
-                                </StackPanel>
-                            </Grid>
+                                </Border>
+                            </StackPanel>
                         </Border>
 
-                        <Border x:Name="ProgressPanel"
-                                Grid.Row="1"
-                                Visibility="Collapsed"
-                                Background="#EEF2FF"
-                                BorderBrush="#DDE5FF"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="16,12"
-                                Margin="0,12,0,0">
+                        <Border Grid.Column="1"
+                                Style="{StaticResource DashboardPanel}"
+                                Padding="16,14">
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock x:Name="TxtProgress"
-                                               Text="校验中..."
-                                               FontSize="13"
-                                               Foreground="#1E3A8A"
-                                               FontWeight="SemiBold"
-                                               Margin="0,0,0,8"/>
-                                    <ProgressBar x:Name="PbProgress"
-                                                 Height="8"
-                                                 Value="0"
-                                                 Maximum="100"
-                                                 Background="#CBD5E1"
-                                                 Foreground="#4E6EF2"/>
-                                </StackPanel>
-                                <Button x:Name="BtnCancelValidation"
-                                        Grid.Column="1"
-                                        Content="取消"
-                                        Style="{DynamicResource ButtonGhost}"
-                                        Padding="14,6"
-                                        FontSize="12"
-                                        Margin="14,0,0,0"
-                                        VerticalAlignment="Center"
-                                        Click="BtnCancelValidation_Click"/>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0"
+                                           Text="错误统计（按错误类型）"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="#172033"/>
+                                <Grid Grid.Row="1" Margin="0,16,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="220"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Width="210" Height="210" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Canvas x:Name="IssueChartCanvas"
+                                                Width="190"
+                                                Height="190"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock x:Name="TxtIssueChartTotal"
+                                                       Text="0"
+                                                       FontSize="20"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#172033"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Text="总错误"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="11.5"
+                                                       Foreground="#64748B"
+                                                       HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <ItemsControl x:Name="IssueTypeStatsItems"
+                                                  Grid.Column="1"
+                                                  VerticalAlignment="Center">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="#E7EDF5"
+                                                        BorderThickness="0,0,0,1"
+                                                        Padding="0,11">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="64"/>
+                                                            <ColumnDefinition Width="82"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Ellipse Width="8" Height="8" Fill="{Binding Brush}" Margin="0,0,8,0"/>
+                                                            <TextBlock Text="{Binding ErrorType}" FontSize="12.5" Foreground="#334155"/>
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding Count}"
+                                                                   FontSize="12.5"
+                                                                   Foreground="#EF4444"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding PercentageText}"
+                                                                   FontSize="12.5"
+                                                                   Foreground="#8291A7"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                                <Border Grid.Row="2"
+                                        Background="#F1F7FF"
+                                        BorderBrush="#B7D3FF"
+                                        BorderThickness="1"
+                                        CornerRadius="7"
+                                        Padding="10,8">
+                                    <TextBlock Text="提示：当前只统计错误项，不包含已被忽略的项。"
+                                               FontSize="11.5"
+                                               Foreground="#4076EE"/>
+                                </Border>
                             </Grid>
                         </Border>
                     </Grid>
 
                     <!-- 错误列表 DataGrid -->
-                    <Border BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8">
-                        <DataGrid x:Name="DgIssues"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  CanUserReorderColumns="False"
-                                  CanUserSortColumns="True"
-                                  CanUserResizeColumns="True"
-                                  CanUserResizeRows="False"
-                                  IsReadOnly="True"
-                                  GridLinesVisibility="Horizontal"
-                                  HorizontalGridLinesBrush="#EEF2F7"
-                                  BorderThickness="0"
-                                  Background="White"
-                                  AlternationCount="2"
-                                  ColumnHeaderStyle="{StaticResource DvResizableHeader}"
-                                  CellStyle="{StaticResource DvCell}"
-                                  RowStyle="{StaticResource DgIssueRow}"
-                                  SelectionMode="Single"
-                                  SelectionUnit="FullRow"
-                                  VerticalScrollBarVisibility="Auto"
-                                  FontSize="12"
-                                  PreviewKeyDown="DataGrid_PreviewKeyDown"
-                                  PreviewMouseRightButtonDown="DataGrid_PreviewMouseRightButtonDown">
-                            <DataGrid.ContextMenu>
-                                <ContextMenu Style="{StaticResource GridContextMenu}">
-                                    <MenuItem Header="复制当前单元格"
-                                              Style="{StaticResource GridContextMenuItem}"
-                                              Click="CopyCurrentCellMenu_Click"/>
-                                    <MenuItem Header="复制当前行"
-                                              Style="{StaticResource GridContextMenuItem}"
-                                              Click="CopyCurrentRowMenu_Click"/>
-                                </ContextMenu>
-                            </DataGrid.ContextMenu>
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="#" Binding="{Binding RowNumber}" Width="52"/>
-                                <DataGridTextColumn Header="主键" Binding="{Binding PrimaryKeyDisplay}" Width="180"/>
-                                <DataGridTextColumn Header="源字段" Binding="{Binding SourceColumnName}" Width="100"/>
-                                <DataGridTextColumn Header="目标字段" Binding="{Binding TargetColumnName}" Width="120"/>
-                                <DataGridTextColumn Header="目标类型" Binding="{Binding TargetDataType}" Width="100"/>
-                                <DataGridTemplateColumn Header="级别" Width="60" SortMemberPath="Level">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding LevelText}"
-                                                       Foreground="{Binding Level, Converter={StaticResource IssueColor}}"
-                                                       FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="错误类型" Binding="{Binding ErrorType}" Width="160"/>
-                                <DataGridTextColumn Header="实际值" Binding="{Binding ActualValue}" Width="140"/>
-                                <DataGridTextColumn Header="说明" Binding="{Binding Message}" Width="*"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                    <Border Style="{StaticResource DashboardPanel}" Padding="12">
+                        <DockPanel LastChildFill="True">
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="错误明细"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#172033"/>
+                                    <TextBlock x:Name="TxtIssueVisibleCount"
+                                               Text="共 0 条"
+                                               Margin="14,2,0,0"
+                                               FontSize="12"
+                                               Foreground="#64748B"/>
+                                </StackPanel>
+                                <ComboBox x:Name="CbIssueTypeFilter"
+                                          Grid.Column="1"
+                                          Style="{StaticResource FilterCombo}"
+                                          SelectionChanged="CbIssueTypeFilter_SelectionChanged"
+                                          Margin="0,0,10,0"/>
+                                <TextBox x:Name="TxtIssueSearch"
+                                         Grid.Column="2"
+                                         Width="240"
+                                         Style="{StaticResource RoundedInputBox}"
+                                         Padding="10,5"
+                                         FontSize="12"
+                                         VerticalContentAlignment="Center"
+                                         ToolTip="输入关键词搜索"
+                                         TextChanged="TxtIssueSearch_TextChanged"
+                                         Margin="0,0,10,0"/>
+                                <Button x:Name="BtnRefreshIssueView"
+                                        Grid.Column="3"
+                                        Content="⟳ 刷新"
+                                        Style="{DynamicResource ButtonGhost}"
+                                        Padding="14,8"
+                                        FontSize="12"
+                                        Click="BtnRefreshIssueView_Click"/>
+                            </Grid>
+                            <DataGrid x:Name="DgIssues"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      CanUserReorderColumns="False"
+                                      CanUserSortColumns="True"
+                                      CanUserResizeColumns="True"
+                                      CanUserResizeRows="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#EEF2F7"
+                                      BorderBrush="#E7EDF5"
+                                      BorderThickness="1"
+                                      Background="White"
+                                      AlternationCount="2"
+                                      ColumnHeaderStyle="{StaticResource DvResizableHeader}"
+                                      CellStyle="{StaticResource DvCell}"
+                                      RowStyle="{StaticResource DgIssueRow}"
+                                      SelectionMode="Single"
+                                      SelectionUnit="FullRow"
+                                      VerticalScrollBarVisibility="Auto"
+                                      FontSize="12"
+                                      PreviewKeyDown="DataGrid_PreviewKeyDown"
+                                      PreviewMouseRightButtonDown="DataGrid_PreviewMouseRightButtonDown">
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu Style="{StaticResource GridContextMenu}">
+                                        <MenuItem Header="复制当前单元格"
+                                                  Style="{StaticResource GridContextMenuItem}"
+                                                  Click="CopyCurrentCellMenu_Click"/>
+                                        <MenuItem Header="复制当前行"
+                                                  Style="{StaticResource GridContextMenuItem}"
+                                                  Click="CopyCurrentRowMenu_Click"/>
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding RowNumber}" Width="52"/>
+                                    <DataGridTextColumn Header="主键" Binding="{Binding PrimaryKeyDisplay}" Width="180"/>
+                                    <DataGridTextColumn Header="源字段" Binding="{Binding SourceColumnName}" Width="120"/>
+                                    <DataGridTextColumn Header="目标字段" Binding="{Binding TargetColumnName}" Width="130"/>
+                                    <DataGridTextColumn Header="目标类型" Binding="{Binding TargetDataType}" Width="120"/>
+                                    <DataGridTemplateColumn Header="错误类型" Width="160" SortMemberPath="ErrorType">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource IssueTypePill}">
+                                                    <TextBlock Text="{Binding ErrorType}"
+                                                               FontSize="11.5"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#EF4444"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="实际值" Binding="{Binding ActualValue}" Width="140"/>
+                                    <DataGridTextColumn Header="说明" Binding="{Binding Message}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
                     </Border>
                 </DockPanel>
 

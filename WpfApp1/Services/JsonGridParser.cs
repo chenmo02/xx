@@ -125,7 +125,7 @@ namespace WpfApp1.Services
 
         private static JsonGridNode ParseElement(JsonElement element, string key, string parentPath)
         {
-            var currentPath = string.IsNullOrEmpty(parentPath) ? key : $"{parentPath}.{key}";
+            var currentPath = string.IsNullOrEmpty(parentPath) ? key : AppendJsonPathSegment(parentPath, key);
             var node = new JsonGridNode
             {
                 Key = key,
@@ -206,7 +206,7 @@ namespace WpfApp1.Services
                 var cell = new JsonGridCell
                 {
                     ColumnName = key,
-                    JsonPath = $"{parentPath}[{idx - 1}]",
+                    JsonPath = AppendJsonPathSegment(parentPath, (idx - 1).ToString()),
                     NodeType = item.ValueKind.ToString()
                 };
 
@@ -216,7 +216,7 @@ namespace WpfApp1.Services
                     cell.NestedSummary = item.ValueKind == JsonValueKind.Array
                         ? $"[+] [{item.GetArrayLength()}]"
                         : $"[+] {{{item.EnumerateObject().Count()} 项}}";
-                    cell.NestedChildren.Add(ParseElement(item, $"[{idx}]", parentPath));
+                    cell.NestedChildren.Add(ParseElement(item, (idx - 1).ToString(), parentPath));
                 }
                 else
                 {
@@ -286,7 +286,7 @@ namespace WpfApp1.Services
                     var cell = new JsonGridCell
                     {
                         ColumnName = colName,
-                        JsonPath = $"{parentPath}[{rowIdx - 1}].{colName}"
+                        JsonPath = AppendJsonPathSegment(AppendJsonPathSegment(parentPath, (rowIdx - 1).ToString()), colName)
                     };
 
                     if (item.TryGetProperty(colName, out var val))
@@ -299,7 +299,7 @@ namespace WpfApp1.Services
                             cell.NestedSummary = val.ValueKind == JsonValueKind.Array
                                 ? $"[+] {colName}[{val.GetArrayLength()}]"
                                 : $"[+] {{{val.EnumerateObject().Count()} 项}}";
-                            cell.NestedChildren.Add(ParseElement(val, colName, $"{parentPath}.[{rowIdx}]"));
+                            cell.NestedChildren.Add(ParseElement(val, colName, AppendJsonPathSegment(parentPath, (rowIdx - 1).ToString())));
                         }
                         else
                         {
@@ -326,5 +326,11 @@ namespace WpfApp1.Services
                 node.TableRows.Add(row);
             }
         }
+
+        private static string AppendJsonPathSegment(string parentPath, string segment)
+            => $"{parentPath}/{EscapeJsonPathSegment(segment)}";
+
+        private static string EscapeJsonPathSegment(string segment)
+            => segment.Replace("~", "~0").Replace("/", "~1");
     }
 }

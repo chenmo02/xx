@@ -43,7 +43,7 @@
                         <TextBlock Text="文件操作"
                                    FontSize="11"
                                    Foreground="#94A3B8"/>
-                        <TextBlock Text="导入 CSV / TXT / TSV / DBF / BDF"
+                        <TextBlock Text="导入 CSV / DBF"
                                    FontSize="12"
                                    Foreground="#475569"
                                    FontWeight="SemiBold"/>
@@ -67,7 +67,7 @@
                 Margin="0,0,0,12">
             <DockPanel>
                 <TextBlock x:Name="TxtFileInfo"
-                           Text="请选择一个 CSV / TXT / TSV / DBF / BDF 文件"
+                           Text="请选择一个 CSV / DBF 文件"
                            FontSize="13"
                            Foreground="#475569"
                            VerticalAlignment="Center"
@@ -192,7 +192,7 @@
                               ColumnHeaderStyle="{DynamicResource DataGridHeaderStyle}"
                               RowHeaderStyle="{DynamicResource DataGridRowHeaderStyle}"
                               CellStyle="{DynamicResource DataGridCellStyle}"
-                              RowStyle="{DynamicResource DataGridRowStyle}"/>
+                              RowStyle="{DynamicResource DataGridRowStyle}" SelectionChanged="DgCsv_SelectionChanged"/>
                 </Border>
 
             </DockPanel>

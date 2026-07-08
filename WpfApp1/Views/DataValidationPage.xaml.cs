@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using ExcelDataReader;
 using Microsoft.Win32;
 using WpfApp1.Services;
@@ -27,10 +30,17 @@ namespace WpfApp1.Views
         private DvValidationResult? _lastResult;
         private bool _insertParseDirty = true;
         private bool _sourceDataFromInsert;
+        private readonly ObservableCollection<string> _ignoredActualValueTags = [];
+        private ICollectionView? _issueView;
+        private string _currentIssueTypeFilter = AllIssueTypesOption;
+        private string _issueSearchKeyword = string.Empty;
+        private string? _exportedReportPath;
 
         // true = 目标表结构发生了变化（DDL 重新解析或重新导入），需要重建字段映射
         // false = 仅源数据变化，保留已有映射
         private bool _structureChanged = true;
+
+        private const string AllIssueTypesOption = "全部错误类型";
 
         // ── 异步校验 ─────────────────────────────────────────────
         private CancellationTokenSource? _cts;
@@ -55,6 +65,11 @@ namespace WpfApp1.Views
 
             // INSERT 文本变动后立刻使旧解析结果失效，防止用旧数据继续走流程
             TxtInsert.TextChanged += TxtInsert_TextChanged;
+
+            IgnoredValuesItems.ItemsSource = _ignoredActualValueTags;
+            SyncIgnoredTagsFromText();
+            CbIssueTypeFilter.ItemsSource = new[] { AllIssueTypesOption };
+            CbIssueTypeFilter.SelectedIndex = 0;
         }
 
         private void DataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -186,10 +201,9 @@ namespace WpfApp1.Views
                 2 => issue.SourceColumnName ?? string.Empty,
                 3 => issue.TargetColumnName,
                 4 => issue.TargetDataType,
-                5 => issue.LevelText,
-                6 => issue.ErrorType,
-                7 => issue.ActualValue ?? string.Empty,
-                8 => issue.Message,
+                5 => issue.ErrorType,
+                6 => issue.ActualValue ?? string.Empty,
+                7 => issue.Message,
                 _ => string.Empty
             };
         }
@@ -451,6 +465,9 @@ namespace WpfApp1.Views
             Panel2.Visibility = _step == 2 ? Visibility.Visible : Visibility.Collapsed;
             Panel3.Visibility = _step == 3 ? Visibility.Visible : Visibility.Collapsed;
             Panel4.Visibility = _step == 4 ? Visibility.Visible : Visibility.Collapsed;
+            WizardTitlePanel.Visibility = _step == 4 ? Visibility.Collapsed : Visibility.Visible;
+            WizardStepPanel.Visibility = _step == 4 ? Visibility.Collapsed : Visibility.Visible;
+            ResultHeaderPanel.Visibility = _step == 4 ? Visibility.Visible : Visibility.Collapsed;
 
             // 导航按钮
             BtnBack.Visibility = _step > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -694,7 +711,7 @@ namespace WpfApp1.Views
                 var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 _targetColumns = ReadStructExcel(dlg.FileName, dbType);
                 _structureChanged = true; // 目标表结构已变更，下次进入 Step3 需重建映射
-                TxtStructExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
+                TxtStructExcelInfo.Text = $"⌛️ {System.IO.Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
                 SetStatus($"结构 Excel 导入成功，共 {_targetColumns.Count} 个字段");
             }
             catch (Exception ex)
@@ -889,7 +906,7 @@ namespace WpfApp1.Views
                 var sourceData = ReadDataExcel(dlg.FileName);
                 ApplyParsedSourceData(sourceData);
                 _sourceDataFromInsert = false;
-                TxtDataExcelInfo.Text = $"⌛️ {Path.GetFileName(dlg.FileName)} — {sourceData.RowCount} 行 × {sourceData.Headers.Count} 列";
+                TxtDataExcelInfo.Text = $"⌛️ {System.IO.Path.GetFileName(dlg.FileName)} — {sourceData.RowCount} 行 × {sourceData.Headers.Count} 列";
                 SetStatus($"数据 Excel 导入成功，共 {sourceData.RowCount} 行");
             }
             catch (Exception ex)
@@ -930,12 +947,25 @@ namespace WpfApp1.Views
         private void BuildMappings()
         {
             _mappings = new ObservableCollection<DvMappingRow>(
-                FieldMatcherService.AutoMap(_targetColumns, _sourceData!.Headers));
+                OrderMappingsForDisplay(FieldMatcherService.AutoMap(_targetColumns, _sourceData!.Headers)));
             DgMapping.ItemsSource = _mappings;
             _structureChanged = false; // 映射已基于当前结构重建，标志复位
 
             RefreshMappingPkDropdowns(resetSelection: true); // 结构变了，主键选择也重置
             UpdateMappingInfo();
+        }
+
+        private static List<DvMappingRow> OrderMappingsForDisplay(IEnumerable<DvMappingRow> mappings)
+        {
+            var orderedMappings = mappings
+                .OrderBy(m => m.IsUuidTarget ? 0 : 1)
+                .ThenBy(m => m.RowIndex)
+                .ToList();
+
+            for (int i = 0; i < orderedMappings.Count; i++)
+                orderedMappings[i].RowIndex = i + 1;
+
+            return orderedMappings;
         }
 
         /// <summary>
@@ -1017,6 +1047,10 @@ namespace WpfApp1.Views
         private void ClearValidationResultState()
         {
             _lastResult = null;
+            _issueView = null;
+            _currentIssueTypeFilter = AllIssueTypesOption;
+            _issueSearchKeyword = string.Empty;
+            _exportedReportPath = null;
 
             if (DgIssues != null)
                 DgIssues.ItemsSource = null;
@@ -1024,6 +1058,23 @@ namespace WpfApp1.Views
                 SummaryCard.Visibility = Visibility.Collapsed;
             if (BtnExportReport != null)
                 BtnExportReport.Visibility = Visibility.Collapsed;
+            if (CbIssueTypeFilter != null)
+            {
+                CbIssueTypeFilter.ItemsSource = new[] { AllIssueTypesOption };
+                CbIssueTypeFilter.SelectedIndex = 0;
+            }
+            if (TxtIssueSearch != null)
+                TxtIssueSearch.Clear();
+            if (TxtIssueVisibleCount != null)
+                TxtIssueVisibleCount.Text = "共 0 条";
+            if (ExportStatusPanel != null)
+                ExportStatusPanel.Visibility = Visibility.Collapsed;
+            if (IssueTypeStatsItems != null)
+                IssueTypeStatsItems.ItemsSource = null;
+            if (IssueChartCanvas != null)
+                IssueChartCanvas.Children.Clear();
+            if (TxtIssueChartTotal != null)
+                TxtIssueChartTotal.Text = "0";
         }
 
         private void RefreshMappingPkDropdowns(bool resetSelection = false)
@@ -1202,7 +1253,7 @@ namespace WpfApp1.Views
             if (string.IsNullOrWhiteSpace(rawValues))
                 return values;
 
-            char[] separators = ['\r', '\n', ',', '，', ';', '；', '|'];
+            char[] separators = ['\r', '\n', ',', '，', ';', '；', '|', ' '];
             foreach (var item in rawValues.Split(separators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 if (!string.IsNullOrWhiteSpace(item))
@@ -1210,6 +1261,32 @@ namespace WpfApp1.Views
             }
 
             return values;
+        }
+
+        private void SyncIgnoredTagsFromText()
+        {
+            _ignoredActualValueTags.Clear();
+            foreach (string value in ParseIgnoredActualValues(TxtIgnoredActualValues.Text))
+                _ignoredActualValueTags.Add(value);
+
+            SyncIgnoredTextFromTags();
+        }
+
+        private void SyncIgnoredTextFromTags()
+        {
+            TxtIgnoredActualValues.Text = string.Join(", ", _ignoredActualValueTags);
+        }
+
+        private bool AddIgnoredActualValueTag(string? rawValue)
+        {
+            string value = (rawValue ?? string.Empty).Trim();
+            if (value.Length == 0) return false;
+            if (_ignoredActualValueTags.Any(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            _ignoredActualValueTags.Add(value);
+            SyncIgnoredTextFromTags();
+            return true;
         }
 
         private void BtnAddSelectedActualValue_Click(object sender, RoutedEventArgs e)
@@ -1228,17 +1305,263 @@ namespace WpfApp1.Views
             }
 
             ChkSkipActualValues.IsChecked = true;
-            var existingValues = ParseIgnoredActualValues(TxtIgnoredActualValues.Text);
-            if (existingValues.Contains(value))
+            if (!AddIgnoredActualValueTag(value))
             {
                 SetStatus($"忽略值已存在：{value}");
                 return;
             }
 
-            TxtIgnoredActualValues.Text = string.IsNullOrWhiteSpace(TxtIgnoredActualValues.Text)
-                ? value
-                : $"{TxtIgnoredActualValues.Text.TrimEnd()}, {value}";
             SetStatus($"已加入忽略值：{value}，重新点击「开始校验」生效");
+        }
+
+        private void IgnoredValueTagRemove_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: string value }) return;
+
+            var existing = _ignoredActualValueTags
+                .FirstOrDefault(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase));
+            if (existing == null) return;
+
+            _ignoredActualValueTags.Remove(existing);
+            SyncIgnoredTextFromTags();
+            SetStatus($"已移除忽略值：{value}，重新点击「开始校验」生效");
+        }
+
+        private void BtnClearIgnoredActualValues_Click(object sender, RoutedEventArgs e)
+        {
+            _ignoredActualValueTags.Clear();
+            SyncIgnoredTextFromTags();
+            SetStatus("已清空忽略值，重新点击「开始校验」生效");
+        }
+
+        private void RefreshValidationDashboard()
+        {
+            var lastResult = _lastResult;
+            if (lastResult == null)
+            {
+                ClearValidationResultState();
+                return;
+            }
+
+            TxtTotalRows.Text = lastResult.TotalRows.ToString("N0");
+            TxtErrorCount.Text = lastResult.ErrorCount.ToString("N0");
+            TxtRawErrorCount.Text = lastResult.RawErrorCount.ToString("N0");
+            TxtWarningCount.Text = lastResult.WarningCount.ToString("N0");
+            TxtElapsed.Text = $"{lastResult.Elapsed.TotalSeconds:F1}s";
+            SummaryCard.Visibility = Visibility.Visible;
+            BtnExportReport.Visibility = Visibility.Visible;
+
+            RefreshIssueTypeFilter(lastResult.Issues);
+            _issueView = CollectionViewSource.GetDefaultView(lastResult.Issues);
+            _issueView.Filter = FilterIssue;
+            DgIssues.ItemsSource = _issueView;
+            RefreshIssueView();
+            RefreshIssueTypeStats(lastResult.Issues);
+        }
+
+        private void RefreshIssueTypeFilter(IReadOnlyList<DvIssue> issues)
+        {
+            string previous = _currentIssueTypeFilter;
+            var options = new List<string> { AllIssueTypesOption };
+            options.AddRange(issues
+                .Select(i => i.ErrorType)
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(t => t, StringComparer.OrdinalIgnoreCase));
+
+            CbIssueTypeFilter.ItemsSource = options;
+            _currentIssueTypeFilter = options.Contains(previous) ? previous : AllIssueTypesOption;
+            CbIssueTypeFilter.SelectedItem = _currentIssueTypeFilter;
+        }
+
+        private bool FilterIssue(object obj)
+        {
+            if (obj is not DvIssue issue)
+                return false;
+
+            if (_currentIssueTypeFilter != AllIssueTypesOption &&
+                !string.Equals(issue.ErrorType, _currentIssueTypeFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(_issueSearchKeyword))
+                return true;
+
+            string keyword = _issueSearchKeyword.Trim();
+            return ContainsKeyword(issue.PrimaryKeyDisplay, keyword) ||
+                   ContainsKeyword(issue.SourceColumnName, keyword) ||
+                   ContainsKeyword(issue.TargetColumnName, keyword) ||
+                   ContainsKeyword(issue.TargetDataType, keyword) ||
+                   ContainsKeyword(issue.ErrorType, keyword) ||
+                   ContainsKeyword(issue.ActualValue, keyword) ||
+                   ContainsKeyword(issue.Message, keyword);
+        }
+
+        private static bool ContainsKeyword(string? value, string keyword)
+            => !string.IsNullOrWhiteSpace(value) &&
+               value.Contains(keyword, StringComparison.OrdinalIgnoreCase);
+
+        private void RefreshIssueView()
+        {
+            _issueView?.Refresh();
+            int visibleCount = _issueView?.Cast<object>().Count() ?? 0;
+            TxtIssueVisibleCount.Text = $"共 {visibleCount:N0} 条";
+        }
+
+        private void CbIssueTypeFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _currentIssueTypeFilter = CbIssueTypeFilter.SelectedItem as string ?? AllIssueTypesOption;
+            RefreshIssueView();
+        }
+
+        private void TxtIssueSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _issueSearchKeyword = TxtIssueSearch.Text.Trim();
+            RefreshIssueView();
+        }
+
+        private void BtnRefreshIssueView_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshIssueView();
+            SetStatus("错误明细已刷新");
+        }
+
+        private void RefreshIssueTypeStats(IReadOnlyList<DvIssue> issues)
+        {
+            var errorIssues = issues.Where(i => i.Level == DvValidationLevel.Error).ToList();
+            int total = errorIssues.Count;
+            var brushes = GetIssueStatBrushes();
+            var stats = errorIssues
+                .GroupBy(i => i.ErrorType)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select((g, index) => new IssueTypeStat(
+                    g.Key,
+                    g.Count(),
+                    total,
+                    brushes[index % brushes.Count]))
+                .ToList();
+
+            TxtIssueChartTotal.Text = total.ToString("N0");
+            IssueTypeStatsItems.ItemsSource = stats;
+            DrawIssueTypeChart(stats, total);
+        }
+
+        private static List<Brush> GetIssueStatBrushes()
+            => [
+                new SolidColorBrush(Color.FromRgb(239, 68, 68)),
+                new SolidColorBrush(Color.FromRgb(245, 158, 11)),
+                new SolidColorBrush(Color.FromRgb(124, 58, 237)),
+                new SolidColorBrush(Color.FromRgb(64, 118, 238)),
+                new SolidColorBrush(Color.FromRgb(5, 150, 105))
+            ];
+
+        private void DrawIssueTypeChart(IReadOnlyList<IssueTypeStat> stats, int total)
+        {
+            IssueChartCanvas.Children.Clear();
+
+            const double size = 190;
+            const double center = size / 2;
+            const double radius = 72;
+            const double stroke = 30;
+
+            var baseRing = new Ellipse
+            {
+                Width = radius * 2,
+                Height = radius * 2,
+                StrokeThickness = stroke,
+                Stroke = new SolidColorBrush(Color.FromRgb(238, 242, 247))
+            };
+            Canvas.SetLeft(baseRing, center - radius);
+            Canvas.SetTop(baseRing, center - radius);
+            IssueChartCanvas.Children.Add(baseRing);
+
+            if (total <= 0)
+                return;
+
+            double startAngle = -90;
+            foreach (var stat in stats)
+            {
+                double sweep = 360.0 * stat.Count / total;
+                if (sweep >= 359.9)
+                {
+                    var ring = new Ellipse
+                    {
+                        Width = radius * 2,
+                        Height = radius * 2,
+                        StrokeThickness = stroke,
+                        Stroke = stat.Brush
+                    };
+                    Canvas.SetLeft(ring, center - radius);
+                    Canvas.SetTop(ring, center - radius);
+                    IssueChartCanvas.Children.Add(ring);
+                    break;
+                }
+
+                var segment = new System.Windows.Shapes.Path
+                {
+                    Stroke = stat.Brush,
+                    StrokeThickness = stroke,
+                    Data = CreateArcGeometry(center, center, radius, startAngle, sweep)
+                };
+                IssueChartCanvas.Children.Add(segment);
+                startAngle += sweep;
+            }
+        }
+
+        private static Geometry CreateArcGeometry(double cx, double cy, double radius, double startAngle, double sweepAngle)
+        {
+            Point start = PointOnCircle(cx, cy, radius, startAngle);
+            Point end = PointOnCircle(cx, cy, radius, startAngle + sweepAngle);
+            bool isLargeArc = sweepAngle > 180;
+
+            var figure = new PathFigure { StartPoint = start, IsClosed = false };
+            figure.Segments.Add(new ArcSegment(
+                end,
+                new Size(radius, radius),
+                0,
+                isLargeArc,
+                SweepDirection.Clockwise,
+                true));
+            return new PathGeometry([figure]);
+        }
+
+        private static Point PointOnCircle(double cx, double cy, double radius, double angle)
+        {
+            double radians = angle * Math.PI / 180.0;
+            return new Point(
+                cx + radius * Math.Cos(radians),
+                cy + radius * Math.Sin(radians));
+        }
+
+        private void SetExportedReportPath(string path)
+        {
+            _exportedReportPath = path;
+            RunExportedReportName.Text = System.IO.Path.GetFileName(path);
+            ExportStatusPanel.Visibility = Visibility.Visible;
+        }
+
+        private void ExportedReportLink_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_exportedReportPath) || !File.Exists(_exportedReportPath))
+            {
+                SetStatus("导出的报告文件不存在或已被移动", true);
+                return;
+            }
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_exportedReportPath)
+            {
+                UseShellExecute = true
+            });
+        }
+
+        private sealed class IssueTypeStat(string errorType, int count, int total, Brush brush)
+        {
+            public string ErrorType { get; } = errorType;
+            public int Count { get; } = count;
+            public Brush Brush { get; } = brush;
+            public string PercentageText { get; } = total <= 0 ? "0.00%" : $"{(double)count / total:P2}";
         }
 
         private void UpdateMappingInfo()
@@ -1267,7 +1590,7 @@ namespace WpfApp1.Views
                     .ToList();
                 TxtMappingHint.Text = pendingRequiredUuid.Count > 0
                     ? BuildRequiredFieldHint(pendingRequiredUuid)
-                    : $"仍有 {pendingUuid} 个 UUID 字段需要人工选择，请先处理红色高亮行";
+                    : $"仍有 {pendingUuid} 个 UUID 字段需要人工选择，请先处理淡黄色高亮行";
                 TxtMappingHint.Visibility = Visibility.Visible;
             }
             else if (required > 0)
@@ -1327,15 +1650,19 @@ namespace WpfApp1.Views
 
             // 重置上一次结果
             _lastResult = null;
+            _issueView = null;
+            _exportedReportPath = null;
 
             // UI 状态
             BtnRunValidation.IsEnabled = false;
             BtnExportReport.Visibility = Visibility.Collapsed;
             SummaryCard.Visibility = Visibility.Collapsed;
+            ExportStatusPanel.Visibility = Visibility.Collapsed;
             ProgressPanel.Visibility = Visibility.Visible;
             PbProgress.Value = 0;
             TxtProgress.Text = "正在准备校验...";
             DgIssues.ItemsSource = null;
+            BtnCancelValidation.IsEnabled = true;
 
             _cts = new CancellationTokenSource();
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -1378,18 +1705,7 @@ namespace WpfApp1.Views
             var lastResult = _lastResult;
             if (lastResult == null) return;
 
-            // 显示摘要
-            TxtTotalRows.Text = lastResult.TotalRows.ToString("N0");
-            TxtErrorCount.Text = lastResult.ErrorCount.ToString("N0");
-            TxtRawErrorCount.Text = lastResult.RawErrorCount.ToString("N0");
-            TxtWarningCount.Text = lastResult.WarningCount.ToString("N0");
-            TxtElapsed.Text = $"{lastResult.Elapsed.TotalSeconds:F1}s";
-            SummaryCard.Visibility = Visibility.Visible;
-
-            // 显示错误列表
-            DgIssues.ItemsSource = lastResult.Issues;
-
-            BtnExportReport.Visibility = Visibility.Visible;
+            RefreshValidationDashboard();
 
             SetStatus(lastResult.ErrorCount == 0 && lastResult.WarningCount == 0
                 ? "校验通过，无错误无警告"
@@ -1420,11 +1736,8 @@ namespace WpfApp1.Views
                 ValidationReportService.Generate(
                     lastResult, _targetColumns, _mappings,
                     dbType, TxtTableName.Text, dlg.FileName);
-                SetStatus($"报告已导出：{dlg.FileName}");
-                // 询问是否打开
-                if (MessageBox.Show("报告已保存，是否立即打开？", "导出成功",
-                    MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
+                SetExportedReportPath(dlg.FileName);
+                SetStatus($"报告已导出：{System.IO.Path.GetFileName(dlg.FileName)}");
             }
             catch (Exception ex)
             {
@@ -1439,6 +1752,11 @@ namespace WpfApp1.Views
             TxtStatus.Foreground = isError
                 ? new SolidColorBrush(Color.FromRgb(220, 38, 38))
                 : new SolidColorBrush(Color.FromRgb(100, 116, 139));
+        }
+
+        private void TxtTableName_TextChanged(object sender, TextChangedEventArgs e)
+        {
+
         }
     }
 }

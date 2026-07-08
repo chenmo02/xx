@@ -273,9 +273,10 @@ namespace WpfApp1.Models
         /// <summary>
         /// UUID 目标字段必须由用户显式处理；其他字段仅在“必填且被忽略”时高亮。
         /// </summary>
+        public bool NeedsUuidHighlight => IsUuidTarget;
+
         public bool NeedsHighlight =>
-            (IsUuidTarget && !IsConfirmed) ||
-            (IsRequired && !IsUuidTarget && MappingType == DvMappingType.Ignore && !IsAutoGenCandidate);
+            IsRequired && !IsUuidTarget && MappingType == DvMappingType.Ignore && !IsAutoGenCandidate;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -815,6 +815,7 @@ namespace WpfApp1.Views
             dlg.PrintTicket.PageOrientation = IsLandscape
                 ? PageOrientation.Landscape
                 : PageOrientation.Portrait;
+            dlg.PrintTicket.Duplexing = Duplexing.OneSided;
 
             return dlg;
         }
@@ -881,20 +882,12 @@ namespace WpfApp1.Views
 
         private static string? ShowInputDialog(string title, string prompt, string defaultValue = "")
         {
-            var win = new Window { Title = title, Width = 380, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = Application.Current.MainWindow, ResizeMode = ResizeMode.NoResize, WindowStyle = WindowStyle.ToolWindow };
-            var sp = new StackPanel { Margin = new Thickness(16) };
-            sp.Children.Add(new TextBlock { Text = prompt, FontSize = 13, Margin = new Thickness(0, 0, 0, 8) });
-            var tb = new TextBox { Text = defaultValue, FontSize = 13, Padding = new Thickness(8, 6, 8, 6) };
-            sp.Children.Add(tb);
-            var bp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-            string? result = null;
-            var ok = new Button { Content = "确定", Padding = new Thickness(20, 6, 20, 6), IsDefault = true };
-            ok.Click += (_, _) => { result = tb.Text; win.Close(); };
-            var cancel = new Button { Content = "取消", Padding = new Thickness(20, 6, 20, 6), Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
-            cancel.Click += (_, _) => win.Close();
-            bp.Children.Add(ok); bp.Children.Add(cancel); sp.Children.Add(bp);
-            win.Content = sp; tb.Focus(); tb.SelectAll(); win.ShowDialog();
-            return result;
+            var dialog = new AppInputDialog(title, prompt, defaultValue)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            return dialog.ShowDialog() == true ? dialog.InputValue : null;
         }
     }
 }
