@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <Resource Include="favicon.ico" />
-    <Resource Include="..\img\ggw.png" Link="img\ggw.png" />
+    <Resource Include="..\img\**\*.png" Link="img\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

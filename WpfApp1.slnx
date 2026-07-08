@@ -1,3 +1,5 @@
 <Solution>
+  <Project Path="img/WpfApp1.AppHost/WpfApp1.AppHost.csproj" Id="023bb793-02a2-435a-83ed-a41690439efb" />
+  <Project Path="img/WpfApp1.ServiceDefaults/WpfApp1.ServiceDefaults.csproj" />
   <Project Path="WpfApp1/WpfApp1.csproj" />
 </Solution>

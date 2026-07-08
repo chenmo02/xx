@@ -9,7 +9,7 @@ namespace WpfApp1.Views
         public HomePage()
         {
             InitializeComponent();
-            TxtRuntime.Text = $".NET {Environment.Version.Major}";
+            //TxtRuntime.Text = $".NET {Environment.Version.Major}";
         }
 
         private void GoToImport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

@@ -55,7 +55,7 @@
                             CornerRadius="10"
                             VerticalAlignment="Center">
                         <StackPanel>
-							<!-- 发布前改版本号 -->
+                            <!-- 发布前改版本号 -->
                             <TextBlock Text="当前版本"
                                        FontSize="11"
                                        Foreground="#6366F1"/>
@@ -84,13 +84,12 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Border Style="{StaticResource QuickCardIconStyle}">
-                            <TextBlock Text="数"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Foreground="#4F46E5"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FF88A4FF">
+                            <Image Source="/img/表格.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="数据导入临时表" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -112,13 +111,12 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#ECFDF5">
-                            <TextBlock Text="CSV"
-                                       FontSize="16"
-                                       FontWeight="Bold"
-                                       Foreground="#059669"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FF6AE7C0">
+                            <Image Source="/img/CSV.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="CSV 预览工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -141,12 +139,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#FEF3C7">
-                            <TextBlock Text="比"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Foreground="#D97706"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Image Source="/img/资料对比.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="CSV 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -169,12 +166,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#E0F2FE">
-                            <TextBlock Text="{}{ }"
-                                       FontSize="18"
-                                       FontWeight="Bold"
-                                       Foreground="#0284C7"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Image Source="/img/文件,json.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="JSON 处理工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -197,12 +193,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#F3E8FF">
-                            <TextBlock Text="JS"
-                                       FontSize="18"
-                                       FontWeight="Bold"
-                                       Foreground="#7C3AED"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Image Source="/img/json file.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="JSON 对比工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -225,12 +220,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#FCE7F3">
-                            <TextBlock Text="画"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Foreground="#DB2777"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Image Source="/img/Excalidraw.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="Excalidraw 画板" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -253,12 +247,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#ECFCCB">
-                            <TextBlock Text="票"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Foreground="#65A30D"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Image Source="/img/发票.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="发票打印工具" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -281,12 +274,11 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#EEF2FF">
-                            <TextBlock Text="验"
-                                       FontSize="22"
-                                       FontWeight="Bold"
-                                       Foreground="#4E6EF2"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
+                            <Image Source="/img/验证.png" 
+                                   Stretch="Uniform"
+                                   Width="28" Height="28"
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
                             <TextBlock Text="数据验证排查" FontSize="14" FontWeight="SemiBold" Foreground="#111827"/>
@@ -321,12 +313,12 @@
 
                     <Border Grid.Column="0" BorderBrush="#E5E7EB" BorderThickness="0,0,1,0" Padding="16,0">
                         <StackPanel HorizontalAlignment="Center">
-                            <TextBlock Text="作者" FontSize="12" Foreground="#fe491a" HorizontalAlignment="Center"/>
+                            <TextBlock Text="创世主" FontSize="12" Foreground="#4E6EF2" HorizontalAlignment="Center"/>
                             <TextBlock x:Name="TxtRuntime" Text="悲伤番茄" FontSize="18" FontWeight="Bold"
-                                       Foreground="#4E6EF2" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                       Foreground="#fe491a" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
-					<!-- 发布前改日期 -->
+                    <!-- 发布前改日期 -->
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                         <TextBlock Text="最新发布日期" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
                         <TextBlock FontSize="18" FontWeight="Bold"
