@@ -60,11 +60,10 @@
                                        FontSize="11"
                                        Foreground="#6366F1"/>
                             <TextBlock x:Name="TxtVersionBadge"
-                                       Text="v2.1.5"
                                        FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="#4338CA"
-                                       Margin="0,2,0,0"/>
+                                       Margin="0,2,0,0"><Run Text="v2.1."/><Run Language="zh-cn" Text="8"/></TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -85,9 +84,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#FF88A4FF">
-                            <Image Source="/img/表格.png" 
+                            <Image Source="/img/数据集投影转换.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -111,10 +110,10 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FF6AE7C0">
-                            <Image Source="/img/CSV.png" 
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FF6AE7C0" Height="48" Margin="142,0,142,0" VerticalAlignment="Top">
+                            <Image Source="/img/筛选.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -139,9 +138,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#FEF3C7">
-                            <Image Source="/img/资料对比.png" 
+                            <Image Source="/img/空间查询.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -166,9 +165,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#E0F2FE">
-                            <Image Source="/img/文件,json.png" 
+                            <Image Source="/img/数据处理.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -193,9 +192,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#F3E8FF">
-                            <Image Source="/img/json file.png" 
+                            <Image Source="/img/sql语句查询.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -220,9 +219,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#FCE7F3">
-                            <Image Source="/img/Excalidraw.png" 
+                            <Image Source="/img/excalidraw.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="35" Height="35"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -247,9 +246,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#ECFCCB">
-                            <Image Source="/img/发票.png" 
+                            <Image Source="/img/输出图片.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -274,9 +273,9 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <Border Style="{StaticResource QuickCardIconStyle}" Background="#EEF2FF">
-                            <Image Source="/img/验证.png" 
+                            <Image Source="/img/检查.png" 
                                    Stretch="Uniform"
-                                   Width="28" Height="28"
+                                   Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
@@ -322,7 +321,7 @@
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                         <TextBlock Text="最新发布日期" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
                         <TextBlock FontSize="18" FontWeight="Bold"
-                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"><Run Text="2026-0"/><Run Language="zh-cn" Text="7-08"/></TextBlock>
+                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"><Run Text="2026-0"/><Run Text="7-"/><Run Language="zh-cn" Text="2"/><Run Text="8"/></TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>

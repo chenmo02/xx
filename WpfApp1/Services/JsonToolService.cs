@@ -99,6 +99,7 @@ namespace WpfApp1.Services
                 // 数组：每个元素一行
                 // 先收集所有列名
                 var columns = new LinkedHashSet<string>();
+                bool hasNonObjectItem = false;
                 foreach (var item in root.EnumerateArray())
                 {
                     if (item.ValueKind == JsonValueKind.Object)
@@ -106,22 +107,36 @@ namespace WpfApp1.Services
                         foreach (var prop in item.EnumerateObject())
                             columns.Add(prop.Name);
                     }
+                    else
+                    {
+                        hasNonObjectItem = true;
+                    }
                 }
 
-                if (columns.Count == 0)
+                if (columns.Count == 0 || hasNonObjectItem)
                 {
-                    // 简单数组 [1, 2, 3]
+                    // 简单或混合数组统一保留每个元素的完整值，避免非对象元素丢失。
                     dt.Columns.Add("value", typeof(string));
                     foreach (var item in root.EnumerateArray())
                         dt.Rows.Add(GetElementValue(item));
                     return dt;
                 }
 
+                var tableColumns = new Dictionary<string, DataColumn>(StringComparer.Ordinal);
+                int columnIndex = 0;
                 foreach (var col in columns)
                 {
-                    // DataTable 列名默认不区分大小写，避免仅大小写不同的键抛 DuplicateNameException
-                    if (!dt.Columns.Contains(col))
-                        dt.Columns.Add(col, typeof(string));
+                    string internalName = string.IsNullOrEmpty(col) ? $"__json_column_{columnIndex}" : col;
+                    while (dt.Columns.Cast<DataColumn>().Any(existing =>
+                        string.Equals(existing.ColumnName, internalName, StringComparison.Ordinal)))
+                    {
+                        internalName += "_";
+                    }
+
+                    var dataColumn = dt.Columns.Add(internalName, typeof(string));
+                    dataColumn.Caption = col;
+                    tableColumns.Add(col, dataColumn);
+                    columnIndex++;
                 }
 
                 foreach (var item in root.EnumerateArray())
@@ -131,8 +146,7 @@ namespace WpfApp1.Services
                     {
                         foreach (var prop in item.EnumerateObject())
                         {
-                            if (dt.Columns.Contains(prop.Name))
-                                row[prop.Name] = GetElementValue(prop.Value);
+                            row[tableColumns[prop.Name]] = GetElementValue(prop.Value);
                         }
                     }
                     dt.Rows.Add(row);
@@ -190,7 +204,7 @@ namespace WpfApp1.Services
                     var dict = new Dictionary<string, object?>();
                     foreach (DataColumn col in dt.Columns)
                     {
-                        dict[col.ColumnName] = ParseValue(row[col]?.ToString() ?? "");
+                        dict[col.Caption] = ParseValue(row[col]?.ToString() ?? "");
                     }
                     list.Add(dict);
                 }
@@ -309,7 +323,7 @@ namespace WpfApp1.Services
                 // 写入表头
                 foreach (DataColumn col in dt.Columns)
                 {
-                    csv.WriteField(col.ColumnName);
+                    csv.WriteField(col.Caption);
                 }
                 csv.NextRecord();
 

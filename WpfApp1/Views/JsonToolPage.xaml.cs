@@ -71,6 +71,7 @@ namespace WpfApp1.Views
         // GRID 节点追踪
         private ObservableCollection<JsonGridNode>? _currentNodes;
         private readonly Dictionary<string, (TextBlock header, FrameworkElement content, JsonGridNode node, bool isTable)> _gridSections = new();
+        private readonly Dictionary<string, (TextBlock header, StackPanel content, Action render)> _nestedGridSections = new();
 
         // 右侧 GRID 搜索
         private List<TextBlock> _gridSearchMatches = new();
@@ -103,6 +104,8 @@ namespace WpfApp1.Views
         // GRID 搜索取消令牌（用于中断上一次搜索）
         private CancellationTokenSource? _gridSearchCts;
         private CancellationTokenSource? _editorSearchCts;
+        private ScrollViewer? _editorScrollViewer;
+        private bool _isRefreshingEditorSelection;
         private int _lastEditorTextLength = 0;
         private string? _lastJsonErrorSignature;
         private bool _isPastingIntoEditor = false;
@@ -141,6 +144,48 @@ namespace WpfApp1.Views
         {
             Focusable = true;
             Focus();
+
+            if (_editorScrollViewer == null)
+            {
+                _editorScrollViewer = FindDescendant<ScrollViewer>(TxtJsonEditor);
+                if (_editorScrollViewer != null)
+                    _editorScrollViewer.ScrollChanged += EditorScrollViewer_ScrollChanged;
+            }
+        }
+
+        private void EditorScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (_isRefreshingEditorSelection ||
+                _currentMatchIndex < 0 ||
+                _currentMatchIndex >= _searchMatches.Count ||
+                _currentSearchKeywordLength <= 0)
+                return;
+
+            Dispatcher.BeginInvoke(new Action(RefreshCurrentEditorSelection), DispatcherPriority.Render);
+        }
+
+        private void RefreshCurrentEditorSelection()
+        {
+            if (_isRefreshingEditorSelection ||
+                _currentMatchIndex < 0 ||
+                _currentMatchIndex >= _searchMatches.Count)
+                return;
+
+            int start = _searchMatches[_currentMatchIndex];
+            if (start < 0 || start > TxtJsonEditor.Text.Length)
+                return;
+
+            _isRefreshingEditorSelection = true;
+            try
+            {
+                int length = Math.Min(_currentSearchKeywordLength, TxtJsonEditor.Text.Length - start);
+                TxtJsonEditor.Select(start, length);
+                TxtJsonEditor.InvalidateVisual();
+            }
+            finally
+            {
+                _isRefreshingEditorSelection = false;
+            }
         }
 
         private void BtnToggleGridFullscreen_Click(object sender, RoutedEventArgs e)
@@ -251,6 +296,14 @@ namespace WpfApp1.Views
                     expanded.Add(GetSectionStateKey(section.isTable, section.node));
                 }
             }
+
+            foreach (var section in _nestedGridSections)
+            {
+                if (section.Value.content.Visibility == Visibility.Visible)
+                {
+                    expanded.Add(GetNestedSectionStateKey(section.Key));
+                }
+            }
             return expanded;
         }
 
@@ -262,7 +315,6 @@ namespace WpfApp1.Views
             }
 
             bool expandedInPass;
-            int guard = 0;
             do
             {
                 expandedInPass = false;
@@ -281,12 +333,31 @@ namespace WpfApp1.Views
                     ExpandGridSection(section.header, section.content, section.node);
                     expandedInPass = true;
                 }
+
+                foreach (var section in _nestedGridSections.ToList())
+                {
+                    if (section.Value.content.Visibility == Visibility.Visible)
+                    {
+                        continue;
+                    }
+
+                    if (!expandedSectionKeys.Contains(GetNestedSectionStateKey(section.Key)))
+                    {
+                        continue;
+                    }
+
+                    ExpandNestedGridSection(section.Value.header, section.Value.content, section.Value.render);
+                    expandedInPass = true;
+                }
             }
-            while (expandedInPass && ++guard < 50);
+            while (expandedInPass);
         }
 
         private static string GetSectionStateKey(bool isTable, JsonGridNode node)
             => $"{(isTable ? "tbl" : "obj")}::{node.JsonPath}";
+
+        private static string GetNestedSectionStateKey(string jsonPath)
+            => $"nested::{jsonPath}";
 
         // ==================== JSON 文本辅助 ====================
 
@@ -297,6 +368,8 @@ namespace WpfApp1.Views
 
         private void SetEditorText(string text)
         {
+            CancelEditorSearch();
+            ClearSearchHighlights();
             _isUpdatingText = true;
             try
             {
@@ -309,6 +382,9 @@ namespace WpfApp1.Views
             {
                 _isUpdatingText = false;
             }
+
+            if (SearchPanel.Visibility == Visibility.Visible)
+                QueueEditorSearch();
         }
 
         private static string NormalizeEditorNewLines(string text)
@@ -318,6 +394,9 @@ namespace WpfApp1.Views
         {
             if (_isUpdatingText) return;
             TrackEditorTextLength(e);
+
+            if (SearchPanel.Visibility == Visibility.Visible)
+                QueueEditorSearch();
 
             if (_isPastingIntoEditor)
             {
@@ -364,7 +443,7 @@ namespace WpfApp1.Views
             {
                 using var _ = JsonDocument.Parse(json);
                 _lastJsonErrorSignature = null;
-                SetStatus("✅ 粘贴内容是标准 JSON");
+                RebuildGrid();
             }
             catch (JsonException ex)
             {
@@ -472,7 +551,7 @@ namespace WpfApp1.Views
             if (e.Key == Key.Enter)
             {
                 _searchDebounceTimer.Stop();
-                if (_searchMatches.Count == 0 && !string.IsNullOrWhiteSpace(TxtSearchKeyword.Text))
+                if (_searchMatches.Count == 0 && !string.IsNullOrEmpty(TxtSearchKeyword.Text))
                     await PerformSearchAsync();
                 else
                     NavigateMatch(Keyboard.Modifiers == ModifierKeys.Shift ? -1 : 1);
@@ -490,7 +569,7 @@ namespace WpfApp1.Views
 
         private void QueueEditorSearch()
         {
-            string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
+            string keyword = TxtSearchKeyword.Text ?? "";
             CancelEditorSearch();
 
             if (string.IsNullOrEmpty(keyword))
@@ -509,6 +588,8 @@ namespace WpfApp1.Views
                 return;
             }
 
+            ClearSearchHighlights();
+            ClearGridHighlights();
             _searchDebounceTimer.Start();
         }
 
@@ -536,7 +617,7 @@ namespace WpfApp1.Views
                 _lastHighlightedMatchIndex = -1;
                 _editorSearchResultsTruncated = false;
 
-                string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
+                string keyword = TxtSearchKeyword.Text ?? "";
                 if (string.IsNullOrEmpty(keyword)) { TxtSearchCount.Text = ""; return; }
                 StringComparison comparison = GetLeftSearchComparison();
 
@@ -585,7 +666,7 @@ namespace WpfApp1.Views
             _searchMatches.Clear();
             _currentMatchIndex = -1;
 
-            string keyword = TxtSearchKeyword.Text?.Trim() ?? "";
+            string keyword = TxtSearchKeyword.Text ?? "";
             if (string.IsNullOrEmpty(keyword)) { TxtSearchCount.Text = ""; return; }
             StringComparison comparison = GetLeftSearchComparison();
 
@@ -700,6 +781,8 @@ namespace WpfApp1.Views
 
         private void ClearSearchHighlights()
         {
+            ClearSelectionForMatches(_searchMatches, _currentMatchIndex, _currentSearchKeywordLength);
+
             if (_searchMatches.Count == 0)
             {
                 _currentMatchIndex = -1;
@@ -713,6 +796,24 @@ namespace WpfApp1.Views
             _lastHighlightedMatchIndex = -1;
             _editorSearchResultsTruncated = false;
             _currentSearchKeywordLength = 0;
+        }
+
+        private void ClearSelectionForMatches(IReadOnlyList<int> matches, int currentIndex, int keywordLength)
+        {
+            if (keywordLength <= 0 || TxtJsonEditor.SelectionLength <= 0)
+                return;
+
+            int selectionStart = TxtJsonEditor.SelectionStart;
+            bool isTrackedSelection = currentIndex >= 0 &&
+                currentIndex < matches.Count &&
+                matches[currentIndex] == selectionStart &&
+                TxtJsonEditor.SelectionLength == keywordLength;
+
+            if (!isTrackedSelection && matches.Count > 0)
+                isTrackedSelection = matches.Contains(selectionStart) && TxtJsonEditor.SelectionLength == keywordLength;
+
+            if (isTrackedSelection)
+                TxtJsonEditor.Select(selectionStart, 0);
         }
 
         private void SelectEditorRange(int start, int length, bool focusEditor = true, bool scrollToMatch = true)
@@ -848,6 +949,17 @@ namespace WpfApp1.Views
                         RenderNode(child, stackPanel, 1);
                     }
                 }
+            }
+        }
+
+        private static void ExpandNestedGridSection(TextBlock header, StackPanel content, Action render)
+        {
+            content.Visibility = Visibility.Visible;
+            header.Text = header.Text.Replace("[+]", "[-]");
+
+            if (content.Children.Count == 0)
+            {
+                render();
             }
         }
 
@@ -996,7 +1108,7 @@ namespace WpfApp1.Views
             _gridSearchResultsTruncated = false;
             _gridSearchCollapsedMatchCount = 0;
 
-            string keyword = TxtGridSearchKeyword.Text?.Trim() ?? "";
+            string keyword = TxtGridSearchKeyword.Text ?? "";
             if (string.IsNullOrEmpty(keyword)) { TxtGridSearchCount.Text = ""; return; }
             StringComparison comparison = GetGridSearchComparison();
 
@@ -1073,31 +1185,33 @@ namespace WpfApp1.Views
             CancellationToken token)
         {
             var paths = new List<string>();
-            bool truncated = false;
+            bool matchLimitReached = false;
+            bool previewTruncated = false;
 
             foreach (var node in nodes)
             {
                 ScanNode(node);
-                if (truncated) break;
+                if (matchLimitReached) break;
             }
 
             return new GridDataSearchResult
             {
                 JsonPaths = paths,
-                IsTruncated = truncated
+                IsTruncated = matchLimitReached || previewTruncated
             };
 
             void ScanNode(JsonGridNode node)
             {
                 token.ThrowIfCancellationRequested();
-                if (truncated) return;
+                if (matchLimitReached) return;
+                previewTruncated |= node.IsTablePreviewTruncated;
 
                 AddIfMatch(node.JsonPath, node.Key, node.Value);
 
                 foreach (var child in node.Children)
                 {
                     ScanNode(child);
-                    if (truncated) return;
+                    if (matchLimitReached) return;
                 }
 
                 foreach (var row in node.TableRows)
@@ -1108,10 +1222,10 @@ namespace WpfApp1.Views
                         foreach (var nested in cell.NestedChildren)
                         {
                             ScanNode(nested);
-                            if (truncated) return;
+                            if (matchLimitReached) return;
                         }
 
-                        if (truncated) return;
+                        if (matchLimitReached) return;
                     }
                 }
             }
@@ -1119,7 +1233,7 @@ namespace WpfApp1.Views
             void AddIfMatch(string path, params string?[] values)
             {
                 token.ThrowIfCancellationRequested();
-                if (truncated) return;
+                if (matchLimitReached) return;
 
                 foreach (var value in values)
                 {
@@ -1132,7 +1246,7 @@ namespace WpfApp1.Views
 
                         if (paths.Count >= maxMatches)
                         {
-                            truncated = true;
+                            matchLimitReached = true;
                         }
 
                         return;
@@ -1150,7 +1264,6 @@ namespace WpfApp1.Views
             {
                 token.ThrowIfCancellationRequested();
                 bool expandedInPass;
-                int guard = 0;
 
                 do
                 {
@@ -1175,10 +1288,31 @@ namespace WpfApp1.Views
                             return;
                     }
 
+                    foreach (var section in _nestedGridSections.ToList())
+                    {
+                        token.ThrowIfCancellationRequested();
+                        if (!IsAncestorPath(section.Key, path)) continue;
+                        if (section.Value.content.Visibility == Visibility.Visible) continue;
+
+                        string sectionKey = GetNestedSectionStateKey(section.Key);
+                        if (uniqueSectionKeys.Add(sectionKey))
+                        {
+                            ExpandNestedGridSection(
+                                section.Value.header,
+                                section.Value.content,
+                                section.Value.render);
+                            expanded++;
+                            expandedInPass = true;
+                        }
+
+                        if (expanded >= MaxGridAutoExpand)
+                            return;
+                    }
+
                     if (expandedInPass)
                         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
                 }
-                while (expandedInPass && ++guard < 20);
+                while (expandedInPass);
             }
         }
 
@@ -1337,18 +1471,13 @@ namespace WpfApp1.Views
 
         // ==================== 右侧 GRID 点击值 → 左侧 JSON 联动 ====================
 
-        private void OnGridValueClicked(string clickedValue)
+        private void OnGridValueClicked(string clickedValue, string jsonPath, bool selectPropertyName = false)
         {
-            if (string.IsNullOrEmpty(clickedValue) || clickedValue == "null") return;
-
             ClearClickHighlights();
-            _clickHighlights.AddRange(FindEditorMatches(clickedValue, StringComparison.Ordinal, MaxJsonHighlights));
 
-            if (_clickHighlights.Count > 0)
+            if (TrySelectEditorPath(jsonPath, selectPropertyName))
             {
-                SelectEditorRange(_clickHighlights[0], clickedValue.Length);
-                string suffix = _clickHighlights.Count >= MaxJsonHighlights ? "+" : "";
-                SetStatus($"🔗 已定位: \"{clickedValue}\" ({_clickHighlights.Count}{suffix} 处)");
+                SetStatus($"🔗 已定位: \"{clickedValue}\"");
             }
             else
             {
@@ -1356,9 +1485,142 @@ namespace WpfApp1.Views
             }
         }
 
+        private bool TrySelectEditorPath(string jsonPath, bool selectPropertyName)
+        {
+            var segments = ParseJsonPath(jsonPath);
+            if (segments.Count == 0)
+                return false;
+
+            byte[] utf8 = Encoding.UTF8.GetBytes(GetEditorText());
+            var reader = new Utf8JsonReader(utf8);
+
+            try
+            {
+                if (!reader.Read() ||
+                    !TryFindJsonTokenSpan(ref reader, segments, 0, selectPropertyName, out long byteStart, out int byteLength))
+                    return false;
+
+                int characterStart = Encoding.UTF8.GetCharCount(utf8, 0, checked((int)byteStart));
+                int characterLength = Encoding.UTF8.GetCharCount(utf8, checked((int)byteStart), byteLength);
+                SelectEditorRange(characterStart, characterLength);
+                return true;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+
+        private static bool TryFindJsonTokenSpan(
+            ref Utf8JsonReader reader,
+            IReadOnlyList<JsonPathSegment> segments,
+            int segmentIndex,
+            bool selectPropertyName,
+            out long byteStart,
+            out int byteLength)
+        {
+            byteStart = 0;
+            byteLength = 0;
+
+            if (segmentIndex >= segments.Count)
+                return TryGetCurrentTokenSpan(ref reader, out byteStart, out byteLength);
+
+            if (reader.TokenType == JsonTokenType.StartObject)
+            {
+                while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+                {
+                    if (reader.TokenType != JsonTokenType.PropertyName)
+                        return false;
+
+                    string propertyName = reader.GetString() ?? "";
+                    long propertyStart = reader.TokenStartIndex;
+                    int propertyLength = checked(reader.ValueSpan.Length + 2);
+                    bool isTargetProperty = string.Equals(
+                        propertyName,
+                        segments[segmentIndex].PropertyName,
+                        StringComparison.Ordinal);
+
+                    if (!reader.Read())
+                        return false;
+
+                    if (isTargetProperty)
+                    {
+                        if (selectPropertyName && segmentIndex == segments.Count - 1)
+                        {
+                            byteStart = propertyStart;
+                            byteLength = propertyLength;
+                            return true;
+                        }
+
+                        if (TryFindJsonTokenSpan(
+                            ref reader,
+                            segments,
+                            segmentIndex + 1,
+                            selectPropertyName,
+                            out byteStart,
+                            out byteLength))
+                            return true;
+                    }
+                    else
+                    {
+                        reader.Skip();
+                    }
+                }
+
+                return false;
+            }
+
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                int arrayIndex = 0;
+                while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                {
+                    bool isTargetIndex = TryGetArrayIndex(segments[segmentIndex], out int targetIndex) &&
+                        targetIndex == arrayIndex;
+
+                    if (isTargetIndex)
+                    {
+                        if (TryFindJsonTokenSpan(
+                            ref reader,
+                            segments,
+                            segmentIndex + 1,
+                            selectPropertyName,
+                            out byteStart,
+                            out byteLength))
+                            return true;
+                    }
+                    else
+                    {
+                        reader.Skip();
+                    }
+
+                    arrayIndex++;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetCurrentTokenSpan(
+            ref Utf8JsonReader reader,
+            out long byteStart,
+            out int byteLength)
+        {
+            byteStart = reader.TokenStartIndex;
+            byteLength = reader.TokenType switch
+            {
+                JsonTokenType.String or JsonTokenType.PropertyName => checked(reader.ValueSpan.Length + 2),
+                JsonTokenType.StartObject or JsonTokenType.EndObject or
+                JsonTokenType.StartArray or JsonTokenType.EndArray => 1,
+                _ => reader.ValueSpan.Length
+            };
+            return byteLength > 0;
+        }
+
         private void ClearClickHighlights()
         {
             if (_clickHighlights.Count == 0) return;
+            ClearSelectionForMatches(_clickHighlights, 0, TxtJsonEditor.SelectionLength);
             _clickHighlights.Clear();
         }
 
@@ -1400,6 +1662,7 @@ namespace WpfApp1.Views
             ClearGridHighlights();
             GridContainer.Children.Clear();
             _gridSections.Clear();
+            _nestedGridSections.Clear();
             _allGridValueTextBlocks.Clear();
             _linkedGridHighlighted.Clear();
             _currentNodes = null;
@@ -1524,11 +1787,10 @@ namespace WpfApp1.Views
         private async void BtnExpandAll_Click(object sender, RoutedEventArgs e)
         {
             bool hasCollapsed = true;
-            int maxIterations = 50;
             int expandedCount = 0;
             SetStatus("正在分批展开 GRID...");
 
-            while (hasCollapsed && maxIterations-- > 0)
+            while (hasCollapsed)
             {
                 hasCollapsed = false;
                 var snapshot = _gridSections.ToList();
@@ -1538,15 +1800,22 @@ namespace WpfApp1.Views
                     if (content.Visibility == Visibility.Collapsed)
                     {
                         hasCollapsed = true;
-                        content.Visibility = Visibility.Visible;
-                        header.Text = header.Text.Replace("[+]", "[-]");
-                        if (content is StackPanel sp && sp.Children.Count == 0)
+                        ExpandGridSection(header, content, node);
+                        expandedCount++;
+                        if (expandedCount % ExpandBatchSize == 0)
                         {
-                            if (node.HasTable) RenderTable(node, sp, 0);
-                            else if (node.IsContainer)
-                                foreach (var child in node.Children) RenderNode(child, sp, 1);
+                            SetStatus($"正在分批展开 GRID...已展开 {expandedCount:N0} 个节点");
+                            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
                         }
+                    }
+                }
 
+                foreach (var section in _nestedGridSections.Values.ToList())
+                {
+                    if (section.content.Visibility == Visibility.Collapsed)
+                    {
+                        hasCollapsed = true;
+                        ExpandNestedGridSection(section.header, section.content, section.render);
                         expandedCount++;
                         if (expandedCount % ExpandBatchSize == 0)
                         {
@@ -1561,6 +1830,12 @@ namespace WpfApp1.Views
 
         private void BtnCollapseAll_Click(object sender, RoutedEventArgs e)
         {
+            foreach (var section in _nestedGridSections.Values.ToList())
+            {
+                section.content.Visibility = Visibility.Collapsed;
+                section.header.Text = section.header.Text.Replace("[-]", "[+]");
+            }
+
             foreach (var kvp in _gridSections.ToList())
             {
                 var (header, content, _, _) = kvp.Value;
@@ -1589,7 +1864,7 @@ namespace WpfApp1.Views
             string capturedKey = node.Key;
             keyTextBlock.MouseLeftButtonUp += (s, e) =>
             {
-                OnGridValueClicked(capturedKey);
+                OnGridValueClicked(capturedKey, node.JsonPath, selectPropertyName: true);
                 e.Handled = true;
             };
             _allGridValueTextBlocks.Add(keyTextBlock);
@@ -1616,7 +1891,7 @@ namespace WpfApp1.Views
             string capturedValue = node.Value;
             valTextBlock.MouseLeftButtonUp += (s, e) =>
             {
-                OnGridValueClicked(capturedValue);
+                OnGridValueClicked(capturedValue, node.JsonPath);
                 e.Handled = true;
             };
             _allGridValueTextBlocks.Add(valTextBlock);
@@ -1726,15 +2001,17 @@ namespace WpfApp1.Views
                             Cursor = Cursors.Hand
                         };
                         var nestedContainer = new StackPanel { Visibility = Visibility.Collapsed };
+                        Action renderNested = () =>
+                        {
+                            foreach (var nested in cell.NestedChildren)
+                                RenderNestedContent(nested, nestedContainer);
+                        };
+                        _nestedGridSections[cell.JsonPath] = (summaryBtn, nestedContainer, renderNested);
                         summaryBtn.MouseLeftButtonUp += (s, e) =>
                         {
                             if (nestedContainer.Visibility == Visibility.Collapsed)
                             {
-                                nestedContainer.Visibility = Visibility.Visible;
-                                summaryBtn.Text = summaryBtn.Text.Replace("[+]", "[-]");
-                                if (nestedContainer.Children.Count == 0)
-                                    foreach (var nested in cell.NestedChildren)
-                                        RenderNestedContent(nested, nestedContainer);
+                                ExpandNestedGridSection(summaryBtn, nestedContainer, renderNested);
                             }
                             else
                             {
@@ -1763,7 +2040,7 @@ namespace WpfApp1.Views
                         string cellValue = cell.Value;
                         valTb.MouseLeftButtonUp += (s, e) =>
                         {
-                            OnGridValueClicked(cellValue);
+                            OnGridValueClicked(cellValue, cell.JsonPath);
                             e.Handled = true;
                         };
                         _allGridValueTextBlocks.Add(valTb);
@@ -1885,17 +2162,17 @@ namespace WpfApp1.Views
                             Cursor = Cursors.Hand
                         };
                         var nestedContainer = new StackPanel { Visibility = Visibility.Collapsed };
+                        Action renderNested = () =>
+                        {
+                            foreach (var nestedChild in cell.NestedChildren)
+                                RenderNestedContent(nestedChild, nestedContainer);
+                        };
+                        _nestedGridSections[cell.JsonPath] = (summaryBtn, nestedContainer, renderNested);
                         summaryBtn.MouseLeftButtonUp += (s, e) =>
                         {
                             if (nestedContainer.Visibility == Visibility.Collapsed)
                             {
-                                nestedContainer.Visibility = Visibility.Visible;
-                                summaryBtn.Text = summaryBtn.Text.Replace("[+]", "[-]");
-                                if (nestedContainer.Children.Count == 0)
-                                {
-                                    foreach (var nestedChild in cell.NestedChildren)
-                                        RenderNestedContent(nestedChild, nestedContainer);
-                                }
+                                ExpandNestedGridSection(summaryBtn, nestedContainer, renderNested);
                             }
                             else
                             {
@@ -2073,7 +2350,7 @@ namespace WpfApp1.Views
 
             valTb.MouseLeftButtonUp += (s, e) =>
             {
-                OnGridValueClicked(cell.Value);
+                OnGridValueClicked(cell.Value, cell.JsonPath);
                 e.Handled = true;
             };
 
@@ -2413,7 +2690,7 @@ namespace WpfApp1.Views
                 ? jsonPath.Substring(5)
                 : jsonPath.TrimStart('/');
 
-            foreach (var rawSegment in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var rawSegment in path.Split('/', StringSplitOptions.None))
             {
                 string segment = UnescapeJsonPathSegment(rawSegment);
                 segments.Add(new JsonPathSegment { PropertyName = segment });
@@ -2492,7 +2769,7 @@ namespace WpfApp1.Views
         private static string EscapeCsvField(string field)
         {
             if (string.IsNullOrEmpty(field)) return "";
-            if (field.Contains(',') || field.Contains('"') || field.Contains('\n'))
+            if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
                 return $"\"{field.Replace("\"", "\"\"")}\"";
             return field;
         }

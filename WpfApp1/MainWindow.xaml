@@ -43,16 +43,16 @@
                         <RadioButton x:Name="NavHome" Content="首页概览" Tag="🏠"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav" IsChecked="True"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavImport" Content="数据导入临时表" Tag="📊"
+                        <RadioButton x:Name="NavImport" Content="数据导入临时表" Tag="💾"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavCsvViewer" Content="CSV 预览工具" Tag="📋"
+                        <RadioButton x:Name="NavCsvViewer" Content="CSV 预览工具" Tag="📖"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavCsvCompare" Content="CSV 对比工具" Tag="🧮"
+                        <RadioButton x:Name="NavCsvCompare" Content="CSV 对比工具" Tag="📚"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavDataValidation" Content="数据验证排查" Tag="✅"
+                        <RadioButton x:Name="NavDataValidation" Content="数据验证排查" Tag="🔍"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
 
