@@ -19,7 +19,7 @@ namespace WpfApp1.Services
     public static class ValidationEngine
     {
         // 错误明细上限，避免异常数据一次性产出过多结果导致页面卡顿。
-        private const int MaxErrors = 10000;
+        private const int MaxIssues = 10000;
 
         // 仅日期字段允许的格式。
         private static readonly string[] DateFormats =
@@ -41,6 +41,26 @@ namespace WpfApp1.Services
             "yyyy/MM/dd",
             "yyyyMMddHHmmss",
             "yyyyMMdd"
+        ];
+
+        private static readonly string[] DateTimeWithOffsetFormats =
+        [
+            "yyyy-MM-dd HH:mm:sszzz",
+            "yyyy-MM-dd HH:mm:ss zzz",
+            "yyyy-MM-dd HH:mm:ss.fffzzz",
+            "yyyy-MM-dd HH:mm:ss.fff zzz",
+            "yyyy-MM-dd HH:mm:ss.ffffffzzz",
+            "yyyy-MM-dd HH:mm:ss.ffffff zzz",
+            "yyyy-MM-dd HH:mm:ss.fffffffzzz",
+            "yyyy-MM-dd HH:mm:ss.fffffff zzz",
+            "yyyy-MM-dd'T'HH:mm:sszzz",
+            "yyyy-MM-dd'T'HH:mm:ss.fffzzz",
+            "yyyy-MM-dd'T'HH:mm:ss.ffffffzzz",
+            "yyyy-MM-dd'T'HH:mm:ss.fffffffzzz",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'",
+            "yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'"
         ];
 
         // 纯时间字段允许的格式。
@@ -91,6 +111,8 @@ namespace WpfApp1.Services
             var issues = new List<DvIssue>();
             int processed = 0;
             int errorCount = 0;
+            bool wasCancelled = false;
+            bool wasTruncated = false;
 
             // 建立源表头索引，后续行循环里不再重复查找。
             var headerIndexMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -114,15 +136,24 @@ namespace WpfApp1.Services
 
             // 只保留真正可执行的“源字段映射”，避免每一行都去做映射判定。
             var resolvedMappings = new List<(DvTargetColumn column, int sourceIndex, string sourceName)>();
+            var constantMappings = new List<(DvTargetColumn column, string? value)>();
+            var usableMappedTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var schemaMap = schema.ToDictionary(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
             foreach (var mapping in mappings)
             {
-                if (mapping.MappingType != DvMappingType.Source || string.IsNullOrWhiteSpace(mapping.SourceColumnName))
+                if (!schemaMap.TryGetValue(mapping.TargetColumnName, out var targetColumn))
                 {
                     continue;
                 }
 
-                if (!schemaMap.TryGetValue(mapping.TargetColumnName, out var targetColumn))
+                if (mapping.MappingType == DvMappingType.Constant)
+                {
+                    constantMappings.Add((targetColumn, mapping.ConstantValue));
+                    usableMappedTargets.Add(targetColumn.ColumnName);
+                    continue;
+                }
+
+                if (mapping.MappingType != DvMappingType.Source || string.IsNullOrWhiteSpace(mapping.SourceColumnName))
                 {
                     continue;
                 }
@@ -133,6 +164,7 @@ namespace WpfApp1.Services
                 }
 
                 resolvedMappings.Add((targetColumn, sourceIndex, mapping.SourceColumnName));
+                usableMappedTargets.Add(targetColumn.ColumnName);
             }
 
             // 必填但没有可用映射的字段，整批数据的每一行都要报错一次。
@@ -142,10 +174,10 @@ namespace WpfApp1.Services
                 var mapping = mappings.FirstOrDefault(m =>
                     string.Equals(m.TargetColumnName, column.ColumnName, StringComparison.OrdinalIgnoreCase));
 
-                if (mapping == null || mapping.MappingType == DvMappingType.Ignore)
+                if (!usableMappedTargets.Contains(column.ColumnName))
                 {
                     // 自动生成候选字段（例如系统 UUID 主键）允许安全忽略。
-                    if (mapping != null && mapping.IsAutoGenCandidate)
+                    if (mapping?.MappingType == DvMappingType.Ignore && mapping.IsAutoGenCandidate)
                     {
                         continue;
                     }
@@ -156,80 +188,127 @@ namespace WpfApp1.Services
 
             int reportInterval = Math.Max(100, data.Rows.Count / 200);
 
-            await Task.Run(() =>
+            try
             {
-                for (int rowIndex = 0; rowIndex < data.Rows.Count; rowIndex++)
+                await Task.Run(() =>
                 {
-                    ct.ThrowIfCancellationRequested();
-
-                    var row = data.Rows[rowIndex];
-                    int rowNumber = rowIndex + 2; // 第 1 行是表头，数据从第 2 行起。
-
-                    string? primaryKeyDisplay = null;
-                    if (primaryKeyIndices.Count > 0)
+                    for (int rowIndex = 0; rowIndex < data.Rows.Count; rowIndex++)
                     {
-                        primaryKeyDisplay = string.Join(", ", primaryKeyIndices.Select(primaryKey =>
-                            $"{primaryKey.name}={((primaryKey.index < row.Count ? row[primaryKey.index] : null) ?? "NULL")}"));
-                    }
+                        ct.ThrowIfCancellationRequested();
 
-                    foreach (var (column, sourceIndex, sourceName) in resolvedMappings)
-                    {
-                        string? value = sourceIndex < row.Count ? row[sourceIndex] : null;
+                        var row = data.Rows[rowIndex];
+                        int rowNumber = rowIndex + 2; // 第 1 行是表头，数据从第 2 行起。
 
-                        foreach (var issue in ValidateCell(
-                            value,
-                            column,
-                            rowNumber,
-                            sourceName,
-                            skipIntegerFormatErrors,
-                            skipGuidFormatErrors,
-                            skipDateTimeFormatErrors,
-                            ignoredActualValues))
+                        string? primaryKeyDisplay = null;
+                        bool hasUsablePrimaryKey = false;
+                        if (primaryKeyIndices.Count > 0)
                         {
-                            issue.PrimaryKeyDisplay = primaryKeyDisplay;
-                            if (issue.Level == DvValidationLevel.Error)
-                            {
-                                errorCount++;
-                            }
+                            var primaryKeyValues = primaryKeyIndices
+                                .Select(primaryKey => (
+                                    primaryKey.name,
+                                    value: primaryKey.index < row.Count ? row[primaryKey.index] : null))
+                                .ToList();
+                            hasUsablePrimaryKey = primaryKeyValues.All(item => !string.IsNullOrWhiteSpace(item.value));
+                            primaryKeyDisplay = string.Join(", ", primaryKeyValues.Select(item =>
+                                $"{item.name}={item.value ?? "NULL"}"));
+                        }
 
-                            issues.Add(issue);
-                            if (issues.Count >= MaxErrors)
+                        foreach (var (column, sourceIndex, sourceName) in resolvedMappings)
+                        {
+                            string? value = sourceIndex < row.Count ? row[sourceIndex] : null;
+
+                            foreach (var issue in ValidateCell(
+                                value,
+                                column,
+                                rowNumber,
+                                sourceName,
+                                skipIntegerFormatErrors,
+                                skipGuidFormatErrors,
+                                skipDateTimeFormatErrors,
+                                ignoredActualValues))
                             {
+                                if (issues.Count == MaxIssues)
+                                {
+                                    wasTruncated = true;
+                                    goto Done;
+                                }
+
+                                issue.PrimaryKeyDisplay = primaryKeyDisplay;
+                                issue.HasUsablePrimaryKey = hasUsablePrimaryKey;
+                                if (issue.Level == DvValidationLevel.Error)
+                                {
+                                    errorCount++;
+                                }
+
+                                issues.Add(issue);
+                            }
+                        }
+
+                        foreach (var (column, value) in constantMappings)
+                        {
+                            foreach (var issue in ValidateCell(
+                                value,
+                                column,
+                                rowNumber,
+                                "固定值",
+                                skipIntegerFormatErrors,
+                                skipGuidFormatErrors,
+                                skipDateTimeFormatErrors,
+                                ignoredActualValues))
+                            {
+                                if (issues.Count == MaxIssues)
+                                {
+                                    wasTruncated = true;
+                                    goto Done;
+                                }
+
+                                issue.PrimaryKeyDisplay = primaryKeyDisplay;
+                                issue.HasUsablePrimaryKey = hasUsablePrimaryKey;
+                                if (issue.Level == DvValidationLevel.Error)
+                                    errorCount++;
+
+                                issues.Add(issue);
+                            }
+                        }
+
+                        foreach (var requiredColumn in unmappedRequiredColumns)
+                        {
+                            if (issues.Count == MaxIssues)
+                            {
+                                wasTruncated = true;
                                 goto Done;
                             }
+
+                            errorCount++;
+                            issues.Add(new DvIssue
+                            {
+                                RowNumber = rowNumber,
+                                PrimaryKeyDisplay = primaryKeyDisplay,
+                                HasUsablePrimaryKey = hasUsablePrimaryKey,
+                                TargetColumnName = requiredColumn.ColumnName,
+                                TargetDataType = requiredColumn.DisplayType,
+                                Level = DvValidationLevel.Error,
+                                ErrorType = "必填未映射",
+                                ActualValue = null,
+                                Message = $"必填字段 {requiredColumn.ColumnName} 未映射或值为空"
+                            });
+
+                        }
+
+                        processed++;
+                        if (processed % reportInterval == 0)
+                        {
+                            progress?.Report((processed, data.Rows.Count, errorCount));
                         }
                     }
 
-                    foreach (var requiredColumn in unmappedRequiredColumns)
-                    {
-                        errorCount++;
-                        issues.Add(new DvIssue
-                        {
-                            RowNumber = rowNumber,
-                            PrimaryKeyDisplay = primaryKeyDisplay,
-                            TargetColumnName = requiredColumn.ColumnName,
-                            TargetDataType = requiredColumn.DisplayType,
-                            Level = DvValidationLevel.Error,
-                            ErrorType = "必填未映射",
-                            ActualValue = null,
-                            Message = $"必填字段 {requiredColumn.ColumnName} 未映射或值为空"
-                        });
-
-                        if (issues.Count >= MaxErrors)
-                        {
-                            goto Done;
-                        }
-                    }
-
-                    processed++;
-                    if (processed % reportInterval == 0)
-                    {
-                        progress?.Report((processed, data.Rows.Count, errorCount));
-                    }
-                }
-
-            Done:;
-            }, ct);
+                Done:;
+                }, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                wasCancelled = true;
+            }
 
             progress?.Report((processed, data.Rows.Count, errorCount));
 
@@ -239,7 +318,8 @@ namespace WpfApp1.Services
                 TotalRows = data.Rows.Count,
                 ProcessedRows = processed,
                 Elapsed = DateTime.UtcNow - start,
-                WasCancelled = ct.IsCancellationRequested
+                WasCancelled = wasCancelled,
+                WasTruncated = wasTruncated
             };
         }
 
@@ -299,22 +379,18 @@ namespace WpfApp1.Services
                     break;
 
                 case DvNormalizedType.Integer:
-                    if (!skipIntegerFormatErrors)
+                    foreach (var issue in ValidateInteger(
+                        normalizedValue, column, rowNumber, sourceColumnName, skipIntegerFormatErrors))
                     {
-                        foreach (var issue in ValidateInteger(normalizedValue, column, rowNumber, sourceColumnName))
-                        {
-                            yield return issue;
-                        }
+                        yield return issue;
                     }
                     break;
 
                 case DvNormalizedType.Long:
-                    if (!skipIntegerFormatErrors)
+                    foreach (var issue in ValidateLong(
+                        normalizedValue, column, rowNumber, sourceColumnName, skipIntegerFormatErrors))
                     {
-                        foreach (var issue in ValidateLong(normalizedValue, column, rowNumber, sourceColumnName))
-                        {
-                            yield return issue;
-                        }
+                        yield return issue;
                     }
                     break;
 
@@ -441,12 +517,17 @@ namespace WpfApp1.Services
         // - accept whole-number text and decimal text like 3.0,
         // - reject non-integral decimals,
         // - then enforce DB-specific integer range limits.
-        private static IEnumerable<DvIssue> ValidateInteger(string value, DvTargetColumn column, int rowNumber, string? sourceColumnName)
+        private static IEnumerable<DvIssue> ValidateInteger(
+            string value,
+            DvTargetColumn column,
+            int rowNumber,
+            string? sourceColumnName,
+            bool skipFormatErrors)
         {
-            if (value.Contains('.'))
+            if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal integerValue) ||
+                integerValue != Math.Truncate(integerValue))
             {
-                if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal decimalValue) ||
-                    decimalValue != Math.Truncate(decimalValue))
+                if (!skipFormatErrors)
                 {
                     yield return Issue(
                         rowNumber,
@@ -456,22 +537,7 @@ namespace WpfApp1.Services
                         "整数格式错误",
                         value,
                         "值不是整数格式");
-                    yield break;
                 }
-
-                value = ((long)decimalValue).ToString(CultureInfo.InvariantCulture);
-            }
-
-            if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long integerValue))
-            {
-                yield return Issue(
-                    rowNumber,
-                    sourceColumnName,
-                    column,
-                    DvValidationLevel.Error,
-                    "整数格式错误",
-                    value,
-                    "值无法解析为整数");
                 yield break;
             }
 
@@ -485,7 +551,7 @@ namespace WpfApp1.Services
                     DvValidationLevel.Error,
                     "整数溢出",
                     value,
-                    $"值 {integerValue} 超出范围 [{min}, {max}]");
+                    $"值 {integerValue.ToString(CultureInfo.InvariantCulture)} 超出范围 [{min}, {max}]");
             }
         }
 
@@ -514,12 +580,17 @@ namespace WpfApp1.Services
         // Long rule set:
         // - same integral-shape check as integer,
         // - then rely on long parsing to enforce range.
-        private static IEnumerable<DvIssue> ValidateLong(string value, DvTargetColumn column, int rowNumber, string? sourceColumnName)
+        private static IEnumerable<DvIssue> ValidateLong(
+            string value,
+            DvTargetColumn column,
+            int rowNumber,
+            string? sourceColumnName,
+            bool skipFormatErrors)
         {
-            if (value.Contains('.'))
+            if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal integerValue) ||
+                integerValue != Math.Truncate(integerValue))
             {
-                if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal decimalValue) ||
-                    decimalValue != Math.Truncate(decimalValue))
+                if (!skipFormatErrors)
                 {
                     yield return Issue(
                         rowNumber,
@@ -529,22 +600,20 @@ namespace WpfApp1.Services
                         "整数格式错误",
                         value,
                         "值不是整数格式");
-                    yield break;
                 }
-
-                value = ((long)decimalValue).ToString(CultureInfo.InvariantCulture);
+                yield break;
             }
 
-            if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            if (integerValue < long.MinValue || integerValue > long.MaxValue)
             {
                 yield return Issue(
                     rowNumber,
                     sourceColumnName,
                     column,
                     DvValidationLevel.Error,
-                    "整数格式错误",
+                    "整数溢出",
                     value,
-                    "值无法解析为长整数");
+                    $"值 {integerValue.ToString(CultureInfo.InvariantCulture)} 超出长整数范围");
             }
         }
 
@@ -633,12 +702,26 @@ namespace WpfApp1.Services
         // set of date-only fallbacks used by the current import workflow.
         private static IEnumerable<DvIssue> ValidateDateTime(string value, DvTargetColumn column, int rowNumber, string? sourceColumnName)
         {
-            if (!DateTime.TryParseExact(
+            bool requiresOffset =
+                string.Equals(column.OriginalDataType, "datetimeoffset", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(column.OriginalDataType, "timestamptz", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(column.OriginalDataType, "timestamp with time zone", StringComparison.OrdinalIgnoreCase);
+
+            bool isValid = requiresOffset
+                ? DateTimeOffset.TryParseExact(
+                    value,
+                    DateTimeWithOffsetFormats,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out _)
+                : DateTime.TryParseExact(
                     value,
                     DateTimeFormats,
                     CultureInfo.InvariantCulture,
                     DateTimeStyles.None,
-                    out _))
+                    out _);
+
+            if (!isValid)
             {
                 yield return Issue(
                     rowNumber,
@@ -654,9 +737,23 @@ namespace WpfApp1.Services
         // Time rule set supports pure time values and time-with-offset values.
         private static IEnumerable<DvIssue> ValidateTime(string value, DvTargetColumn column, int rowNumber, string? sourceColumnName)
         {
-            bool isTimeValid =
-                DateTime.TryParseExact(value, TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) ||
-                DateTimeOffset.TryParseExact(value, TimeWithOffsetFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+            bool requiresOffset =
+                string.Equals(column.OriginalDataType, "timetz", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(column.OriginalDataType, "time with time zone", StringComparison.OrdinalIgnoreCase);
+
+            bool isTimeValid = requiresOffset
+                ? DateTimeOffset.TryParseExact(
+                    value,
+                    TimeWithOffsetFormats,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out _)
+                : DateTime.TryParseExact(
+                    value,
+                    TimeFormats,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out _);
 
             if (!isTimeValid)
             {
@@ -742,15 +839,16 @@ namespace WpfApp1.Services
             string errorType,
             string? actualValue,
             string message) => new()
-        {
-            RowNumber = rowNumber,
-            SourceColumnName = sourceColumnName,
-            TargetColumnName = column.ColumnName,
-            TargetDataType = column.DisplayType,
-            Level = level,
-            ErrorType = errorType,
-            ActualValue = actualValue?.Length > 200 ? actualValue[..200] + "…" : actualValue,
-            Message = message
-        };
+            {
+                RowNumber = rowNumber,
+                SourceColumnName = sourceColumnName,
+                TargetColumnName = column.ColumnName,
+                TargetDataType = column.DisplayType,
+                Level = level,
+                ErrorType = errorType,
+                ActualValue = actualValue?.Length > 200 ? actualValue[..200] + "…" : actualValue,
+                FullActualValue = actualValue,
+                Message = message
+            };
     }
 }

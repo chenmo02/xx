@@ -158,7 +158,9 @@
 
                     <!-- 排版模板 -->
                     <TextBlock Text="排版模板" Style="{StaticResource LabelText}"/>
-                    <ComboBox x:Name="CmbTemplate" Style="{DynamicResource ComboBoxStandard}" Margin="0,0,0,14"
+                    <ComboBox x:Name="CmbTemplate" Style="{DynamicResource ComboBoxStandard}"
+                              ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"
+                              MaxDropDownHeight="240" Margin="0,0,0,14"
                               SelectionChanged="CmbTemplate_SelectionChanged"/>
 
                     <TextBlock Text="打印机" Style="{StaticResource LabelText}"/>
@@ -170,6 +172,8 @@
                         </Grid.ColumnDefinitions>
                         <ComboBox x:Name="CmbPrinter"
                                   Style="{DynamicResource ComboBoxStandard}"
+                                  ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"
+                                  MaxDropDownHeight="240"
                                   Grid.Column="0"
                                   DisplayMemberPath="Name"
                                   VerticalContentAlignment="Center"

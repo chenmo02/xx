@@ -59,8 +59,14 @@ namespace WpfApp1.Services
             AddRow("异常记录数（按主键/行去重）", result.ErrorCount.ToString());
             AddRow("警告记录数（按主键/行去重）", result.WarningCount.ToString());
             AddRow("错误项数", result.RawErrorCount.ToString());
-            AddRow("错误率", result.TotalRows > 0 ? $"{(double)result.ErrorCount / result.TotalRows:P2}" : "0%");
-            AddRow("是否完整校验", result.WasCancelled ? "否（中途取消）" : "是");
+            AddRow("错误率", result.WasCancelled || result.WasTruncated
+                ? "未计算（校验未完整执行）"
+                : result.TotalRows > 0 ? $"{(double)result.ErrorCount / result.TotalRows:P2}" : "0%");
+            AddRow("是否完整校验", result.WasCancelled
+                ? "否（中途取消）"
+                : result.WasTruncated
+                    ? "否（问题明细达到 10,000 条上限）"
+                    : "是");
             AddRow("校验耗时", $"{result.Elapsed.TotalSeconds:F2} 秒");
             AddRow("导出时间", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 

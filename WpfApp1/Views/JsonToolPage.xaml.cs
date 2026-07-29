@@ -49,6 +49,7 @@ namespace WpfApp1.Views
         private bool _editorSearchResultsTruncated = false;
         private int _currentSearchKeywordLength = 0;
         private bool _isUpdatingText = false;
+        private bool _isAutoBeautifySuppressed = false;
         private bool _isGridFullscreen = false;
         private bool _isGridEditMode = false;
         private GridLength _leftPanelWidthBeforeFullscreen = new(2, GridUnitType.Star);
@@ -368,6 +369,7 @@ namespace WpfApp1.Views
 
         private void SetEditorText(string text)
         {
+            _isAutoBeautifySuppressed = false;
             CancelEditorSearch();
             ClearSearchHighlights();
             _isUpdatingText = true;
@@ -393,6 +395,7 @@ namespace WpfApp1.Views
         private void TxtJsonEditor_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_isUpdatingText) return;
+            _isAutoBeautifySuppressed = false;
             TrackEditorTextLength(e);
 
             if (SearchPanel.Visibility == Visibility.Visible)
@@ -1642,17 +1645,129 @@ namespace WpfApp1.Views
 
             try
             {
+                string formattedJson = _isAutoBeautifySuppressed ? json : BeautifyJsonForEditor(json);
+                bool wasAutoFormatted = !_isAutoBeautifySuppressed && !string.Equals(json, formattedJson, StringComparison.Ordinal);
+                if (wasAutoFormatted)
+                {
+                    ApplyAutoFormattedEditorText(json, formattedJson);
+                    json = GetEditorText();
+                    _lastEditorTextLength = json.Length;
+                }
+
                 _currentNodes = JsonGridParser.Parse(json);
                 _lastJsonErrorSignature = null;
                 if (_currentNodes.Count > 0)
                     RenderNode(_currentNodes[0], GridContainer, 0);
-                SetStatus("✅ 已同步");
+                SetStatus(wasAutoFormatted ? "✅ 已自动美化并同步" : "✅ 已同步");
             }
             catch (JsonException ex)
             {
                 SetStatus("JSON 格式错误，无法生成 GRID");
                 ShowJsonFormatError("左侧内容不是标准 JSON，无法生成右侧 GRID。", ex, false);
             }
+        }
+
+        private void ApplyAutoFormattedEditorText(string originalText, string formattedText)
+        {
+            int selectionStart = Math.Min(TxtJsonEditor.SelectionStart, originalText.Length);
+            int selectionEnd = Math.Min(
+                TxtJsonEditor.SelectionStart + TxtJsonEditor.SelectionLength,
+                originalText.Length);
+            int mappedStart = MapJsonTextPosition(originalText, formattedText, selectionStart);
+            int mappedEnd = MapJsonTextPosition(originalText, formattedText, selectionEnd);
+
+            CancelEditorSearch();
+            ClearSearchHighlights();
+            _isUpdatingText = true;
+            try
+            {
+                TxtJsonEditor.BeginChange();
+                try
+                {
+                    TxtJsonEditor.SelectAll();
+                    TxtJsonEditor.SelectedText = NormalizeEditorNewLines(formattedText);
+                }
+                finally
+                {
+                    TxtJsonEditor.EndChange();
+                }
+
+                _lastEditorTextLength = TxtJsonEditor.Text.Length;
+            }
+            finally
+            {
+                _isUpdatingText = false;
+            }
+
+            TxtJsonEditor.Select(mappedStart, Math.Max(0, mappedEnd - mappedStart));
+
+            if (SearchPanel.Visibility == Visibility.Visible)
+                QueueEditorSearch();
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                int lineIndex = TxtJsonEditor.GetLineIndexFromCharacterIndex(mappedStart);
+                if (lineIndex >= 0)
+                    TxtJsonEditor.ScrollToLine(Math.Max(0, lineIndex - 2));
+            }), DispatcherPriority.Background);
+        }
+
+        private static int MapJsonTextPosition(string originalText, string formattedText, int originalPosition)
+        {
+            int targetContentCharacters = CountJsonContentCharacters(originalText, originalPosition);
+            if (targetContentCharacters == 0)
+                return 0;
+
+            int contentCharacters = 0;
+            bool inString = false;
+            bool escaped = false;
+
+            for (int i = 0; i < formattedText.Length; i++)
+            {
+                char ch = formattedText[i];
+                bool countsAsContent = inString || !char.IsWhiteSpace(ch);
+                UpdateJsonStringState(ch, ref inString, ref escaped);
+
+                if (countsAsContent && ++contentCharacters >= targetContentCharacters)
+                    return i + 1;
+            }
+
+            return formattedText.Length;
+        }
+
+        private static int CountJsonContentCharacters(string text, int length)
+        {
+            int count = 0;
+            bool inString = false;
+            bool escaped = false;
+            int end = Math.Min(length, text.Length);
+
+            for (int i = 0; i < end; i++)
+            {
+                char ch = text[i];
+                if (inString || !char.IsWhiteSpace(ch))
+                    count++;
+                UpdateJsonStringState(ch, ref inString, ref escaped);
+            }
+
+            return count;
+        }
+
+        private static void UpdateJsonStringState(char ch, ref bool inString, ref bool escaped)
+        {
+            if (!inString)
+            {
+                if (ch == '"')
+                    inString = true;
+                return;
+            }
+
+            if (escaped)
+                escaped = false;
+            else if (ch == '\\')
+                escaped = true;
+            else if (ch == '"')
+                inString = false;
         }
 
         private void ClearGridState()
@@ -2847,6 +2962,7 @@ namespace WpfApp1.Views
             try
             {
                 SetEditorText(JsonToolService.Minify(GetEditorText()));
+                _isAutoBeautifySuppressed = true;
                 RebuildGridAfterProgrammaticTextChange("✅ 压缩完成");
             }
             catch (JsonException ex)

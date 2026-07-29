@@ -293,6 +293,7 @@ namespace WpfApp1.Models
 
         /// <summary>主键标识，例如 "emrbaid=abc123" 或 "pk1=x, pk2=y"。</summary>
         public string? PrimaryKeyDisplay { get; set; }
+        public bool HasUsablePrimaryKey { get; set; }
 
         public string? SourceColumnName { get; init; }
         public required string TargetColumnName { get; init; }
@@ -300,6 +301,7 @@ namespace WpfApp1.Models
         public DvValidationLevel Level { get; init; }
         public required string ErrorType { get; init; }
         public string? ActualValue { get; init; }
+        public string? FullActualValue { get; init; }
         public required string Message { get; init; }
 
         public string LevelText => Level switch
@@ -321,13 +323,14 @@ namespace WpfApp1.Models
         public int ProcessedRows { get; init; }
         public System.TimeSpan Elapsed { get; init; }
         public bool WasCancelled { get; init; }
+        public bool WasTruncated { get; init; }
 
         /// <summary>
         /// 按主键去重后的错误记录数；没有主键时按行号去重。
         /// </summary>
         public int ErrorCount => Issues
             .Where(i => i.Level == DvValidationLevel.Error)
-            .Select(i => i.PrimaryKeyDisplay ?? $"row:{i.RowNumber}")
+            .Select(i => i.HasUsablePrimaryKey ? $"pk:{i.PrimaryKeyDisplay}" : $"row:{i.RowNumber}")
             .Distinct()
             .Count();
 
@@ -336,7 +339,7 @@ namespace WpfApp1.Models
         /// </summary>
         public int WarningCount => Issues
             .Where(i => i.Level == DvValidationLevel.Warning)
-            .Select(i => i.PrimaryKeyDisplay ?? $"row:{i.RowNumber}")
+            .Select(i => i.HasUsablePrimaryKey ? $"pk:{i.PrimaryKeyDisplay}" : $"row:{i.RowNumber}")
             .Distinct()
             .Count();
 

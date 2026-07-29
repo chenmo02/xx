@@ -24,13 +24,18 @@ namespace WpfApp1.Services
                 if (headers == null)
                 {
                     headers = currentHeaders;
+                    EnsureUniqueHeaders(headers);
+                    rows.AddRange(currentRows);
                 }
-                else if (!HeadersMatch(headers, currentHeaders) && warning == null)
+                else
                 {
-                    warning = "检测到多条 INSERT 的字段列表不一致，当前按第一条字段顺序解析。";
+                    var (alignedRows, reordered) = AlignRows(headers, currentHeaders, currentRows);
+                    rows.AddRange(alignedRows);
+                    if (reordered && warning == null)
+                    {
+                        warning = "检测到多条 INSERT 的字段顺序不一致，已按第一条字段顺序重新对齐。";
+                    }
                 }
-
-                rows.AddRange(currentRows);
             }
 
             if (headers == null || headers.Count == 0)
@@ -91,21 +96,23 @@ namespace WpfApp1.Services
         private static List<IReadOnlyList<string?>> ReadValues(string sql, ref int cursor, int expectedCount)
         {
             var rows = new List<IReadOnlyList<string?>>();
+            bool expectTuple = true;
 
             while (cursor < sql.Length)
             {
                 SkipTrivia(sql, ref cursor);
-                while (cursor < sql.Length && sql[cursor] == ',')
-                {
-                    cursor++;
-                    SkipTrivia(sql, ref cursor);
-                }
 
                 if (cursor >= sql.Length)
+                {
+                    if (expectTuple && rows.Count > 0)
+                        throw new InvalidOperationException("VALUES 末尾逗号后缺少数据行。");
                     break;
+                }
 
                 if (sql[cursor] == ';')
                 {
+                    if (expectTuple && rows.Count > 0)
+                        throw new InvalidOperationException("VALUES 末尾逗号后缺少数据行。");
                     cursor++;
                     break;
                 }
@@ -115,12 +122,24 @@ namespace WpfApp1.Services
 
                 if (sql[cursor] != '(')
                 {
-                    cursor++;
-                    continue;
+                    if (rows.Count == 0)
+                        throw new InvalidOperationException("VALUES 后缺少数据行括号。");
+                    break;
                 }
 
                 string tuple = ReadBalanced(sql, ref cursor, '(', ')');
                 rows.Add(ParseTuple(tuple, expectedCount));
+                expectTuple = false;
+
+                SkipTrivia(sql, ref cursor);
+                if (cursor < sql.Length && sql[cursor] == ',')
+                {
+                    cursor++;
+                    expectTuple = true;
+                    continue;
+                }
+
+                break;
             }
 
             return rows;
@@ -180,10 +199,63 @@ namespace WpfApp1.Services
                 result.Add(raw);
             }
 
-            while (result.Count < expectedCount)
-                result.Add(null);
+            if (result.Count != expectedCount)
+            {
+                throw new InvalidOperationException(
+                    $"VALUES 中包含 {result.Count} 个值，但字段列表包含 {expectedCount} 个字段。");
+            }
 
             return result;
+        }
+
+        private static (List<IReadOnlyList<string?>> Rows, bool Reordered) AlignRows(
+            IReadOnlyList<string> expectedHeaders,
+            IReadOnlyList<string> currentHeaders,
+            IReadOnlyList<IReadOnlyList<string?>> currentRows)
+        {
+            EnsureUniqueHeaders(currentHeaders);
+
+            if (expectedHeaders.Count != currentHeaders.Count)
+                throw new InvalidOperationException("检测到多条 INSERT 的字段集合不一致，无法合并校验。");
+
+            var currentIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < currentHeaders.Count; i++)
+                currentIndex.Add(currentHeaders[i], i);
+
+            var order = new int[expectedHeaders.Count];
+            bool reordered = false;
+            for (int i = 0; i < expectedHeaders.Count; i++)
+            {
+                if (!currentIndex.TryGetValue(expectedHeaders[i], out int sourceIndex))
+                    throw new InvalidOperationException("检测到多条 INSERT 的字段集合不一致，无法合并校验。");
+
+                order[i] = sourceIndex;
+                reordered |= sourceIndex != i;
+            }
+
+            if (!reordered)
+                return (new List<IReadOnlyList<string?>>(currentRows), false);
+
+            var alignedRows = new List<IReadOnlyList<string?>>(currentRows.Count);
+            foreach (var row in currentRows)
+            {
+                var aligned = new string?[order.Length];
+                for (int i = 0; i < order.Length; i++)
+                    aligned[i] = row[order[i]];
+                alignedRows.Add(aligned);
+            }
+
+            return (alignedRows, true);
+        }
+
+        private static void EnsureUniqueHeaders(IReadOnlyList<string> headers)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string header in headers)
+            {
+                if (!seen.Add(header))
+                    throw new InvalidOperationException($"INSERT 字段列表中存在重复字段：{header}");
+            }
         }
 
         private static string UnescapeSqlString(string value)
@@ -644,20 +716,6 @@ namespace WpfApp1.Services
         private static bool IsIdentifierChar(char value)
         {
             return char.IsLetterOrDigit(value) || value == '_';
-        }
-
-        private static bool HeadersMatch(List<string> left, List<string> right)
-        {
-            if (left.Count != right.Count)
-                return false;
-
-            for (int i = 0; i < left.Count; i++)
-            {
-                if (!string.Equals(left[i], right[i], StringComparison.OrdinalIgnoreCase))
-                    return false;
-            }
-
-            return true;
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,6 +29,9 @@ namespace WpfApp1.Views
         private DvSourceData? _sourceData;
         private ObservableCollection<DvMappingRow> _mappings = [];
         private DvValidationResult? _lastResult;
+        private bool _ddlParseDirty = true;
+        private bool? _structureFromDdl;
+        private DvDbType? _structureDbType;
         private bool _insertParseDirty = true;
         private bool _sourceDataFromInsert;
         private readonly ObservableCollection<string> _ignoredActualValueTags = [];
@@ -64,6 +68,7 @@ namespace WpfApp1.Views
             DataObject.AddPastingHandler(TxtInsert, OnInsertPasting);
 
             // INSERT 文本变动后立刻使旧解析结果失效，防止用旧数据继续走流程
+            TxtDdl.TextChanged += TxtDdl_TextChanged;
             TxtInsert.TextChanged += TxtInsert_TextChanged;
 
             IgnoredValuesItems.ItemsSource = _ignoredActualValueTags;
@@ -281,6 +286,15 @@ namespace WpfApp1.Views
                 case 1:
                     if (_targetColumns.Count == 0)
                     { err = "请先解析 DDL 或导入结构 Excel"; return false; }
+                    if (RbDdlMode.IsChecked == true && (_structureFromDdl != true || _ddlParseDirty))
+                    { err = "DDL 内容尚未解析或已修改，请重新解析"; return false; }
+                    if (RbExcelStructMode.IsChecked == true && _structureFromDdl != false)
+                    { err = "当前选择了结构 Excel，请先导入查询结果 Excel"; return false; }
+                    var selectedDbType = RbSqlServer.IsChecked == true
+                        ? DvDbType.SqlServer
+                        : DvDbType.PostgreSql;
+                    if (_structureDbType != selectedDbType)
+                    { err = "数据库类型已变更，请重新解析 DDL 或导入结构 Excel"; return false; }
                     if (string.IsNullOrWhiteSpace(TxtTableName.Text))
                     { err = "请填写目标表名"; return false; }
                     return true;
@@ -288,6 +302,10 @@ namespace WpfApp1.Views
                 case 2:
                     if (_sourceData == null || _sourceData.RowCount == 0)
                     { err = "请先解析 INSERT 语句或导入数据 Excel"; return false; }
+                    if (RbInsertMode.IsChecked == true && !_sourceDataFromInsert)
+                    { err = "当前选择了 INSERT 模式，请先解析 INSERT 语句"; return false; }
+                    if (RbExcelDataMode.IsChecked == true && _sourceDataFromInsert)
+                    { err = "当前选择了数据 Excel，请先导入 Excel 文件"; return false; }
                     return true;
 
                 case 3:
@@ -577,6 +595,21 @@ namespace WpfApp1.Views
             StructExcelInner.BorderThickness = new Thickness(isDdl ? 1 : 0);
         }
 
+        private void TxtDdl_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _ddlParseDirty = true;
+            if (_structureFromDdl != true)
+                return;
+
+            _targetColumns.Clear();
+            _structureFromDdl = null;
+            _structureDbType = null;
+            _structureChanged = true;
+            ClearValidationResultState();
+            TxtDdlStatus.Text = "内容已修改，请重新点击「解析 DDL」";
+            TxtDdlStatus.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
+        }
+
         private void DbType_Changed(object sender, RoutedEventArgs e)
         {
             UpdateStructQuery();
@@ -634,7 +667,6 @@ namespace WpfApp1.Views
         {
             TxtDdl.Clear();
             TxtDdlStatus.Text = "";
-            _targetColumns.Clear();
             SetStatus("");
         }
 
@@ -675,7 +707,11 @@ namespace WpfApp1.Views
                 }
 
                 _targetColumns = DdlParser.Parse(TxtDdl.Text, dbType);
+                _structureFromDdl = true;
+                _structureDbType = dbType;
+                _ddlParseDirty = false;
                 _structureChanged = true; // 目标表结构已变更，下次进入 Step3 需重建映射
+                ClearValidationResultState();
 
                 // 自动提取表名
                 var extractedName = DdlParser.ExtractTableName(TxtDdl.Text);
@@ -695,6 +731,9 @@ namespace WpfApp1.Views
                 TxtDdlStatus.Text = $"⌛️ 解析失败: {ex.Message}";
                 TxtDdlStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 _targetColumns.Clear();
+                _structureFromDdl = null;
+                _structureDbType = null;
+                _ddlParseDirty = true;
             }
         }
 
@@ -710,7 +749,10 @@ namespace WpfApp1.Views
             {
                 var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 _targetColumns = ReadStructExcel(dlg.FileName, dbType);
+                _structureFromDdl = false;
+                _structureDbType = dbType;
                 _structureChanged = true; // 目标表结构已变更，下次进入 Step3 需重建映射
+                ClearValidationResultState();
                 TxtStructExcelInfo.Text = $"⌛️ {System.IO.Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
                 SetStatus($"结构 Excel 导入成功，共 {_targetColumns.Count} 个字段");
             }
@@ -933,11 +975,34 @@ namespace WpfApp1.Views
                 for (int i = 0; i < headers.Count; i++)
                 {
                     var v = row[i];
-                    vals.Add(v == null || v == DBNull.Value ? null : v.ToString());
+                    vals.Add(ConvertExcelCellValue(v));
                 }
                 rows.Add(vals);
             }
             return new DvSourceData { Headers = headers, Rows = rows };
+        }
+
+        private static string? ConvertExcelCellValue(object? value)
+        {
+            if (value == null || value == DBNull.Value)
+                return null;
+
+            return value switch
+            {
+                DateTime dateTime when dateTime.Date <= new DateTime(1900, 1, 1) =>
+                    dateTime.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture),
+                DateTime dateTime when dateTime.TimeOfDay == TimeSpan.Zero =>
+                    dateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                DateTime dateTime =>
+                    dateTime.ToString("yyyy-MM-dd HH:mm:ss.fffffff", CultureInfo.InvariantCulture),
+                DateTimeOffset dateTimeOffset =>
+                    dateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss.fffffffzzz", CultureInfo.InvariantCulture),
+                DateOnly dateOnly => dateOnly.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                TimeOnly timeOnly => timeOnly.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture),
+                TimeSpan timeSpan => timeSpan.ToString("c", CultureInfo.InvariantCulture),
+                IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+                _ => value.ToString()
+            };
         }
 
         // ══════════════════════════════════════════════════════════
@@ -946,6 +1011,7 @@ namespace WpfApp1.Views
 
         private void BuildMappings()
         {
+            ClearValidationResultState();
             _mappings = new ObservableCollection<DvMappingRow>(
                 OrderMappingsForDisplay(FieldMatcherService.AutoMap(_targetColumns, _sourceData!.Headers)));
             DgMapping.ItemsSource = _mappings;
@@ -1151,6 +1217,7 @@ namespace WpfApp1.Views
                 SetManualMatchState(m, "批量忽略 UUID 类型字段", isConfirmed: true, wasAutoIgnored: true);
             }
 
+            ClearValidationResultState();
             UpdateMappingInfo();
             SetStatus($"已忽略 {uuidMappings.Count} 个 UUID 类型字段");
         }
@@ -1191,6 +1258,7 @@ namespace WpfApp1.Views
                     return;
                 }
 
+                ClearValidationResultState();
                 switch (mapping.MappingType)
                 {
                     case DvMappingType.Source:
@@ -1233,7 +1301,20 @@ namespace WpfApp1.Views
                     : "手动选择源字段",
                 isConfirmed: !string.IsNullOrWhiteSpace(mapping.SourceColumnName));
 
+            ClearValidationResultState();
             UpdateMappingInfo();
+        }
+
+        private void ConstantValue_Changed(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox { IsKeyboardFocusWithin: true })
+                ClearValidationResultState();
+        }
+
+        private void PrimaryKey_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsUserSelectionChange(sender))
+                ClearValidationResultState();
         }
 
         /// <summary>获取用户选择的主键列名列表（排除"(无)"）</summary>
@@ -1291,13 +1372,14 @@ namespace WpfApp1.Views
 
         private void BtnAddSelectedActualValue_Click(object sender, RoutedEventArgs e)
         {
-            if (DgIssues.SelectedItem is not DvIssue issue || string.IsNullOrWhiteSpace(issue.ActualValue))
+            if (DgIssues.SelectedItem is not DvIssue issue)
             {
                 SetStatus("请先在错误列表中选中一条带实际值的记录", true);
                 return;
             }
 
-            string value = issue.ActualValue.Trim();
+            string? selectedValue = issue.FullActualValue ?? issue.ActualValue;
+            string value = selectedValue?.Trim() ?? string.Empty;
             if (value.Length == 0)
             {
                 SetStatus("当前记录的实际值为空，无需加入忽略列表", true);
@@ -1618,7 +1700,25 @@ namespace WpfApp1.Views
 
         private async void BtnRunValidation_Click(object sender, RoutedEventArgs e)
         {
-            if (_targetColumns.Count == 0) return;
+            var selectedDbType = RbSqlServer.IsChecked == true
+                ? DvDbType.SqlServer
+                : DvDbType.PostgreSql;
+            bool structureIsCurrent = _targetColumns.Count > 0 &&
+                _structureDbType == selectedDbType &&
+                (RbDdlMode.IsChecked == true
+                    ? _structureFromDdl == true && !_ddlParseDirty
+                    : _structureFromDdl == false);
+            if (!structureIsCurrent)
+            {
+                SetStatus("目标表结构已失效，请返回结构输入步骤重新解析或导入", true);
+                return;
+            }
+
+            if (RbExcelDataMode.IsChecked == true && (_sourceData == null || _sourceDataFromInsert))
+            {
+                SetStatus("当前选择了数据 Excel，请返回数据输入步骤重新导入", true);
+                return;
+            }
 
             // INSERT 模式：仅当文本有变动、尚未解析，或当前源数据并非来自 INSERT 时才重新解析。
             if (RbInsertMode.IsChecked == true)
@@ -1695,10 +1795,16 @@ namespace WpfApp1.Views
             {
                 SetStatus("校验已取消");
             }
+            catch (Exception ex)
+            {
+                SetStatus($"校验失败：{ex.Message}", true);
+                MessageBox.Show($"校验失败:\n{ex.Message}", "校验错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
             finally
             {
                 sw.Stop();
                 BtnRunValidation.IsEnabled = true;
+                BtnCancelValidation.IsEnabled = false;
                 ProgressPanel.Visibility = Visibility.Collapsed;
             }
 
@@ -1707,9 +1813,24 @@ namespace WpfApp1.Views
 
             RefreshValidationDashboard();
 
-            SetStatus(lastResult.ErrorCount == 0 && lastResult.WarningCount == 0
-                ? "校验通过，无错误无警告"
-                : $"校验完成：{lastResult.ErrorCount} 条异常记录，{lastResult.RawErrorCount} 项错误，{lastResult.WarningCount} 条警告记录");
+            if (lastResult.WasCancelled)
+            {
+                SetStatus(
+                    $"校验已取消；完整处理 {lastResult.ProcessedRows:N0}/{lastResult.TotalRows:N0} 行",
+                    true);
+            }
+            else if (lastResult.WasTruncated)
+            {
+                SetStatus(
+                    $"问题明细已达到 10,000 条，结果已截断；完整处理 {lastResult.ProcessedRows:N0}/{lastResult.TotalRows:N0} 行",
+                    true);
+            }
+            else
+            {
+                SetStatus(lastResult.ErrorCount == 0 && lastResult.WarningCount == 0
+                    ? "校验通过，无错误无警告"
+                    : $"校验完成：{lastResult.ErrorCount} 条异常记录，{lastResult.RawErrorCount} 项错误，{lastResult.WarningCount} 条警告记录");
+            }
         }
 
         private void BtnCancelValidation_Click(object sender, RoutedEventArgs e)

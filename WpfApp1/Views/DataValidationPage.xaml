@@ -355,10 +355,12 @@
         </Style>
 
         <Style x:Key="FilterCombo" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStandard}">
-            <Setter Property="MinHeight" Value="34"/>
-            <Setter Property="Width" Value="160"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Width" Value="180"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MaxDropDownHeight" Value="240"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ComboBoxItemStandard}"/>
         </Style>
 
         <!-- 页面专属单元格（原始边框/间距与全局不同） -->
@@ -829,9 +831,15 @@
                         <TextBlock Text="中间表主键" FontSize="13" FontWeight="SemiBold"
                                    Foreground="#374151" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <ComboBox x:Name="CbPk1" Width="170" Margin="0,0,8,0"
-                                  Style="{DynamicResource ComboBoxStandard}"/>
+                                  Style="{DynamicResource ComboBoxStandard}"
+                                  ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"
+                                  MaxDropDownHeight="240"
+                                  SelectionChanged="PrimaryKey_Changed"/>
                         <ComboBox x:Name="CbPk2" Width="170" Margin="0,0,12,0"
-                                  Style="{DynamicResource ComboBoxStandard}"/>
+                                  Style="{DynamicResource ComboBoxStandard}"
+                                  ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"
+                                  MaxDropDownHeight="240"
+                                  SelectionChanged="PrimaryKey_Changed"/>
                         <TextBlock Text="(选填，用于错误报告中按主键定位记录)" FontSize="11"
                                    Foreground="#9CA3AF" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -953,6 +961,7 @@
                                                 <!-- Constant: TextBox -->
                                                 <TextBox Visibility="{Binding IsConstantMode, Converter={StaticResource BoolVis}}"
                                                          Text="{Binding ConstantValue, UpdateSourceTrigger=PropertyChanged}"
+                                                         TextChanged="ConstantValue_Changed"
                                                          BorderThickness="0" Background="Transparent" FontSize="12" Padding="4,2"/>
                                             </Grid>
                                         </DataTemplate>
