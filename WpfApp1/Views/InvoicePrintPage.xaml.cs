@@ -6,6 +6,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -33,6 +35,10 @@ namespace WpfApp1.Views
         private bool _isInitialized = false;
         private bool _isLeftPanelHidden = false;
         private int _selectedLayout = 1; // 1, 2, 4
+        private readonly Dictionary<string, string?> _fileHashes = new(StringComparer.OrdinalIgnoreCase);
+        private CancellationTokenSource? _previewCancellation;
+        private int _previewVersion;
+        private bool _isImporting;
 
         private sealed class PrinterOption
         {
@@ -284,7 +290,7 @@ namespace WpfApp1.Views
         // 文件导入 + 去重
         // ═══════════════════════════════════════
 
-        private void BtnImportFiles_Click(object sender, RoutedEventArgs e)
+        private async void BtnImportFiles_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFileDialog
             {
@@ -293,49 +299,83 @@ namespace WpfApp1.Views
                 Multiselect = true
             };
             if (dlg.ShowDialog() != true) return;
-            AddFiles(dlg.FileNames);
+            await AddFilesAsync(dlg.FileNames);
         }
 
-        private void BtnImportFolder_Click(object sender, RoutedEventArgs e)
+        private async void BtnImportFolder_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "选择发票文件夹" };
             if (dlg.ShowDialog() != true) return;
-            var files = Directory.GetFiles(dlg.FolderName, "*.*", SearchOption.AllDirectories)
-                .Where(f => InvoicePrintService.SupportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToArray();
-            AddFiles(files);
+            SetStatus("正在扫描文件夹...");
+            var files = await Task.Run(() => Directory.GetFiles(dlg.FolderName, "*.*", SearchOption.AllDirectories)
+                .Where(f => InvoicePrintService.SupportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToArray());
+            await AddFilesAsync(files);
         }
 
-        private void AddFiles(string[] paths)
+        private async Task AddFilesAsync(string[] paths)
         {
-            var items = _service.ImportFiles(paths);
-            int added = 0;
-            var dupNames = new List<string>();
-            foreach (var item in items)
+            if (_isImporting)
             {
-                if (_fileItems.Any(f => f.FilePath == item.FilePath)) { dupNames.Add(item.FileName); continue; }
-                var newHash = ComputeFileHash(item.FilePath);
-                bool isDup = false;
-                if (newHash != null)
-                    foreach (var ex in _fileItems)
+                SetStatus("正在导入文件，请稍候...");
+                return;
+            }
+
+            _isImporting = true;
+            try
+            {
+                SetStatus("正在导入文件...");
+                var existingPaths = _fileItems.Select(f => f.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var existingHashes = _fileHashes.Values.Where(h => h != null).Cast<string>().ToHashSet(StringComparer.Ordinal);
+
+                var result = await Task.Run(() =>
+                {
+                    var addedItems = new List<(InvoiceFileItem Item, string? Hash)>();
+                    var duplicates = new List<string>();
+                    foreach (var item in _service.ImportFiles(paths))
                     {
-                        var exHash = ComputeFileHash(ex.FilePath);
-                        if (exHash != null && newHash == exHash)
-                        { dupNames.Add($"{item.FileName}（与 {ex.FileName} 内容相同）"); isDup = true; break; }
+                        if (!existingPaths.Add(item.FilePath))
+                        {
+                            duplicates.Add(item.FileName);
+                            continue;
+                        }
+
+                        var hash = ComputeFileHash(item.FilePath);
+                        if (hash != null && !existingHashes.Add(hash))
+                        {
+                            duplicates.Add(item.FileName);
+                            continue;
+                        }
+
+                        addedItems.Add((item, hash));
                     }
-                if (!isDup) { _fileItems.Add(item); added++; }
+                    return (addedItems, duplicates);
+                });
+
+                foreach (var (item, hash) in result.addedItems)
+                {
+                    _fileItems.Add(item);
+                    _fileHashes[item.FilePath] = hash;
+                }
+
+                UpdateFileCount();
+                if (result.duplicates.Count > 0)
+                    MessageBox.Show($"以下 {result.duplicates.Count} 个文件已存在，已自动跳过：\n\n{string.Join("\n", result.duplicates.Select(n => $"  • {n}"))}", "⚠️ 重复文件提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (result.addedItems.Count > 0)
+                {
+                    SetStatus($"📥 已导入 {result.addedItems.Count} 个文件" + (result.duplicates.Count > 0 ? $"，跳过 {result.duplicates.Count} 个重复" : ""));
+                    DropHintPanel.Visibility = Visibility.Collapsed;
+                    PreviewScroller.Visibility = Visibility.Visible;
+                    if (FileListBox.SelectedIndex < 0) FileListBox.SelectedIndex = 0;
+                    UpdatePreview();
+                }
+                else if (result.duplicates.Count > 0) SetStatus("⚠️ 所有文件均已存在");
+                else SetStatus("⚠️ 没有找到支持的文件格式");
             }
-            UpdateFileCount();
-            if (dupNames.Count > 0)
-                MessageBox.Show($"以下 {dupNames.Count} 个文件已存在，已自动跳过：\n\n{string.Join("\n", dupNames.Select(n => $"  • {n}"))}", "⚠️ 重复文件提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-            if (added > 0)
+            catch (Exception ex)
             {
-                SetStatus($"📥 已导入 {added} 个文件" + (dupNames.Count > 0 ? $"，跳过 {dupNames.Count} 个重复" : ""));
-                DropHintPanel.Visibility = Visibility.Collapsed;
-                PreviewScroller.Visibility = Visibility.Visible;
-                if (FileListBox.SelectedIndex < 0) FileListBox.SelectedIndex = 0;
+                SetStatus($"❌ 导入失败: {ex.Message}");
             }
-            else if (dupNames.Count > 0) SetStatus("⚠️ 所有文件均已存在");
-            else SetStatus("⚠️ 没有找到支持的文件格式");
+            finally { _isImporting = false; }
         }
 
         private static string? ComputeFileHash(string path)
@@ -345,22 +385,27 @@ namespace WpfApp1.Views
         }
 
         private void Page_DragOver(object sender, DragEventArgs e) { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effects = DragDropEffects.Copy; e.Handled = true; } }
-        private void Page_Drop(object sender, DragEventArgs e)
+        private async void Page_Drop(object sender, DragEventArgs e)
         {
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
             var paths = (string[])e.Data.GetData(DataFormats.FileDrop)!;
-            var all = new List<string>();
-            foreach (var p in paths)
+            var all = await Task.Run(() =>
             {
-                if (Directory.Exists(p)) all.AddRange(Directory.GetFiles(p, "*.*", SearchOption.AllDirectories).Where(f => InvoicePrintService.SupportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())));
-                else if (File.Exists(p)) all.Add(p);
-            }
-            if (all.Count > 0) AddFiles(all.ToArray());
+                var files = new List<string>();
+                foreach (var p in paths)
+                {
+                    if (Directory.Exists(p)) files.AddRange(Directory.GetFiles(p, "*.*", SearchOption.AllDirectories).Where(f => InvoicePrintService.SupportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())));
+                    else if (File.Exists(p)) files.Add(p);
+                }
+                return files;
+            });
+            if (all.Count > 0) await AddFilesAsync(all.ToArray());
         }
 
         private void BtnClearList_Click(object sender, RoutedEventArgs e)
         {
-            _fileItems.Clear(); UpdateFileCount(); LayoutPreviewGrid.Children.Clear();
+            _previewCancellation?.Cancel();
+            _fileItems.Clear(); _fileHashes.Clear(); UpdateFileCount(); LayoutPreviewGrid.Children.Clear();
             DropHintPanel.Visibility = Visibility.Visible; PreviewScroller.Visibility = Visibility.Collapsed;
             PanelPageNav.Visibility = Visibility.Collapsed; SetStatus("🗑️ 列表已清空");
         }
@@ -398,26 +443,83 @@ namespace WpfApp1.Views
         private void UpdatePreview()
         {
             if (!_isInitialized) return;
-            if (_fileItems.Count == 0) { DropHintPanel.Visibility = Visibility.Visible; PreviewScroller.Visibility = Visibility.Collapsed; return; }
+            _previewCancellation?.Cancel();
+            _previewCancellation = new CancellationTokenSource();
+            _ = UpdatePreviewAsync(++_previewVersion, _previewCancellation.Token);
+        }
+
+        private async Task UpdatePreviewAsync(int version, CancellationToken cancellationToken)
+        {
+            if (_fileItems.Count == 0)
+            {
+                DropHintPanel.Visibility = Visibility.Visible;
+                PreviewScroller.Visibility = Visibility.Collapsed;
+                return;
+            }
+
             DropHintPanel.Visibility = Visibility.Collapsed;
             PreviewScroller.Visibility = Visibility.Visible;
 
             try
             {
                 var template = GetCurrentTemplate();
-                // 预览始终显示所有文件的排版效果（与打印行为一致）
                 var previewItems = _fileItems.ToList();
+                var isLandscape = IsLandscape;
+                var showCutLine = ShowCutLine;
+                InvoiceFileItem? selectedItem = FileListBox.SelectedItems.Count == 1
+                    ? FileListBox.SelectedItem as InvoiceFileItem
+                    : null;
+                Task<int>? pageCountTask = null;
 
-                // PDF 分页
-                if (FileListBox.SelectedItems.Count == 1 && FileListBox.SelectedItem is InvoiceFileItem si)
+                if (selectedItem != null && Path.GetExtension(selectedItem.FilePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                 {
-                    var ext = Path.GetExtension(si.FilePath).ToLowerInvariant();
-                    if (ext == ".pdf") { int pc = InvoicePrintService.GetPdfPageCount(si.FilePath); si.PageCount = pc; PanelPageNav.Visibility = pc > 1 ? Visibility.Visible : Visibility.Collapsed; TxtPageInfo.Text = $"第 {si.SelectedPage + 1} / {pc} 页"; }
-                    else PanelPageNav.Visibility = Visibility.Collapsed;
+                    var pdfPath = selectedItem.FilePath;
+                    pageCountTask = Task.Run(() => InvoicePrintService.GetPdfPageCount(pdfPath), cancellationToken);
                 }
-                else PanelPageNav.Visibility = Visibility.Collapsed;
 
-                var pages = RenderLayoutPreviewPages(previewItems, template);
+                var previewImages = new Dictionary<InvoiceFileItem, BitmapSource?>();
+                var imagesToLoad = new List<(InvoiceFileItem Item, int PageIndex)>();
+                foreach (var item in previewItems)
+                {
+                    if (item.PreviewImage != null && item.PreviewPageIndex == item.SelectedPage)
+                        previewImages[item] = item.PreviewImage;
+                    else
+                        imagesToLoad.Add((item, item.SelectedPage));
+                }
+
+                if (imagesToLoad.Count > 0)
+                {
+                    var loadedImages = await Task.Run(
+                        () => LoadPreviewImages(imagesToLoad, cancellationToken), cancellationToken);
+                    if (cancellationToken.IsCancellationRequested || version != _previewVersion) return;
+
+                    foreach (var (item, pageIndex) in imagesToLoad)
+                    {
+                        loadedImages.TryGetValue(item, out var image);
+                        item.PreviewImage = image;
+                        item.PreviewPageIndex = pageIndex;
+                        previewImages[item] = image;
+                    }
+                }
+
+                if (pageCountTask != null)
+                {
+                    var pageCount = await pageCountTask;
+                    if (cancellationToken.IsCancellationRequested || version != _previewVersion) return;
+                    selectedItem!.PageCount = Math.Max(1, pageCount);
+                    selectedItem.SelectedPage = Math.Min(selectedItem.SelectedPage, selectedItem.PageCount - 1);
+                    PanelPageNav.Visibility = selectedItem.PageCount > 1 ? Visibility.Visible : Visibility.Collapsed;
+                    TxtPageInfo.Text = $"第 {selectedItem.SelectedPage + 1} / {selectedItem.PageCount} 页";
+                }
+                else
+                {
+                    PanelPageNav.Visibility = Visibility.Collapsed;
+                }
+
+                var pages = await RenderLayoutPreviewPagesAsync(
+                    previewItems, template, previewImages, isLandscape, showCutLine, cancellationToken);
+                if (cancellationToken.IsCancellationRequested || version != _previewVersion) return;
+
                 LayoutPreviewGrid.Children.Clear();
                 LayoutPreviewGrid.RowDefinitions.Clear();
 
@@ -468,14 +570,40 @@ namespace WpfApp1.Views
                 if (pages.Count > 1)
                     SetStatus($"📄 共 {pages.Count} 页预览 · {previewItems.Count} 个文件");
             }
-            catch (Exception ex) { SetStatus($"❌ 预览失败: {ex.Message}"); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                if (version == _previewVersion)
+                    SetStatus($"❌ 预览失败: {ex.Message}");
+            }
+        }
+
+        private static Dictionary<InvoiceFileItem, BitmapSource?> LoadPreviewImages(
+            List<(InvoiceFileItem Item, int PageIndex)> items, CancellationToken cancellationToken)
+        {
+            var images = new Dictionary<InvoiceFileItem, BitmapSource?>();
+            foreach (var (item, pageIndex) in items)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var ext = Path.GetExtension(item.FilePath).ToLowerInvariant();
+                images[item] = ext == ".pdf"
+                    ? InvoicePrintService.RenderPdfPage(item.FilePath, pageIndex, 150)
+                    : InvoicePrintService.LoadPreviewImage(item.FilePath, ext);
+            }
+            return images;
         }
 
         /// <summary>
         /// 渲染排版预览：支持多页分页、纸张方向、裁剪线
         /// 返回每页一张 BitmapSource 的列表
         /// </summary>
-        private List<BitmapSource> RenderLayoutPreviewPages(List<InvoiceFileItem> items, PrintTemplate template)
+        private async Task<List<BitmapSource>> RenderLayoutPreviewPagesAsync(
+            List<InvoiceFileItem> items,
+            PrintTemplate template,
+            IReadOnlyDictionary<InvoiceFileItem, BitmapSource?> previewImages,
+            bool isLandscape,
+            bool showCutLine,
+            CancellationToken cancellationToken)
         {
             var result = new List<BitmapSource>();
             double mmToWpf = 96.0 / 25.4;
@@ -488,7 +616,7 @@ namespace WpfApp1.Views
             { paperW = 210 * mmToWpf; paperH = 297 * mmToWpf; }
 
             // 横向时交换宽高
-            if (IsLandscape) { (paperW, paperH) = (paperH, paperW); }
+            if (isLandscape) { (paperW, paperH) = (paperH, paperW); }
 
             double ml = template.MarginLeft * mmToWpf, mr = template.MarginRight * mmToWpf;
             double mt = template.MarginTop * mmToWpf, mb = template.MarginBottom * mmToWpf;
@@ -509,6 +637,7 @@ namespace WpfApp1.Views
 
             for (int pageIdx = 0; pageIdx < totalPages; pageIdx++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var dv = new DrawingVisual();
                 using (var dc = dv.RenderOpen())
                 {
@@ -536,9 +665,11 @@ namespace WpfApp1.Views
 
                     if (globalIdx < items.Count)
                     {
-                        var bmp = GetPreviewBitmap(items[globalIdx]);
+                        previewImages.TryGetValue(items[globalIdx], out var bmp);
                         if (bmp != null)
                         {
+                            if (items[globalIdx].RotationAngle != 0)
+                                bmp = InvoicePrintService.RotateImage(bmp, items[globalIdx].RotationAngle);
                             double pad = 4, aw = w - pad * 2, ah = h - pad * 2;
                             double sc = Math.Min(aw / bmp.PixelWidth, ah / bmp.PixelHeight);
                             double dw = bmp.PixelWidth * sc, dh = bmp.PixelHeight * sc;
@@ -556,7 +687,7 @@ namespace WpfApp1.Views
                 }
 
                 // ═══ 裁剪线 ═══
-                if (ShowCutLine && perPage > 1)
+                if (showCutLine && perPage > 1)
                 {
                     var cutPen = new Pen(new SolidColorBrush(Color.FromArgb(180, 150, 150, 150)), 1) { DashStyle = DashStyles.Dash };
                     double scissorSize = 10;
@@ -587,10 +718,10 @@ namespace WpfApp1.Views
                 }
 
                 // 底部信息
-                var orient = IsLandscape ? "横向" : "纵向";
+                var orient = isLandscape ? "横向" : "纵向";
                 var pageInfo = totalPages > 1 ? $" · 第{pageIdx + 1}/{totalPages}页" : "";
                 var info = new FormattedText(
-                    $"{template.PaperMode} · {orient} · {perPage}张/页{pageInfo}" + (ShowCutLine ? " · 裁剪线" : ""),
+                    $"{template.PaperMode} · {orient} · {perPage}张/页{pageInfo}" + (showCutLine ? " · 裁剪线" : ""),
                     System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                     new Typeface("Microsoft YaHei"), 10, new SolidColorBrush(Color.FromRgb(160, 160, 160)),
                     VisualTreeHelper.GetDpi(dv).PixelsPerDip);
@@ -601,27 +732,14 @@ namespace WpfApp1.Views
                 rtb.Render(dv);
                 rtb.Freeze();
                 result.Add(rtb);
+                await Dispatcher.Yield(DispatcherPriority.Background);
             }
 
             return result;
         }
 
-        private BitmapSource? GetPreviewBitmap(InvoiceFileItem item)
-        {
-            try
-            {
-                var ext = Path.GetExtension(item.FilePath).ToLowerInvariant();
-                BitmapSource? img = ext == ".pdf"
-                    ? InvoicePrintService.RenderPdfPage(item.FilePath, item.SelectedPage, 150)
-                    : (item.PreviewImage ?? (item.PreviewImage = InvoicePrintService.LoadPreviewImage(item.FilePath, ext)));
-                if (img != null && item.RotationAngle != 0) img = InvoicePrintService.RotateImage(img, item.RotationAngle);
-                return img;
-            }
-            catch { return null; }
-        }
-
         // ── 旋转 & 缩放 ──
-        private void BtnRotate_Click(object sender, RoutedEventArgs e) { if (FileListBox.SelectedItem is InvoiceFileItem item) { item.RotationAngle = (item.RotationAngle + 90) % 360; item.PreviewImage = null; UpdatePreview(); } }
+        private void BtnRotate_Click(object sender, RoutedEventArgs e) { if (FileListBox.SelectedItem is InvoiceFileItem item) { item.RotationAngle = (item.RotationAngle + 90) % 360; UpdatePreview(); } }
         private void BtnZoomIn_Click(object sender, RoutedEventArgs e) { _zoomLevel = Math.Min(_zoomLevel + 0.2, 5.0); ApplyZoom(); }
         private void BtnZoomOut_Click(object sender, RoutedEventArgs e) { _zoomLevel = Math.Max(_zoomLevel - 0.2, 0.1); ApplyZoom(); }
         private void BtnZoomReset_Click(object sender, RoutedEventArgs e) { _zoomLevel = 1.0; ApplyZoom(); }

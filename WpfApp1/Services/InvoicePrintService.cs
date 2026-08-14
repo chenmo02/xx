@@ -23,6 +23,7 @@ namespace WpfApp1.Services
         public string FileType { get; set; } = ""; // PDF / OFD / IMG
         public long FileSize { get; set; }
         public BitmapSource? PreviewImage { get; set; }
+        public int PreviewPageIndex { get; set; } = -1;
         public int PageCount { get; set; } = 1;
         public int SelectedPage { get; set; } = 0;
         public double RotationAngle { get; set; } = 0;
@@ -99,8 +100,6 @@ namespace WpfApp1.Services
                     FileSize = fi.Length,
                 };
 
-                // 灏濊瘯鍔犺浇棰勮鍥?
-                item.PreviewImage = LoadPreviewImage(path, ext);
                 items.Add(item);
             }
             return items;
