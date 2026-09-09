@@ -177,22 +177,18 @@
                               HorizontalGridLinesBrush="#E5E7EB"
                               VerticalGridLinesBrush="#E5E7EB"
                               FontSize="12"
-                              HeadersVisibility="All"
-                              RowHeaderWidth="50"
+                              HeadersVisibility="Column"
+                              RowHeaderWidth="0"
                               SelectionUnit="Cell"
                               SelectionMode="Single"
                               VerticalScrollBarVisibility="Visible"
                               HorizontalScrollBarVisibility="Auto"
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="True"
-                              ColumnHeaderHeight="32"
+                              ColumnHeaderHeight="42"
                               RowBackground="White"
-                              LoadingRow="DgCsv_LoadingRow"
                               SelectedCellsChanged="DgCsv_SelectedCellsChanged"
-                              ColumnHeaderStyle="{DynamicResource DataGridHeaderStyle}"
-                              RowHeaderStyle="{DynamicResource DataGridRowHeaderStyle}"
-                              CellStyle="{DynamicResource DataGridCellStyle}"
-                              RowStyle="{DynamicResource DataGridRowStyle}" SelectionChanged="DgCsv_SelectionChanged"/>
+                              Style="{DynamicResource QuickTableGridStyle}" SelectionChanged="DgCsv_SelectionChanged"/>
                 </Border>
 
             </DockPanel>

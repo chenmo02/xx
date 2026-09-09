@@ -272,7 +272,8 @@ namespace WpfApp1.Views
             }
 
             SqlGeneratorService.DbType dbType = GetSelectedDbType();
-            string tableName = SqlGeneratorService.NormalizeTableName(dbType, TxtTableName.Text);
+            bool temporaryTable = ChkTemporaryTable.IsChecked == true;
+            string tableName = SqlGeneratorService.NormalizeTableName(dbType, TxtTableName.Text, temporary: temporaryTable);
             bool dropIfExists = ChkDropIfExists.IsChecked == true;
             bool batchInsert = ChkBatchInsert.IsChecked == true;
             int batchSize = _importSettings.BatchSize > 0 ? _importSettings.BatchSize : 1000;
@@ -292,7 +293,8 @@ namespace WpfApp1.Views
                     dropIfExists: dropIfExists,
                     batchInsert: batchInsert,
                     batchSize: batchSize,
-                    limitStringLength: limitFieldLength));
+                    limitStringLength: limitFieldLength,
+                    temporaryTable: temporaryTable));
 
                 TxtSqlOutput.Text = sql;
                 TxtSqlOutput.ScrollToHome();
@@ -470,13 +472,6 @@ namespace WpfApp1.Views
                 return;
             }
 
-            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.C && TxtSqlOutput.IsFocused)
-            {
-                e.Handled = true;
-                BtnCopySql_Click(sender, new RoutedEventArgs());
-                return;
-            }
-
             if (e.Key == Key.F5 && !_isBusy && _currentData != null)
             {
                 e.Handled = true;
@@ -489,11 +484,6 @@ namespace WpfApp1.Views
                 e.Handled = true;
                 await LoadDataAsync(_currentFilePath, _currentSheetName);
             }
-        }
-
-        private void DgPreview_LoadingRow(object sender, DataGridRowEventArgs e)
-        {
-            e.Row.Header = (e.Row.GetIndex() + 1).ToString();
         }
 
         private void ResetCurrentData()
@@ -595,23 +585,26 @@ namespace WpfApp1.Views
             }
 
             SqlGeneratorService.DbType dbType = GetSelectedDbType();
-            TxtTableHint.Text = dbType switch
-            {
-                SqlGeneratorService.DbType.SqlServer => "提示：SQL Server 临时表建议使用 # 前缀，批量 INSERT 会自动限制为 1000 行；导入值会按原样输出。",
-                SqlGeneratorService.DbType.MySQL => "提示：MySQL 使用 CREATE TEMPORARY TABLE，导入值会按原样输出，不会自动改写布尔值。",
-                SqlGeneratorService.DbType.Oracle => "提示：Oracle 使用 CREATE GLOBAL TEMPORARY TABLE，导入值会按原样输出，不会自动改写日期或布尔值。",
-                _ => "提示：PostgreSQL 使用 CREATE TEMPORARY TABLE，导入值会按原样输出，不会自动改写布尔值。"
-            };
+            bool temporaryTable = ChkTemporaryTable?.IsChecked == true;
+            TxtTableHint.Text = temporaryTable
+                ? dbType switch
+                {
+                    SqlGeneratorService.DbType.SqlServer => "提示：SQL Server 临时表建议使用 # 前缀，批量 INSERT 会自动限制为 1000 行；导入值会按原样输出。",
+                    SqlGeneratorService.DbType.MySQL => "提示：MySQL 使用 CREATE TEMPORARY TABLE，导入值会按原样输出，不会自动改写布尔值。",
+                    SqlGeneratorService.DbType.Oracle => "提示：Oracle 使用 CREATE GLOBAL TEMPORARY TABLE，导入值会按原样输出，不会自动改写日期或布尔值。",
+                    _ => "提示：PostgreSQL 使用 CREATE TEMPORARY TABLE，导入值会按原样输出，不会自动改写布尔值。"
+                }
+                : "提示：将生成普通表 CREATE TABLE 语句。";
 
             string suggestedName = string.IsNullOrWhiteSpace(_importSettings.DefaultTableName)
-                ? SqlGeneratorService.GetDefaultTableName(dbType)
-                : SqlGeneratorService.NormalizeTableName(dbType, _importSettings.DefaultTableName, _importSettings.TempTablePrefix);
+                ? (temporaryTable ? SqlGeneratorService.GetDefaultTableName(dbType) : "temp_table")
+                : SqlGeneratorService.NormalizeTableName(dbType, _importSettings.DefaultTableName, _importSettings.TempTablePrefix, temporaryTable);
             string current = TxtTableName.Text.Trim();
             var defaultNames = Enum.GetValues<SqlGeneratorService.DbType>()
                 .SelectMany(type => new[]
                 {
                     SqlGeneratorService.GetDefaultTableName(type),
-                    SqlGeneratorService.NormalizeTableName(type, _importSettings.DefaultTableName, _importSettings.TempTablePrefix),
+                    SqlGeneratorService.NormalizeTableName(type, _importSettings.DefaultTableName, _importSettings.TempTablePrefix, temporaryTable),
                     _importSettings.DefaultTableName
                 })
                 .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -623,6 +616,11 @@ namespace WpfApp1.Views
             }
 
             _lastSuggestedTableName = suggestedName;
+        }
+
+        private void TemporaryTable_Changed(object sender, RoutedEventArgs e)
+        {
+            ApplyDatabaseHint(forceTableName: false);
         }
 
         private void ApplyDefaultExportPath(FileDialog dialog)

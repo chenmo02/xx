@@ -239,11 +239,6 @@ namespace WpfApp1.Views
             DgCsv.CurrentCell = new DataGridCellInfo();
         }
 
-        private void DgCsv_LoadingRow(object sender, DataGridRowEventArgs e)
-        {
-            e.Row.Header = (e.Row.GetIndex() + 1).ToString(CultureInfo.InvariantCulture);
-        }
-
         private void DgCsv_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)
         {
             if (_data == null || DgCsv.CurrentCell.Column == null)

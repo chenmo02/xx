@@ -125,4 +125,38 @@
         </Style.Triggers>
     </Style>
 
+    <!-- 快速建表表格组件：可供其他页面复用 -->
+    <Style x:Key="QuickTableCellTextStyle" TargetType="TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="#334155"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+
+    <Style x:Key="QuickTableHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridHeaderStyle}">
+        <Setter Property="Background" Value="#F1F6FF"/>
+        <Setter Property="Foreground" Value="#164EAB"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Height" Value="42"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="QuickTableCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellStyle}">
+        <Setter Property="Padding" Value="8,3"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+
+    <Style x:Key="QuickTableRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowStyle}">
+        <Setter Property="Height" Value="46"/>
+    </Style>
+
+    <Style x:Key="QuickTableGridStyle" TargetType="DataGrid">
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource QuickTableHeaderStyle}"/>
+        <Setter Property="RowHeaderStyle" Value="{StaticResource DataGridRowHeaderStyle}"/>
+        <Setter Property="CellStyle" Value="{StaticResource QuickTableCellStyle}"/>
+        <Setter Property="RowStyle" Value="{StaticResource QuickTableRowStyle}"/>
+    </Style>
+
 </ResourceDictionary>

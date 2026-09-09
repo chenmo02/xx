@@ -63,7 +63,7 @@
                                        FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="#4338CA"
-                                       Margin="0,2,0,0"><Run Text="v2.1."/><Run Language="zh-cn" Text="8"/></TextBlock>
+                                       Margin="0,2,0,0"><Run Text="v2.2."/><Run Language="zh-cn" Text="1"/></TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -321,7 +321,7 @@
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                         <TextBlock Text="最新发布日期" FontSize="12" Foreground="#6B7280" HorizontalAlignment="Center"/>
                         <TextBlock FontSize="18" FontWeight="Bold"
-                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"><Run Text="2026-0"/><Run Text="7-"/><Run Language="zh-cn" Text="2"/><Run Text="8"/></TextBlock>
+                                   Foreground="#111827" HorizontalAlignment="Center" Margin="0,4,0,0"><Run Text="2026-0"/><Run Text="9-"/><Run Language="zh-cn" Text="0"/><Run Text="2"/></TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>

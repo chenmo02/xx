@@ -127,8 +127,7 @@
                                   CanUserResizeRows="False"
                                   EnableRowVirtualization="True"
                                   EnableColumnVirtualization="True"
-                                  LoadingRow="DgPreview_LoadingRow"
-                                  RowHeaderWidth="48"
+                                  RowHeaderWidth="0"
                                   MaxHeight="380"
                                   Background="White"
                                   BorderThickness="0"
@@ -136,17 +135,14 @@
                                   HorizontalGridLinesBrush="#E4E7EB"
                                   VerticalGridLinesBrush="#E4E7EB"
                                   FontSize="12"
-                                  ColumnHeaderHeight="30"
-                                  HeadersVisibility="All"
+                                  ColumnHeaderHeight="42"
+                                  HeadersVisibility="Column"
                                   RowBackground="White"
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
                                   SelectionUnit="CellOrRowHeader"
                                   SelectionMode="Extended"
-                                  ColumnHeaderStyle="{DynamicResource DataGridHeaderStyle}"
-                                  RowHeaderStyle="{DynamicResource DataGridRowHeaderStyle}"
-                                  CellStyle="{DynamicResource DataGridCellStyle}"
-                                  RowStyle="{DynamicResource DataGridRowStyle}"/>
+                                  Style="{DynamicResource QuickTableGridStyle}"/>
                     </Border>
 
                     <TextBlock x:Name="TxtPreviewInfo"
@@ -206,6 +202,7 @@
                                Margin="0,0,0,10"/>
 
                     <WrapPanel Margin="0,0,0,10">
+                        <CheckBox x:Name="ChkTemporaryTable" Content="是否生成临时表" IsChecked="True" Checked="TemporaryTable_Changed" Unchecked="TemporaryTable_Changed" Margin="0,0,20,0" FontSize="13"/>
                         <CheckBox x:Name="ChkDropIfExists" Content="生成 DROP TABLE" IsChecked="True" Margin="0,0,20,0" FontSize="13"/>
                         <CheckBox x:Name="ChkBatchInsert" Content="批量 INSERT" IsChecked="True" Margin="0,0,20,0" FontSize="13"/>
                         <CheckBox x:Name="ChkLimitFieldLength" Content="限制文本字段长度(1000)" IsChecked="True" FontSize="13"/>

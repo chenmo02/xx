@@ -85,6 +85,14 @@
                         <RadioButton x:Name="NavSettings" Content="系统设置" Tag="⚙️"
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
+                        <!-- 暂时隐藏实用小工具入口，相关页面和功能代码保留 -->
+                        <!--
+                        <TextBlock Text="实用小工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,14,0,4"/>
+                        <RadioButton x:Name="NavQuickTable" Content="快速建表" Tag="⚡"
+                                     Style="{StaticResource NavButtonStyle}" GroupName="Nav"
+                                     Checked="NavButton_Checked"/>
+                        -->
+                       
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
@@ -94,5 +102,22 @@
         <Border Grid.Column="1">
             <Frame x:Name="MainFrame" NavigationUIVisibility="Hidden"/>
         </Border>
+
+        <!-- 全局随手记入口 -->
+        <Button x:Name="NotesButton" Grid.Column="0" Grid.ColumnSpan="2" Width="64" Height="64" Margin="0,0,24,24"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                PreviewMouseLeftButtonDown="NotesButton_PreviewMouseLeftButtonDown"
+                PreviewMouseMove="NotesButton_PreviewMouseMove" PreviewMouseLeftButtonUp="NotesButton_PreviewMouseLeftButtonUp"
+                ToolTip="打开随手记"
+                Panel.ZIndex="10" Padding="0" BorderThickness="0"
+                Background="Transparent">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <Image Source="pack://application:,,,/favicon.ico" Width="44" Height="44"/>
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
     </Grid>
 </Window>

@@ -9,6 +9,64 @@ namespace WpfApp1.Services
     /// </summary>
     public static class InsertStatementParser
     {
+        public static string ExtractTableName(string sql)
+        {
+            if (string.IsNullOrWhiteSpace(sql))
+                throw new InvalidOperationException("SQL 语句为空。");
+
+            int insertIndex = FindKeyword(sql, "INSERT", 0);
+            if (insertIndex < 0)
+                throw new InvalidOperationException("未找到 INSERT INTO 语句。");
+
+            int cursor = insertIndex + "INSERT".Length;
+            if (!TryConsumeKeyword(sql, ref cursor, "INTO"))
+                throw new InvalidOperationException("未找到 INSERT INTO 语句。");
+
+            SkipTrivia(sql, ref cursor);
+            int start = cursor;
+            bool inDoubleQuote = false;
+            bool inBracket = false;
+            bool inBacktick = false;
+            while (cursor < sql.Length)
+            {
+                char c = sql[cursor];
+                if (inDoubleQuote)
+                {
+                    if (c == '"')
+                    {
+                        if (cursor + 1 < sql.Length && sql[cursor + 1] == '"') { cursor += 2; continue; }
+                        inDoubleQuote = false;
+                    }
+                }
+                else if (inBracket)
+                {
+                    if (c == ']')
+                    {
+                        if (cursor + 1 < sql.Length && sql[cursor + 1] == ']') { cursor += 2; continue; }
+                        inBracket = false;
+                    }
+                }
+                else if (inBacktick)
+                {
+                    if (c == '`')
+                    {
+                        if (cursor + 1 < sql.Length && sql[cursor + 1] == '`') { cursor += 2; continue; }
+                        inBacktick = false;
+                    }
+                }
+                else if (c == '"') inDoubleQuote = true;
+                else if (c == '[') inBracket = true;
+                else if (c == '`') inBacktick = true;
+                else if (char.IsWhiteSpace(c) || c == '(') break;
+                cursor++;
+            }
+
+            string tableName = sql[start..cursor].Trim();
+            if (string.IsNullOrWhiteSpace(tableName))
+                throw new InvalidOperationException("INSERT INTO 后未找到表名。");
+            return tableName;
+        }
+
         public static (List<string> Headers, List<IReadOnlyList<string?>> Rows, string? Warning) Parse(string sql)
         {
             if (string.IsNullOrWhiteSpace(sql))

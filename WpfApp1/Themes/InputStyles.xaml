@@ -25,6 +25,8 @@
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <ScrollViewer x:Name="PART_ContentHost"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                       VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
                                       HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"/>
                     </Border>
@@ -293,6 +295,15 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- 快速建表表格内编辑下拉框：全局可复用 -->
+    <Style x:Key="QuickTableEditComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStandard}">
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="Padding" Value="3,0"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
     <!-- ComboBox 选项样式 -->

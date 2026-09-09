@@ -145,14 +145,19 @@
             <!-- ═══════════════════════════════════════ -->
             <Border Height="1" Background="#E5E5E5" Margin="0,0,0,20"/>
             <TextBlock Text="🔧 实用小工具" FontSize="18" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
-            <TextBlock Text="广告位招租" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
+            <TextBlock Text="用于快速生成临时表或基础表结构。" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
 
-            <Border Style="{DynamicResource CardBorder}" Padding="0" Margin="0,0,0,16" Height="680">
+            <Border Style="{DynamicResource CardBorder}" Padding="20" Margin="0,0,0,16">
                 <Grid>
-                    <Image Source="/img/ggw.png"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="⚡ 快速建表" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937"/>
+                        <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成 CREATE TABLE SQL。" FontSize="13" Foreground="#64748B" Margin="0,7,20,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="打开快速建表" Style="{DynamicResource ButtonPrimary}" Padding="18,9" VerticalAlignment="Center" Click="BtnOpenQuickTable_Click"/>
                 </Grid>
             </Border>
         </StackPanel>

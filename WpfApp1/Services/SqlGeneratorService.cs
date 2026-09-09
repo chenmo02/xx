@@ -63,23 +63,28 @@ namespace WpfApp1.Services
             };
         }
 
-        public static string NormalizeTableName(DbType dbType, string? tableName, string? prefix = null)
+        public static string NormalizeTableName(DbType dbType, string? tableName, string? prefix = null, bool temporary = true)
         {
             string candidate = string.IsNullOrWhiteSpace(tableName)
-                ? GetDefaultTableName(dbType, prefix)
+                ? (temporary ? GetDefaultTableName(dbType, prefix) : "temp_table")
                 : tableName.Trim();
 
             if (string.IsNullOrWhiteSpace(candidate))
             {
-                return GetDefaultTableName(dbType, prefix);
+                return temporary ? GetDefaultTableName(dbType, prefix) : "temp_table";
             }
 
-            if (dbType == DbType.SqlServer && candidate.StartsWith("#", StringComparison.Ordinal))
+            if (!temporary && candidate.StartsWith("#", StringComparison.Ordinal))
+            {
+                candidate = candidate.TrimStart('#');
+            }
+
+            if (temporary && dbType == DbType.SqlServer && candidate.StartsWith("#", StringComparison.Ordinal))
             {
                 return NormalizeSqlName(candidate, allowTempPrefix: true);
             }
 
-            if (TryGetTemporaryTableLogicalName(candidate, out string logicalName))
+            if (temporary && TryGetTemporaryTableLogicalName(candidate, out string logicalName))
             {
                 return dbType switch
                 {
@@ -88,7 +93,7 @@ namespace WpfApp1.Services
                 };
             }
 
-            if (dbType == DbType.SqlServer && TryGetSqlServerSimpleTableName(candidate, out string sqlServerTableName))
+            if (temporary && dbType == DbType.SqlServer && TryGetSqlServerSimpleTableName(candidate, out string sqlServerTableName))
             {
                 return $"#{sqlServerTableName}";
             }
@@ -103,7 +108,8 @@ namespace WpfApp1.Services
             bool dropIfExists = true,
             bool batchInsert = true,
             int batchSize = 1000,
-            bool limitStringLength = true)
+            bool limitStringLength = true,
+            bool temporaryTable = true)
         {
             var columns = BuildColumnDefinitions(dbType, data, limitStringLength);
             var sb = new StringBuilder();
@@ -118,7 +124,7 @@ namespace WpfApp1.Services
             sb.AppendLine("-- ============================================");
             sb.AppendLine();
 
-            sb.Append(GenerateCreateTableSql(dbType, tableName, columns, dropIfExists));
+            sb.Append(GenerateCreateTableSql(dbType, tableName, columns, dropIfExists, temporaryTable));
             sb.AppendLine();
 
             if (data.Rows.Count > 0)
@@ -139,10 +145,11 @@ namespace WpfApp1.Services
             string tableName,
             DataTable data,
             bool dropIfExists,
-            bool limitStringLength = true)
+            bool limitStringLength = true,
+            bool temporaryTable = true)
         {
             var columns = BuildColumnDefinitions(dbType, data, limitStringLength);
-            return GenerateCreateTableSql(dbType, tableName, columns, dropIfExists);
+            return GenerateCreateTableSql(dbType, tableName, columns, dropIfExists, temporaryTable);
         }
 
         public static string GenerateInsertSql(
@@ -161,7 +168,8 @@ namespace WpfApp1.Services
             DbType dbType,
             string tableName,
             IReadOnlyList<ColumnDefinition> columns,
-            bool dropIfExists)
+            bool dropIfExists,
+            bool temporaryTable)
         {
             var sb = new StringBuilder();
             string wrappedName = WrapName(dbType, tableName);
@@ -198,7 +206,7 @@ namespace WpfApp1.Services
                 sb.AppendLine();
             }
 
-            sb.AppendLine(GetCreateTablePrefix(dbType, wrappedName));
+            sb.AppendLine(GetCreateTablePrefix(dbType, wrappedName, temporaryTable));
             for (int i = 0; i < columns.Count; i++)
             {
                 ColumnDefinition column = columns[i];
@@ -207,7 +215,7 @@ namespace WpfApp1.Services
                 sb.AppendLine(i < columns.Count - 1 ? "," : string.Empty);
             }
 
-            sb.AppendLine(GetCreateTableSuffix(dbType));
+            sb.AppendLine(GetCreateTableSuffix(dbType, temporaryTable));
             return sb.ToString();
         }
 
@@ -581,19 +589,25 @@ namespace WpfApp1.Services
                    decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out result);
         }
 
-        private static string GetCreateTablePrefix(DbType dbType, string wrappedName) => dbType switch
+        private static string GetCreateTablePrefix(DbType dbType, string wrappedName, bool temporaryTable)
         {
-            DbType.PostgreSQL => $"CREATE TEMPORARY TABLE {wrappedName} (",
-            DbType.MySQL => $"CREATE TEMPORARY TABLE {wrappedName} (",
-            DbType.Oracle => $"CREATE GLOBAL TEMPORARY TABLE {wrappedName} (",
-            _ => $"CREATE TABLE {wrappedName} ("
-        };
+            if (!temporaryTable)
+            {
+                return $"CREATE TABLE {wrappedName} (";
+            }
 
-        private static string GetCreateTableSuffix(DbType dbType) => dbType switch
-        {
-            DbType.Oracle => ") ON COMMIT PRESERVE ROWS;",
-            _ => ");"
-        };
+            return dbType switch
+            {
+                DbType.PostgreSQL => $"CREATE TEMPORARY TABLE {wrappedName} (",
+                DbType.MySQL => $"CREATE TEMPORARY TABLE {wrappedName} (",
+                DbType.Oracle => $"CREATE GLOBAL TEMPORARY TABLE {wrappedName} (",
+                _ => $"CREATE TABLE {wrappedName} ("
+            };
+        }
+
+        private static string GetCreateTableSuffix(DbType dbType, bool temporaryTable) => temporaryTable && dbType == DbType.Oracle
+            ? ") ON COMMIT PRESERVE ROWS;"
+            : ");";
 
         private static string GetPreviewSuffix(DbType dbType) => dbType switch
         {

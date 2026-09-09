@@ -34,6 +34,13 @@ namespace WpfApp1.Views
         private DvDbType? _structureDbType;
         private bool _insertParseDirty = true;
         private bool _sourceDataFromInsert;
+        private bool _debugMode;
+        private bool _debugStructureInjected;
+        private bool _debugSourceInjected;
+        private bool _debugMappingsInjected;
+        private bool _debugTableNameInjected;
+        private bool _isImporting;
+        private bool _isParsingInsert;
         private readonly ObservableCollection<string> _ignoredActualValueTags = [];
         private ICollectionView? _issueView;
         private string _currentIssueTypeFilter = AllIssueTypesOption;
@@ -230,8 +237,11 @@ namespace WpfApp1.Views
 
         private async void BtnNext_Click(object sender, RoutedEventArgs e)
         {
+            if (_debugMode)
+                PrepareDebugDataForCurrentStep();
+
             // Step 2 → Step 3：仅当 INSERT 内容变更或当前源数据不是由 INSERT 解析得到时，才重新解析
-            if (_step == 2 && RbInsertMode.IsChecked == true)
+            if (!_debugMode && _step == 2 && RbInsertMode.IsChecked == true)
             {
                 if (string.IsNullOrWhiteSpace(TxtInsert.Text))
                 {
@@ -281,6 +291,9 @@ namespace WpfApp1.Views
         private bool CanGoNext(out string? err)
         {
             err = null;
+            if (_debugMode)
+                return true;
+
             switch (_step)
             {
                 case 1:
@@ -550,10 +563,18 @@ namespace WpfApp1.Views
                 {
                     e.CancelCommand(); // 取消默认粘贴
                     DdlPasteOverlay.Visibility = Visibility.Visible;
+                    TxtDdlStatus.Text = $"⌛️ 正在粘贴 {text.Length:N0} 个字符，请稍候...";
                     await Task.Delay(30); // 让遮罩渲染
-                    TxtDdl.Text = text;
-                    TxtDdl.CaretIndex = text.Length;
-                    DdlPasteOverlay.Visibility = Visibility.Collapsed;
+                    try
+                    {
+                        TxtDdl.Text = text;
+                        TxtDdl.CaretIndex = text.Length;
+                        TxtDdlStatus.Text = "内容已粘贴，请点击「解析 DDL」";
+                    }
+                    finally
+                    {
+                        DdlPasteOverlay.Visibility = Visibility.Collapsed;
+                    }
                 }
             }
         }
@@ -567,10 +588,18 @@ namespace WpfApp1.Views
                 {
                     e.CancelCommand();
                     InsertPasteOverlay.Visibility = Visibility.Visible;
+                    TxtInsertStatus.Text = $"⌛️ 正在粘贴 {text.Length:N0} 个字符，请稍候...";
                     await Task.Delay(30);
-                    TxtInsert.Text = text;
-                    TxtInsert.CaretIndex = text.Length;
-                    InsertPasteOverlay.Visibility = Visibility.Collapsed;
+                    try
+                    {
+                        TxtInsert.Text = text;
+                        TxtInsert.CaretIndex = text.Length;
+                        TxtInsertStatus.Text = "内容已粘贴，请点击「解析 INSERT」";
+                    }
+                    finally
+                    {
+                        InsertPasteOverlay.Visibility = Visibility.Collapsed;
+                    }
                 }
             }
         }
@@ -707,6 +736,9 @@ namespace WpfApp1.Views
                 }
 
                 _targetColumns = DdlParser.Parse(TxtDdl.Text, dbType);
+                _debugStructureInjected = false;
+                _debugMappingsInjected = false;
+                _debugTableNameInjected = false;
                 _structureFromDdl = true;
                 _structureDbType = dbType;
                 _ddlParseDirty = false;
@@ -737,18 +769,31 @@ namespace WpfApp1.Views
             }
         }
 
-        private void BtnImportStructExcel_Click(object sender, RoutedEventArgs e)
+        private async void BtnImportStructExcel_Click(object sender, RoutedEventArgs e)
         {
+            if (_isImporting)
+                return;
+
             var dlg = new OpenFileDialog
             {
                 Filter = "Excel 文件|*.xlsx;*.xls",
                 Title = "选择结构 Excel"
             };
             if (dlg.ShowDialog() != true) return;
+
+            _isImporting = true;
+            BtnNext.IsEnabled = false;
+            BtnBack.IsEnabled = false;
+            TxtStructExcelInfo.Text = "⌛️ 正在读取 Excel，请稍候...";
+            SetStatus("正在读取结构 Excel，大文件处理期间请勿重复操作...");
             try
             {
                 var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
-                _targetColumns = ReadStructExcel(dlg.FileName, dbType);
+                var targetColumns = await Task.Run(() => ReadStructExcel(dlg.FileName, dbType));
+                _targetColumns = targetColumns;
+                _debugStructureInjected = false;
+                _debugMappingsInjected = false;
+                _debugTableNameInjected = false;
                 _structureFromDdl = false;
                 _structureDbType = dbType;
                 _structureChanged = true; // 目标表结构已变更，下次进入 Step3 需重建映射
@@ -759,6 +804,12 @@ namespace WpfApp1.Views
             catch (Exception ex)
             {
                 MessageBox.Show($"读取失败:\n{ex.Message}", "导入错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isImporting = false;
+                BtnNext.IsEnabled = true;
+                BtnBack.IsEnabled = true;
             }
         }
 
@@ -894,17 +945,23 @@ namespace WpfApp1.Views
         /// </summary>
         private async Task<bool> TryParseInsertAsync()
         {
+            if (_isParsingInsert)
+                return false;
+
             var sql = TxtInsert.Text;
 
+            _isParsingInsert = true;
             BtnNext.IsEnabled = false;
             BtnBack.IsEnabled = false;
-            TxtInsertStatus.Text = "⌛️ 解析中...";
+            TxtInsertStatus.Text = $"⌛️ 正在解析 {sql.Length:N0} 个字符，请稍候...";
             TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139));
 
             try
             {
                 var (headers, rows, warning) = await Task.Run(() => InsertStatementParser.Parse(sql));
                 ApplyParsedSourceData(new DvSourceData { Headers = headers, Rows = rows });
+                _debugSourceInjected = false;
+                _debugMappingsInjected = false;
                 _sourceDataFromInsert = true;
                 _insertParseDirty = false;
                 TxtInsertStatus.Text = $"⌛️ 已解析 {rows.Count} 行 × {headers.Count} 列";
@@ -930,23 +987,35 @@ namespace WpfApp1.Views
             }
             finally
             {
+                _isParsingInsert = false;
                 BtnNext.IsEnabled = true;
                 BtnBack.IsEnabled = true;
             }
         }
 
-        private void BtnImportDataExcel_Click(object sender, RoutedEventArgs e)
+        private async void BtnImportDataExcel_Click(object sender, RoutedEventArgs e)
         {
+            if (_isImporting)
+                return;
+
             var dlg = new OpenFileDialog
             {
                 Filter = "Excel 文件|*.xlsx;*.xls",
                 Title = "选择数据 Excel"
             };
             if (dlg.ShowDialog() != true) return;
+
+            _isImporting = true;
+            BtnNext.IsEnabled = false;
+            BtnBack.IsEnabled = false;
+            TxtDataExcelInfo.Text = "⌛️ 正在读取 Excel，请稍候...";
+            SetStatus("正在读取数据 Excel，大文件处理期间请勿重复操作...");
             try
             {
-                var sourceData = ReadDataExcel(dlg.FileName);
+                var sourceData = await Task.Run(() => ReadDataExcel(dlg.FileName));
                 ApplyParsedSourceData(sourceData);
+                _debugSourceInjected = false;
+                _debugMappingsInjected = false;
                 _sourceDataFromInsert = false;
                 TxtDataExcelInfo.Text = $"⌛️ {System.IO.Path.GetFileName(dlg.FileName)} — {sourceData.RowCount} 行 × {sourceData.Headers.Count} 列";
                 SetStatus($"数据 Excel 导入成功，共 {sourceData.RowCount} 行");
@@ -954,6 +1023,12 @@ namespace WpfApp1.Views
             catch (Exception ex)
             {
                 MessageBox.Show($"读取失败:\n{ex.Message}", "导入错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isImporting = false;
+                BtnNext.IsEnabled = true;
+                BtnBack.IsEnabled = true;
             }
         }
 
@@ -1302,6 +1377,141 @@ namespace WpfApp1.Views
                 isConfirmed: !string.IsNullOrWhiteSpace(mapping.SourceColumnName));
 
             ClearValidationResultState();
+            UpdateMappingInfo();
+        }
+
+        private void DebugMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (BtnDebugMode == null)
+                return;
+
+            bool enabled = BtnDebugMode.IsChecked == true;
+            if (!enabled && _debugMode)
+                ClearDebugGeneratedData();
+
+            _debugMode = enabled;
+            BtnDebugMode.Content = _debugMode ? "调试模式：开" : "调试模式：关";
+            ClearValidationResultState();
+            SetStatus(_debugMode
+                ? "调试模式已开启：可跳过输入，使用内置演示数据继续向导"
+                : "调试模式已关闭：恢复正常输入校验");
+        }
+
+        private void ClearDebugGeneratedData()
+        {
+            if (_debugStructureInjected)
+            {
+                _targetColumns.Clear();
+                _structureFromDdl = null;
+                _structureDbType = null;
+                _ddlParseDirty = true;
+                _structureChanged = true;
+                TxtDdlStatus.Text = string.Empty;
+            }
+
+            if (_debugSourceInjected)
+            {
+                _sourceData = null;
+                SourceHeaders = [];
+                _sourceDataFromInsert = false;
+                _insertParseDirty = true;
+                TxtInsertStatus.Text = string.Empty;
+                TxtDataExcelInfo.Text = string.Empty;
+                RefreshMappingPkDropdowns(resetSelection: true);
+                if (_mappings.Count > 0)
+                    RefreshMappingSourceDropdowns();
+            }
+
+            if (_debugMappingsInjected)
+            {
+                _mappings.Clear();
+                DgMapping.ItemsSource = null;
+            }
+
+            if (_debugTableNameInjected && string.Equals(TxtTableName.Text, "debug_table", StringComparison.Ordinal))
+                TxtTableName.Clear();
+
+            _debugStructureInjected = false;
+            _debugSourceInjected = false;
+            _debugMappingsInjected = false;
+            _debugTableNameInjected = false;
+            _step = 1;
+            UpdateStepUI();
+        }
+
+        private void PrepareDebugDataForCurrentStep()
+        {
+            if (_targetColumns.Count == 0)
+            {
+                _targetColumns =
+                [
+                    new DvTargetColumn
+                    {
+                        OrdinalPosition = 1,
+                        ColumnName = "id",
+                        OriginalDataType = "integer",
+                        NormalizedType = DvNormalizedType.Integer,
+                        IsNullable = false,
+                        DatabaseType = DvDbType.PostgreSql
+                    },
+                    new DvTargetColumn
+                    {
+                        OrdinalPosition = 2,
+                        ColumnName = "name",
+                        OriginalDataType = "varchar",
+                        NormalizedType = DvNormalizedType.String,
+                        MaxLength = 50,
+                        IsNullable = true,
+                        DatabaseType = DvDbType.PostgreSql
+                    }
+                ];
+                _structureFromDdl = false;
+                _structureDbType = DvDbType.PostgreSql;
+                _structureChanged = true;
+                if (string.IsNullOrWhiteSpace(TxtTableName.Text))
+                {
+                    TxtTableName.Text = "debug_table";
+                    _debugTableNameInjected = true;
+                }
+                _debugStructureInjected = true;
+            }
+
+            if (_sourceData == null)
+            {
+                ApplyParsedSourceData(new DvSourceData
+                {
+                    Headers = ["id", "name"],
+                    Rows = [(IReadOnlyList<string?>)["1", "调试数据"]]
+                });
+                _debugSourceInjected = true;
+                _sourceDataFromInsert = false;
+                _insertParseDirty = false;
+            }
+
+            bool hasDebugData = _debugStructureInjected || _debugSourceInjected;
+            bool mappingsWereEmpty = _mappings.Count == 0;
+            if (_step >= 3 && mappingsWereEmpty)
+            {
+                BuildMappings();
+                _debugMappingsInjected = hasDebugData;
+            }
+
+            if (hasDebugData || _debugMappingsInjected)
+            {
+                foreach (var mapping in _mappings)
+                {
+                    if (mapping.MappingType == DvMappingType.Ignore &&
+                        !mapping.IsAutoGenCandidate &&
+                        SourceHeaders.Contains(mapping.TargetColumnName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        mapping.MappingType = DvMappingType.Source;
+                        mapping.SourceColumnName = mapping.TargetColumnName;
+                    }
+
+                    mapping.IsConfirmed = true;
+                }
+            }
+
             UpdateMappingInfo();
         }
 
@@ -1708,20 +1918,20 @@ namespace WpfApp1.Views
                 (RbDdlMode.IsChecked == true
                     ? _structureFromDdl == true && !_ddlParseDirty
                     : _structureFromDdl == false);
-            if (!structureIsCurrent)
+            if (!_debugMode && !structureIsCurrent)
             {
                 SetStatus("目标表结构已失效，请返回结构输入步骤重新解析或导入", true);
                 return;
             }
 
-            if (RbExcelDataMode.IsChecked == true && (_sourceData == null || _sourceDataFromInsert))
+            if (!_debugMode && RbExcelDataMode.IsChecked == true && (_sourceData == null || _sourceDataFromInsert))
             {
                 SetStatus("当前选择了数据 Excel，请返回数据输入步骤重新导入", true);
                 return;
             }
 
             // INSERT 模式：仅当文本有变动、尚未解析，或当前源数据并非来自 INSERT 时才重新解析。
-            if (RbInsertMode.IsChecked == true)
+            if (!_debugMode && RbInsertMode.IsChecked == true)
             {
                 if (string.IsNullOrWhiteSpace(TxtInsert.Text))
                 {

@@ -80,6 +80,12 @@ namespace WpfApp1.Views
                 TxtDefaultExportPath.Text = dialog.FolderName;
         }
 
+        private void BtnOpenQuickTable_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+                mainWindow.NavigateToQuickTable();
+        }
+
         private void SelectDbType(string dbType)
         {
             foreach (ComboBoxItem item in CmbDefaultDbType.Items)
