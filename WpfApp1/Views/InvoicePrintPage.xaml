@@ -352,13 +352,19 @@
                     <Border Height="1" Background="#EBEBEB" Margin="0,0,0,14"/>
 
                     <!-- 操作按钮 -->
-                    <Button Content="🖨️ 开始打印" Style="{DynamicResource ButtonPrimary}" FontSize="14"
+                    <Button x:Name="BtnStartPrint" Content="🖨️ 开始打印" Style="{DynamicResource ButtonPrimary}" FontSize="14"
                             FontWeight="SemiBold" Padding="16,11" Margin="0,0,0,6" Click="BtnPrint_Click2"/>
+                    <StackPanel x:Name="PrintProgressPanel" Visibility="Collapsed" Margin="0,2,0,12">
+                        <ProgressBar x:Name="PrintProgressBar" Height="5" IsIndeterminate="False"
+                                     Foreground="#4E6EF2" Background="#E0E7FF" BorderThickness="0"/>
+                        <TextBlock x:Name="TxtPrintProgress" FontSize="12" Foreground="#4E6EF2"
+                                   Margin="0,6,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
                     <Button Content="💾 保存为模板" Style="{DynamicResource ButtonGhost}" Background="#F0F1F5" Foreground="#555" Padding="14,8" FontSize="12.5" Margin="0,0,0,4" Click="BtnSaveTemplate_Click"/>
                     <Button Content="🗑️ 删除模板" Style="{DynamicResource ButtonGhost}" Background="#F0F1F5" Foreground="#555" Padding="14,8" FontSize="12.5" Margin="0,0,0,4" Click="BtnDeleteTemplate_Click"/>
 
                     <!-- 状态栏 -->
-                    <Button Content="打印机预览" Style="{DynamicResource ButtonGhost}" Background="#F0F1F5" Foreground="#555" Padding="14,8" FontSize="12.5" Margin="0,0,0,4" Click="BtnPrinterPreview_Click"/>
+                    <Button x:Name="BtnPrinterPreview" Content="打印机预览" Style="{DynamicResource ButtonGhost}" Background="#F0F1F5" Foreground="#555" Padding="14,8" FontSize="12.5" Margin="0,0,0,4" Click="BtnPrinterPreview_Click"/>
                     <Border Background="#F0F4FF" CornerRadius="6" Padding="10,8" Margin="0,14,0,0">
                         <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="12" Foreground="#4E6EF2" TextWrapping="Wrap"/>
                     </Border>

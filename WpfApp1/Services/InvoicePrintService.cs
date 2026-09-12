@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -58,6 +59,74 @@ namespace WpfApp1.Services
     // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
     public class InvoicePrintService
     {
+        public sealed record PreviewDocumentData(Size MediaSize, Size ContentSize, Point ContentOrigin, List<BitmapSource> Images);
+
+        // PrintQueue and WPF visuals must be created and used on the same STA thread.
+        public static Task<T> RunPrintWorkerAsync<T>(Func<T> work)
+        {
+            var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var thread = new Thread(() =>
+            {
+                var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+                dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try { completion.SetResult(work()); }
+                    catch (Exception ex) { completion.SetException(ex); }
+                    finally { dispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background); }
+                }));
+                System.Windows.Threading.Dispatcher.Run();
+            }) { IsBackground = true, Name = "Invoice print worker" };
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            return completion.Task;
+        }
+
+        public static T PreparePrintJob<T>(string printerName, List<InvoiceFileItem> items,
+            PrintTemplate template, bool landscape, bool cutLine,
+            Func<List<DrawingVisual>, PrintLayoutContext, T> output, CancellationToken cancellationToken = default,
+            Action<string>? reportProgress = null)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            reportProgress?.Invoke("正在连接打印机...");
+            var queueName = printerName;
+            string? serverName = null;
+            if (printerName.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                int separator = printerName.IndexOf('\\', 2);
+                if (separator > 2)
+                {
+                    serverName = printerName[..separator];
+                    queueName = printerName[(separator + 1)..];
+                }
+            }
+            using PrintServer server = serverName == null ? new LocalPrintServer() : new PrintServer(serverName);
+            using var queue = new PrintQueue(server, queueName);
+            var dialog = new PrintDialog { PrintQueue = queue, PrintTicket = queue.DefaultPrintTicket ?? new PrintTicket() };
+            reportProgress?.Invoke("正在读取打印机纸张与打印设置...");
+            var context = CreatePrintLayoutContext(dialog, template, landscape);
+            var pages = BuildPrintPages(items, template, context.ContentSize, cutLine, cancellationToken, reportProgress);
+            return output(pages, context);
+        }
+
+        public static PreviewDocumentData RenderPreviewDocument(List<DrawingVisual> pages, PrintLayoutContext context,
+            CancellationToken cancellationToken = default)
+        {
+            var images = new List<BitmapSource>();
+            double scale = context.OutputDpi / 96.0;
+            foreach (var page in pages)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var bitmap = new RenderTargetBitmap(
+                    Math.Max(1, (int)Math.Ceiling(context.ContentSize.Width * scale)),
+                    Math.Max(1, (int)Math.Ceiling(context.ContentSize.Height * scale)),
+                    context.OutputDpi, context.OutputDpi, PixelFormats.Pbgra32);
+                bitmap.Render(page);
+                bitmap.Freeze();
+                images.Add(bitmap);
+            }
+            return new PreviewDocumentData(context.MediaSize, context.ContentSize, context.ContentOrigin, images);
+        }
+
         private readonly string _templatePath;
         private readonly string _historyPath;
 
@@ -280,7 +349,8 @@ namespace WpfApp1.Services
         // 鈹€鈹€ 鎺掔増寮曟搸锛氱敓鎴愭墦鍗伴〉闈?鈹€鈹€
 
         public static List<DrawingVisual> BuildPrintPages(
-            List<InvoiceFileItem> items, PrintTemplate template, Size pageSize, bool showCutLine = false)
+            List<InvoiceFileItem> items, PrintTemplate template, Size pageSize, bool showCutLine = false,
+            CancellationToken cancellationToken = default, Action<string>? reportProgress = null)
         {
             var pages = new List<DrawingVisual>();
             int perPage = template.LayoutCount;
@@ -324,6 +394,8 @@ namespace WpfApp1.Services
                     for (int j = 0; j < perPage && (i + j) < items.Count; j++)
                     {
                         var item = items[i + j];
+                        cancellationToken.ThrowIfCancellationRequested();
+                        reportProgress?.Invoke($"正在生成文件 {i + j + 1}/{items.Count}：{item.FileName}");
                         var img = GetPrintImage(item, GetDpiFromQuality(template.PrintQuality));
                         if (img == null) continue;
 
@@ -449,13 +521,15 @@ namespace WpfApp1.Services
             };
         }
 
-        public static FixedDocument BuildFixedDocument(List<DrawingVisual> pages, PrintLayoutContext context)
+        public static FixedDocument BuildFixedDocument(List<DrawingVisual> pages, PrintLayoutContext context,
+            Action<string>? reportProgress = null)
         {
             var doc = new FixedDocument();
             doc.DocumentPaginator.PageSize = context.MediaSize;
 
             foreach (var visual in pages)
             {
+                reportProgress?.Invoke($"正在生成打印页面 {doc.Pages.Count + 1}/{pages.Count}...");
                 var fp = new FixedPage
                 {
                     Width = context.MediaSize.Width,
@@ -565,20 +639,95 @@ namespace WpfApp1.Services
             return true;
         }
 
-        public static bool PrintPages(List<DrawingVisual> pages, int copies, PrintLayoutContext context)
-        {
-            if (pages.Count == 0) return false;
-            if (context.PrintQueue == null) return false;
+        public sealed record PrintResult(bool Completed, string Message);
 
-            var doc = BuildFixedDocument(pages, context);
-            var writer = PrintQueue.CreateXpsDocumentWriter(context.PrintQueue);
+        public static PrintResult PrintPages(List<DrawingVisual> pages, int copies, PrintLayoutContext context,
+            Action<string>? reportProgress = null)
+        {
+            if (pages.Count == 0) throw new InvalidOperationException("没有可打印的页面。");
+            if (context.PrintQueue == null) throw new InvalidOperationException("未选择打印机。");
+
+            var doc = BuildFixedDocument(pages, context, reportProgress);
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            var prefix = $"CCInvoice-{Guid.NewGuid():N}";
 
             for (int c = 0; c < copies; c++)
             {
+                reportProgress?.Invoke($"正在提交第 {c + 1}/{copies} 份到打印队列...");
+                string name = $"{prefix}-{c + 1}";
+                context.PrintQueue.CurrentJobSettings.Description = name;
+                var writer = PrintQueue.CreateXpsDocumentWriter(context.PrintQueue);
                 writer.Write(doc.DocumentPaginator, context.PrintTicket);
+                names.Add(name);
             }
 
-            return true;
+            return WaitForPrintResult(context.PrintQueue, names, reportProgress);
+        }
+
+        private static PrintResult WaitForPrintResult(PrintQueue queue, HashSet<string> pending,
+            Action<string>? reportProgress)
+        {
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            string status = "已提交，正在等待打印机反馈...";
+            while (elapsed.Elapsed < TimeSpan.FromSeconds(60))
+            {
+                try
+                {
+                    queue.Refresh();
+                    using var jobs = queue.GetPrintJobInfoCollection();
+                    int found = 0;
+                    var states = new List<string>();
+                    foreach (var job in jobs)
+                    {
+                        using (job)
+                        {
+                            if (!pending.Contains(job.Name)) continue;
+                            found++;
+                            var result = DescribePrintJob(job.JobStatus);
+                            if (result.Completed) pending.Remove(job.Name);
+                            else if (job.IsDeleting || job.IsDeleted)
+                                return new PrintResult(false, "打印任务已删除或取消，未确认打印完成。");
+                            else states.Add(result.Message);
+                        }
+                    }
+                    if (pending.Count == 0)
+                        return new PrintResult(true, "打印队列已报告本次全部任务完成。");
+                    if (found == 0 && elapsed.Elapsed >= TimeSpan.FromSeconds(3))
+                        return new PrintResult(false, "已提交；队列中已无本次任务，驱动未回传完成状态，请核对实际出纸。");
+                    status = states.Count > 0 ? string.Join("；", states.Distinct()) : "正在等待队列回传本次任务状态...";
+                    if (queue.IsOffline) status = "打印机离线，等待恢复连接。";
+                    else if (queue.IsOutOfPaper) status = "打印机缺纸，请补充纸张。";
+                    else if (queue.IsPaperJammed) status = "打印机卡纸，请处理后等待恢复。";
+                    else if (queue.IsPaused) status = "打印队列已暂停，等待恢复。";
+                    reportProgress?.Invoke(status);
+                }
+                catch (PrintSystemException ex)
+                {
+                    return new PrintResult(false, $"已提交，但无法读取打印反馈：{ex.Message}");
+                }
+                Thread.Sleep(1000);
+            }
+            return new PrintResult(false, $"{status} 已停止等待反馈，尚未确认完成，请检查打印队列。");
+        }
+
+        internal static PrintResult DescribePrintJob(PrintJobStatus status)
+        {
+            if ((status & (PrintJobStatus.Deleting | PrintJobStatus.Deleted)) != 0)
+                return new PrintResult(false, "打印任务已删除或取消。");
+            if ((status & PrintJobStatus.Error) != 0)
+                return new PrintResult(false, "打印任务发生错误，请检查打印机。");
+            if ((status & PrintJobStatus.Offline) != 0)
+                return new PrintResult(false, "打印机离线，等待恢复连接。");
+            if ((status & PrintJobStatus.PaperOut) != 0)
+                return new PrintResult(false, "打印机缺纸，请补充纸张。");
+            if ((status & PrintJobStatus.Blocked) != 0 || (status & PrintJobStatus.UserIntervention) != 0)
+                return new PrintResult(false, "打印任务受阻，需要检查打印机。");
+            if ((status & PrintJobStatus.Paused) != 0)
+                return new PrintResult(false, "打印任务已暂停，等待恢复。");
+            if ((status & (PrintJobStatus.Completed | PrintJobStatus.Printed)) != 0)
+                return new PrintResult(true, "打印队列报告任务完成。");
+            return new PrintResult(false, (status & PrintJobStatus.Printing) != 0
+                ? "打印机正在打印..." : "任务正在排队或传输，等待打印机反馈...");
         }
 
         private static Size GetRequestedPaperSize(PrintTemplate template, bool isLandscape)
