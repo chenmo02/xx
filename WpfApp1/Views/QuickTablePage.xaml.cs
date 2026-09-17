@@ -12,6 +12,7 @@ public partial class QuickTablePage : Page
     public QuickTablePage()
     {
         InitializeComponent();
+        _ = new WpfApp1.Behaviors.SmoothWheelScroll(PageScroller);
         CmbAllType.SelectedIndex = 0;
         var settings = ImportSettingsService.Load();
         CmbDbType.SelectedIndex = settings.DefaultDbType switch

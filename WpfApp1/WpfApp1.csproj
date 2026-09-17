@@ -16,6 +16,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 将打包机器的本地日期写入程序集，运行时保持不变（含单文件 EXE）。 -->
+    <AssemblyMetadata Include="ReleaseDate" Value="$([System.DateTime]::Now.ToString('yyyy-MM-dd'))" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="favicon.ico" />
     <Resource Include="..\img\**\*.png" Link="img\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>

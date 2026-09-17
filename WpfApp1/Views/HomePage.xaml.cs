@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using WpfApp1;
@@ -9,7 +10,14 @@ namespace WpfApp1.Views
         public HomePage()
         {
             InitializeComponent();
+            TxtReleaseDate.Text = typeof(HomePage).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Single(attribute => attribute.Key == "ReleaseDate").Value;
             //TxtRuntime.Text = $".NET {Environment.Version.Major}";
+        }
+
+        private void HomeScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            QuickCards.Columns = e.NewSize.Width >= 820 ? 4 : 2;
         }
 
         private void GoToImport_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

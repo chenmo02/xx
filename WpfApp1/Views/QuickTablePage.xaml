@@ -2,13 +2,18 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:svc="clr-namespace:WpfApp1.Services"
+      xmlns:controls="clr-namespace:WpfApp1.Controls"
+      xmlns:behaviors="clr-namespace:WpfApp1.Behaviors"
       Background="{DynamicResource PageBackgroundAltBrush}">
     <Page.Resources>
         <Style x:Key="SqlOutputBox" TargetType="TextBox">
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="16,14"/>
-            <Setter Property="Foreground" Value="#8ED7D8"/>
+            <Setter Property="Foreground" Value="Transparent"/>
+            <Setter Property="SelectionBrush" Value="#426A9D"/>
+            <Setter Property="SelectionOpacity" Value="0.6"/>
+            <Setter Property="IsInactiveSelectionHighlightEnabled" Value="True"/>
             <Setter Property="Background" Value="#1F2B3D"/>
             <Setter Property="BorderBrush" Value="#33465D"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -23,7 +28,6 @@
                                 Padding="{TemplateBinding Padding}">
                             <ScrollViewer x:Name="PART_ContentHost"
                                           Background="#1F2B3D"
-                                          Foreground="#8ED7D8"
                                           VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
                                           HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"/>
                         </Border>
@@ -32,13 +36,14 @@
             </Setter>
         </Style>
     </Page.Resources>
-    <ScrollViewer Style="{DynamicResource PageScrollViewerStyle}" Padding="28,24" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+    <ScrollViewer x:Name="PageScroller" Style="{DynamicResource PageScrollViewerStyle}"
+                  behaviors:ScrollViewerAssist.EnableHiddenWheelScroll="False"
+                  Padding="28,24" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
         <StackPanel MaxWidth="1180">
             <TextBlock Text="快速建表" FontSize="22" FontWeight="Bold" Foreground="#1A2332" Margin="0,0,0,4"/>
             <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成 CREATE TABLE。" FontSize="14" Foreground="#6B7A90" Margin="0,0,0,20"/>
 
             <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16">
-                <Border.Effect><DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/></Border.Effect>
                 <StackPanel>
                     <DockPanel Margin="0,0,0,14">
                         <TextBlock Text="1. 输入 INSERT SQL" FontSize="16" FontWeight="SemiBold" Foreground="#2D3748" DockPanel.Dock="Left"/>
@@ -57,12 +62,13 @@
             </Border>
 
             <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16">
-                <Border.Effect><DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/></Border.Effect>
                 <StackPanel>
                     <DockPanel Margin="0,0,0,12"><TextBlock Text="2. 字段预览与类型调整" FontSize="16" FontWeight="SemiBold" Foreground="#2D3748" DockPanel.Dock="Left"/><TextBlock x:Name="TxtStatus" Text="请先解析 INSERT SQL" FontSize="12" Foreground="#6B7A90" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/></DockPanel>
                     <WrapPanel Margin="0,0,0,12"><Button Content="解析并推断" Style="{DynamicResource ButtonPrimary}" Padding="20,9" Click="BtnParse_Click"/><TextBlock Text="全部字段类型" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center" Margin="24,0,8,0"/><ComboBox x:Name="CmbAllType" Width="130" Height="40" ItemsSource="{x:Static svc:QuickTableService.TypeChoices}" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="CmbAllType_SelectionChanged"/><Button Content="应用" Style="{DynamicResource ButtonPrimary}" Padding="18,9" Margin="8,0,0,0" Click="BtnApplyType_Click"/><TextBlock Text="全部长度" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center" Margin="24,0,8,0"/><TextBox x:Name="TxtAllLength" Width="90" Height="40" Text="1000" Style="{DynamicResource TextBoxStandard}" TextChanged="TxtAllLength_TextChanged"/><Button Content="应用长度" Style="{DynamicResource ButtonPrimary}" Padding="18,9" Margin="8,0,0,0" Click="BtnApplyLength_Click"/></WrapPanel>
                     <Border Background="#F8FAFC" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="1">
                         <DataGrid x:Name="GridColumns" Style="{DynamicResource QuickTableGridStyle}" AutoGenerateColumns="False" IsReadOnly="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" RowHeaderWidth="0" MaxHeight="430" MinHeight="180" Background="White" BorderThickness="0" GridLinesVisibility="All" HorizontalGridLinesBrush="#E4E7EB" VerticalGridLinesBrush="#E4E7EB" FontSize="12" ColumnHeaderHeight="38" HeadersVisibility="Column" RowBackground="White" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" SelectionUnit="CellOrRowHeader" SelectionMode="Extended">
+                            <VirtualizingPanel.ScrollUnit>Pixel</VirtualizingPanel.ScrollUnit>
+                            <VirtualizingPanel.VirtualizationMode>Recycling</VirtualizingPanel.VirtualizationMode>
                             <DataGrid.Columns>
                                 <DataGridTemplateColumn Header="序号" Width="58" IsReadOnly="True"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Background="#EEF4FF" CornerRadius="8" Padding="8,4" HorizontalAlignment="Center"><TextBlock Text="{Binding RowNumber}" Style="{DynamicResource QuickTableCellTextStyle}" Foreground="#2563C7"/></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                 <DataGridTextColumn Header="原字段名" Binding="{Binding OriginalName}" IsReadOnly="True" Width="*" MinWidth="150" ElementStyle="{DynamicResource QuickTableCellTextStyle}"/>
@@ -85,7 +91,6 @@
             </Border>
 
             <Border Style="{DynamicResource CardBorder}" Padding="24,20">
-                <Border.Effect><DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/></Border.Effect>
                 <StackPanel>
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -101,7 +106,10 @@
                     </Grid>
                     <WrapPanel Margin="0,0,0,12"><CheckBox x:Name="ChkDrop" Content="生成前删除同名表" IsChecked="True" FontSize="13"/></WrapPanel>
                     <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="8" Padding="1">
-                        <TextBox x:Name="TxtOutput" Height="420" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" Style="{StaticResource SqlOutputBox}"/>
+                        <Grid Height="420" ClipToBounds="True">
+                            <TextBox x:Name="TxtOutput" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" Style="{StaticResource SqlOutputBox}"/>
+                            <controls:SqlSyntaxLayer Editor="{Binding ElementName=TxtOutput}" Margin="16,14"/>
+                        </Grid>
                     </Border>
                 </StackPanel>
             </Border>

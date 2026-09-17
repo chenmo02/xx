@@ -164,7 +164,9 @@ namespace WpfApp1.Views
                 return false;
             }
 
-            var orderedColumns = grid.Columns.OrderBy(c => c.DisplayIndex).ToList();
+            var orderedColumns = grid.Columns
+                .Where(c => grid != DgMapping || c.Header?.ToString() != "操作")
+                .OrderBy(c => c.DisplayIndex).ToList();
             string rowText = string.Join("\t", orderedColumns.Select(c => GetCellText(grid, item, c)));
             Clipboard.SetText(rowText);
             SetStatus("已复制当前行");
@@ -305,7 +307,7 @@ namespace WpfApp1.Views
                     { err = "DDL 内容尚未解析或已修改，请重新解析"; return false; }
                     if (RbExcelStructMode.IsChecked == true && _structureFromDdl != false)
                     { err = "当前选择了结构 Excel，请先导入查询结果 Excel"; return false; }
-                    var selectedDbType = RbSqlServer.IsChecked == true
+                    var selectedDbType = CbDatabaseType.SelectedIndex == 1
                         ? DvDbType.SqlServer
                         : DvDbType.PostgreSql;
                     if (_structureDbType != selectedDbType)
@@ -611,23 +613,44 @@ namespace WpfApp1.Views
             if (DdlCard == null || StructExcelCard == null) return;
             bool isDdl = RbDdlMode.IsChecked == true;
 
-            // 左侧 DDL 卡片
-            DdlCard.Padding = new Thickness(isDdl ? 2 : 0);
-            DdlCard.Background = isDdl
-                ? new SolidColorBrush(Color.FromRgb(78, 110, 242))
-                : Brushes.Transparent;
+            var selectedBorder = new SolidColorBrush(Color.FromRgb(188, 205, 255));
+            var normalBorder = new SolidColorBrush(Color.FromRgb(231, 238, 248));
+            DdlCard.BorderBrush = isDdl ? selectedBorder : normalBorder;
+            StructExcelCard.BorderBrush = isDdl ? normalBorder : selectedBorder;
+        }
 
-            // 右侧 SQL 查询卡片 — 与左侧对称
-            StructExcelCard.Padding = new Thickness(isDdl ? 0 : 2);
-            StructExcelCard.Background = isDdl
-                ? Brushes.Transparent
-                : new SolidColorBrush(Color.FromRgb(78, 110, 242));
-            // 选中时用外层蓝色边框，隐藏内层灰色边框
-            StructExcelInner.BorderThickness = new Thickness(isDdl ? 1 : 0);
+        private void DdlEditorViewport_Changed(object sender, RoutedEventArgs e)
+        {
+            Dispatcher.InvokeAsync(UpdateDdlLineNumbers, System.Windows.Threading.DispatcherPriority.Render);
+        }
+
+        private void UpdateDdlLineNumbers()
+        {
+            if (TxtDdl == null || DdlLineNumbers == null || !TxtDdl.IsVisible) return;
+            DdlLineNumbers.Children.Clear();
+            if (TxtDdl.Text.Length == 0) return;
+            int first = Math.Max(0, TxtDdl.GetFirstVisibleLineIndex());
+            int last = Math.Max(first, TxtDdl.GetLastVisibleLineIndex());
+            for (int line = first; line <= last; line++)
+            {
+                int index = TxtDdl.GetCharacterIndexFromLineIndex(line);
+                var rect = TxtDdl.GetRectFromCharacterIndex(Math.Max(0, index));
+                var number = new TextBlock
+                {
+                    Text = (line + 1).ToString(),
+                    FontFamily = TxtDdl.FontFamily,
+                    FontSize = TxtDdl.FontSize,
+                    Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184))
+                };
+                Canvas.SetRight(number, 8);
+                Canvas.SetTop(number, rect.IsEmpty ? TxtDdl.Padding.Top : rect.Top);
+                DdlLineNumbers.Children.Add(number);
+            }
         }
 
         private void TxtDdl_TextChanged(object sender, TextChangedEventArgs e)
         {
+            DdlEditorViewport_Changed(sender, e);
             _ddlParseDirty = true;
             if (_structureFromDdl != true)
                 return;
@@ -641,7 +664,7 @@ namespace WpfApp1.Views
             TxtDdlStatus.Foreground = new SolidColorBrush(Color.FromRgb(245, 158, 11));
         }
 
-        private void DbType_Changed(object sender, RoutedEventArgs e)
+        private void DbType_Changed(object sender, SelectionChangedEventArgs e)
         {
             UpdateStructQuery();
         }
@@ -653,7 +676,7 @@ namespace WpfApp1.Views
                 ? "你的表名"
                 : TxtTableName!.Text.Trim();
 
-            if (RbSqlServer?.IsChecked == true)
+            if (CbDatabaseType?.SelectedIndex == 1)
             {
                 TxtStructQuery.Text =
                     "SELECT\r\n" +
@@ -706,7 +729,7 @@ namespace WpfApp1.Views
         {
             try
             {
-                var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
+                var dbType = CbDatabaseType.SelectedIndex == 1 ? DvDbType.SqlServer : DvDbType.PostgreSql;
 
                 // 自动检测 DDL 中的数据库类型特征
                 var detected = DdlParser.DetectDbType(TxtDdl.Text);
@@ -726,9 +749,9 @@ namespace WpfApp1.Views
                     {
                         // 自动切换
                         if (detected.Value == DvDbType.SqlServer)
-                            RbSqlServer.IsChecked = true;
+                            CbDatabaseType.SelectedIndex = 1;
                         else
-                            RbPostgreSql.IsChecked = true;
+                            CbDatabaseType.SelectedIndex = 0;
                         dbType = detected.Value;
                     }
                     else if (result == MessageBoxResult.Cancel)
@@ -792,7 +815,7 @@ namespace WpfApp1.Views
             SetStatus("正在读取结构 Excel，大文件处理期间请勿重复操作...");
             try
             {
-                var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
+                var dbType = CbDatabaseType.SelectedIndex == 1 ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 var targetColumns = await Task.Run(() => ReadStructExcel(dlg.FileName, dbType));
                 _targetColumns = targetColumns;
                 _debugStructureInjected = false;
@@ -886,18 +909,10 @@ namespace WpfApp1.Views
             if (InsertCard == null || DataExcelCard == null) return;
             bool isInsert = RbInsertMode.IsChecked == true;
 
-            // 左侧 INSERT 卡片
-            InsertCard.Padding = new Thickness(isInsert ? 2 : 0);
-            InsertCard.Background = isInsert
-                ? new SolidColorBrush(Color.FromRgb(78, 110, 242))
-                : Brushes.Transparent;
-
-            // 右侧 Excel 卡片 — 与左侧对称
-            DataExcelCard.Padding = new Thickness(isInsert ? 0 : 2);
-            DataExcelCard.Background = isInsert
-                ? Brushes.Transparent
-                : new SolidColorBrush(Color.FromRgb(78, 110, 242));
-            DataExcelInner.BorderThickness = new Thickness(isInsert ? 1 : 0);
+            var selectedBorder = new SolidColorBrush(Color.FromRgb(188, 205, 255));
+            var normalBorder = new SolidColorBrush(Color.FromRgb(231, 238, 248));
+            InsertCard.BorderBrush = isInsert ? selectedBorder : normalBorder;
+            DataExcelCard.BorderBrush = isInsert ? normalBorder : selectedBorder;
         }
 
         private void TxtInsert_TextChanged(object sender, TextChangedEventArgs e)
@@ -1096,6 +1111,7 @@ namespace WpfApp1.Views
             _mappings = new ObservableCollection<DvMappingRow>(
                 OrderMappingsForDisplay(FieldMatcherService.AutoMap(_targetColumns, _sourceData!.Headers)));
             DgMapping.ItemsSource = _mappings;
+            TxtMappingSearch.Clear();
             _structureChanged = false; // 映射已基于当前结构重建，标志复位
 
             RefreshMappingPkDropdowns(resetSelection: true); // 结构变了，主键选择也重置
@@ -1259,13 +1275,14 @@ namespace WpfApp1.Views
         private void BtnNextUnconfirmed_Click(object sender, RoutedEventArgs e)
         {
             if (_mappings.Count == 0) return;
-            int start = DgMapping.SelectedIndex < 0 ? 0 : DgMapping.SelectedIndex + 1;
+            int start = DgMapping.SelectedItem is DvMappingRow selected ? _mappings.IndexOf(selected) + 1 : 0;
             for (int i = 0; i < _mappings.Count; i++)
             {
                 int idx = (start + i) % _mappings.Count;
                 if (!_mappings[idx].IsConfirmed)
                 {
-                    DgMapping.SelectedIndex = idx;
+                    TxtMappingSearch.Clear();
+                    DgMapping.SelectedItem = _mappings[idx];
                     DgMapping.ScrollIntoView(_mappings[idx]);
                     return;
                 }
@@ -1864,14 +1881,49 @@ namespace WpfApp1.Views
             public string PercentageText { get; } = total <= 0 ? "0.00%" : $"{(double)count / total:P2}";
         }
 
+        private void MappingSearch_Changed(object sender, TextChangedEventArgs e)
+        {
+            if (DgMapping?.ItemsSource == null) return;
+            var keyword = TxtMappingSearch.Text.Trim();
+            var view = CollectionViewSource.GetDefaultView(DgMapping.ItemsSource);
+            view.Filter = item => item is DvMappingRow row &&
+                (keyword.Length == 0 ||
+                 row.TargetColumnName.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                 row.TargetDisplayType.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                 (row.SourceColumnName?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false));
+            TxtMappingCount.Text = $"{DgMapping.Items.Count} 条记录";
+        }
+
+        private void MappingConfirmation_Changed(object sender, RoutedEventArgs e)
+        {
+            if (TxtMappingSummary != null)
+                UpdateMappingInfo();
+        }
+
+        private void EditMapping_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: DvMappingRow mapping }) return;
+            DgMapping.SelectedItem = mapping;
+            DgMapping.ScrollIntoView(mapping, DgMapping.Columns[4]);
+            DgMapping.UpdateLayout();
+            if (DgMapping.Columns[4].GetCellContent(mapping) is ContentPresenter presenter &&
+                presenter.ContentTemplate.FindName("MappingTypeEditor", presenter) is ComboBox editor)
+            {
+                editor.Focus();
+                editor.IsDropDownOpen = true;
+            }
+        }
+
         private void UpdateMappingInfo()
         {
-            if (_mappings.Count == 0) return;
+            if (TxtMappingSummary == null) return;
+            int confirmed = _mappings.Count(m => m.IsConfirmed);
+            TxtMappingSummary.Text = $"总计 {_mappings.Count} 条记录，已确认 {confirmed} 条，未确认 {_mappings.Count - confirmed} 条";
+            TxtMappingCount.Text = $"{DgMapping.Items.Count} 条记录";
             var currentHeaderSet = new HashSet<string>(SourceHeaders, StringComparer.OrdinalIgnoreCase);
             int mapped = _mappings.Count(m =>
                 m.MappingType == DvMappingType.Constant ||
                 HasValidSourceMapping(m, currentHeaderSet));
-            int confirmed = _mappings.Count(m => m.IsConfirmed);
             int required = _mappings.Count(m => m.IsRequired && !m.IsUuidTarget && m.MappingType == DvMappingType.Ignore && !m.IsAutoGenCandidate);
             int ignoredUuid = _mappings.Count(m => m.IsUuidTarget && m.MappingType == DvMappingType.Ignore);
             int pendingUuid = _mappings.Count(m => m.IsUuidTarget && !m.IsConfirmed);
@@ -1918,7 +1970,7 @@ namespace WpfApp1.Views
 
         private async void BtnRunValidation_Click(object sender, RoutedEventArgs e)
         {
-            var selectedDbType = RbSqlServer.IsChecked == true
+            var selectedDbType = CbDatabaseType.SelectedIndex == 1
                 ? DvDbType.SqlServer
                 : DvDbType.PostgreSql;
             bool structureIsCurrent = _targetColumns.Count > 0 &&
@@ -2072,7 +2124,7 @@ namespace WpfApp1.Views
             if (dlg.ShowDialog() != true) return;
             try
             {
-                var dbType = RbSqlServer.IsChecked == true ? DvDbType.SqlServer : DvDbType.PostgreSql;
+                var dbType = CbDatabaseType.SelectedIndex == 1 ? DvDbType.SqlServer : DvDbType.PostgreSql;
                 ValidationReportService.Generate(
                     lastResult, _targetColumns, _mappings,
                     dbType, TxtTableName.Text, dlg.FileName);

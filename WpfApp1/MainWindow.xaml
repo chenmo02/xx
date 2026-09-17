@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="CC 实施工具箱" Height="700" Width="1100"
+        Title="CC 工具箱" Height="700" Width="1100"
         MinHeight="600" MinWidth="900"
         WindowStartupLocation="CenterScreen"
         Icon="pack://application:,,,/favicon.ico"
@@ -40,19 +40,19 @@
                     <StackPanel>
                         <TextBlock Text="数据工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavHome" Content="首页概览" Tag="🏠"
+                        <RadioButton x:Name="NavHome" Content="首页概览" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav" IsChecked="True"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavImport" Content="数据导入临时表" Tag="💾"
+                        <RadioButton x:Name="NavImport" Content="数据导入临时表" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavCsvViewer" Content="CSV 预览工具" Tag="📖"
+                        <RadioButton x:Name="NavCsvViewer" Content="CSV 预览工具" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavCsvCompare" Content="CSV 对比工具" Tag="📚"
+                        <RadioButton x:Name="NavCsvCompare" Content="CSV 对比工具" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavDataValidation" Content="数据验证排查" Tag="🔍"
+                        <RadioButton x:Name="NavDataValidation" Content="数据验证排查" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
 
@@ -60,13 +60,13 @@
 
                         <TextBlock Text="开发工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavJsonTool" Content="JSON 处理工具" Tag="📄"
+                        <RadioButton x:Name="NavJsonTool" Content="JSON 处理工具" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavJsonDiff" Content="JSON 对比工具" Tag="🔀"
+                        <RadioButton x:Name="NavJsonDiff" Content="JSON 对比工具" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavDrawBoard" Content="Excalidraw 画板" Tag="🎨"
+                        <RadioButton x:Name="NavDrawBoard" Content="Excalidraw 画板" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
 
@@ -74,7 +74,7 @@
 
                         <TextBlock Text="办公工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavInvoice" Content="发票打印工具" Tag="🖨️"
+                        <RadioButton x:Name="NavInvoice" Content="发票打印工具" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
 
@@ -82,7 +82,7 @@
 
                         <TextBlock Text="系统" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavSettings" Content="系统设置" Tag="⚙️"
+                        <RadioButton x:Name="NavSettings" Content="系统设置" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
                         <!-- 暂时隐藏实用小工具入口，相关页面和功能代码保留 -->
