@@ -1972,6 +1972,7 @@ namespace WpfApp1.Views
             {
                 Text = node.Key, FontWeight = FontWeights.SemiBold,
                 Foreground = KeyColor, FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = Cursors.Hand,
                 ToolTip = "点击定位到左侧 JSON"
@@ -1999,6 +2000,7 @@ namespace WpfApp1.Views
                 Text = node.Value,
                 Foreground = MakeBrush(node.ValueColor),
                 FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center,
                 Cursor = Cursors.Hand,
                 ToolTip = "点击定位到左侧 JSON"
@@ -2021,7 +2023,13 @@ namespace WpfApp1.Views
             Grid.SetColumn(valBorder, 1);
             row.Children.Add(valBorder);
 
-            container.Children.Add(row);
+            // 横向滚动仍供多列表格使用，字段行限制在可视宽度内以触发换行。
+            var rowHost = new Border { Child = row };
+            rowHost.SetBinding(FrameworkElement.MaxWidthProperty, new System.Windows.Data.Binding("ViewportWidth")
+            {
+                Source = GridScrollViewer
+            });
+            container.Children.Add(rowHost);
         }
 
         private void AddLabel(string text, Panel container, int depth, bool isBold)

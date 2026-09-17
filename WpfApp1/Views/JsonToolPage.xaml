@@ -186,8 +186,8 @@
                     <!-- JSON 编辑器 -->
                     <TextBox x:Name="TxtJsonEditor"
                              AcceptsReturn="True" AcceptsTab="True"
-                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                             TextWrapping="NoWrap"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                             TextWrapping="Wrap"
                              IsInactiveSelectionHighlightEnabled="True"
                              SelectionBrush="#FDE68A" SelectionOpacity="0.45"
                              FontSize="13" FontFamily="Consolas, 'Courier New'"
