@@ -2885,7 +2885,7 @@ namespace WpfApp1.Views
             {
                 File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
                 SetStatus($"✅ 已导出: {Path.GetFileName(dlg.FileName)}");
-                MessageBox.Show($"CSV 已导出到：\n{dlg.FileName}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                ToastService.Show(this, "CSV 已导出");
             }
         }
 
@@ -2957,6 +2957,7 @@ namespace WpfApp1.Views
             {
                 SetEditorText(BeautifyJsonForEditor(GetEditorText()));
                 RebuildGridAfterProgrammaticTextChange("✅ 格式化完成");
+                ToastService.Show(this, "JSON 格式化完成");
             }
             catch (JsonException ex)
             {
@@ -2972,6 +2973,7 @@ namespace WpfApp1.Views
                 SetEditorText(JsonToolService.Minify(GetEditorText()));
                 _isAutoBeautifySuppressed = true;
                 RebuildGridAfterProgrammaticTextChange("✅ 压缩完成");
+                ToastService.Show(this, "JSON 压缩完成");
             }
             catch (JsonException ex)
             {
@@ -2984,8 +2986,8 @@ namespace WpfApp1.Views
         {
             var (isValid, message, _) = JsonToolService.Validate(GetEditorText());
             SetStatus(isValid ? "✅ JSON 格式正确" : "❌ 格式错误");
-            MessageBox.Show(message, isValid ? "校验通过" : "校验失败", MessageBoxButton.OK,
-                isValid ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            if (isValid) ToastService.Show(this, message);
+            else MessageBox.Show(message, "校验失败", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         // ==================== 文件导入导出 ====================
@@ -3002,6 +3004,7 @@ namespace WpfApp1.Views
                     string formatted = BeautifyJsonForEditor(content);
                     SetEditorText(formatted);
                     RebuildGridAfterProgrammaticTextChange($"✅ 已导入并自动美化: {Path.GetFileName(dlg.FileName)}");
+                    ToastService.Show(this, "JSON 已导入并自动美化");
                 }
                 catch (JsonException ex)
                 {
@@ -3145,6 +3148,7 @@ namespace WpfApp1.Views
             {
                 File.WriteAllText(dlg.FileName, text, Encoding.UTF8);
                 SetStatus("✅ 已导出");
+                ToastService.Show(this, "JSON 已导出");
             }
         }
 
@@ -3160,6 +3164,7 @@ namespace WpfApp1.Views
                 {
                     File.WriteAllText(dlg.FileName, csv, new UTF8Encoding(true));
                     SetStatus("✅ CSV 已导出");
+                    ToastService.Show(this, "CSV 已导出");
                 }
             }
             catch (Exception ex) { MessageBox.Show($"CSV 转换失败: {ex.Message}"); }

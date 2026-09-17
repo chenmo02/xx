@@ -12,12 +12,6 @@ namespace WpfApp1.Views
 {
     public partial class CsvComparePage : Page
     {
-        [DllImport("user32.dll")] private static extern bool OpenClipboard(IntPtr hWndNewOwner);
-        [DllImport("user32.dll")] private static extern bool CloseClipboard();
-        [DllImport("user32.dll")] private static extern bool EmptyClipboard();
-        [DllImport("user32.dll")] private static extern IntPtr SetClipboardData(uint uFormat, IntPtr hMem);
-        private const uint CF_UNICODETEXT = 13;
-
         private sealed class LoadedFileContext
         {
             public required DelimitedTextLoadResult LoadResult { get; init; }
@@ -140,6 +134,7 @@ namespace WpfApp1.Views
             }
 
             RunCompare();
+            ToastService.Show(this, "文件对比完成");
         }
 
         private void BtnToggleKeyColumns_Click(object sender, RoutedEventArgs e)
@@ -231,8 +226,15 @@ namespace WpfApp1.Views
         private void BtnCopyReport_Click(object sender, RoutedEventArgs e)
         {
             if (_lastResult == null) return;
-            SafeCopyToClipboard(BuildReport());
-            MessageBox.Show("报告已复制到剪贴板。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                Clipboard.SetText(BuildReport());
+                ToastService.Show(this, "报告已复制到剪贴板");
+            }
+            catch (COMException)
+            {
+                ToastService.Show(this, "剪贴板暂时不可用，请重试");
+            }
         }
 
         private void BtnExportResult_Click(object sender, RoutedEventArgs e)
@@ -245,7 +247,7 @@ namespace WpfApp1.Views
             };
             if (dialog.ShowDialog() != true) return;
             ExportService.ExportCsv(dialog.FileName, BuildExportTable(GetExportDiffItems()));
-            MessageBox.Show($"结果已导出到：\n{dialog.FileName}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            ToastService.Show(this, "对比结果已导出");
         }
 
         // ── 文件加载 ──────────────────────────────────────────────
@@ -270,6 +272,7 @@ namespace WpfApp1.Views
                 RefreshKeyColumns();
                 ResetResults();
                 SaveState();
+                ToastService.Show(this, "文件加载完成");
             }
             catch (Exception ex)
             {
@@ -979,25 +982,6 @@ namespace WpfApp1.Views
                 table.Rows.Add(row);
             }
             return table;
-        }
-
-        private void SafeCopyToClipboard(string text)
-        {
-            try
-            {
-                if (OpenClipboard(IntPtr.Zero))
-                {
-                    try
-                    {
-                        EmptyClipboard();
-                        IntPtr handle = Marshal.StringToHGlobalUni(text);
-                        SetClipboardData(CF_UNICODETEXT, handle);
-                    }
-                    finally { CloseClipboard(); }
-                }
-                else { Clipboard.SetText(text); }
-            }
-            catch { try { Clipboard.SetText(text); } catch { } }
         }
 
         private static string FormatFileSize(long bytes) =>

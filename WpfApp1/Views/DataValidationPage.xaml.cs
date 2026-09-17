@@ -151,6 +151,7 @@ namespace WpfApp1.Views
             string text = GetCellText(grid, grid.CurrentCell.Item, grid.CurrentCell.Column);
             Clipboard.SetText(text);
             SetStatus($"已复制单元格内容：{grid.CurrentCell.Column.Header}");
+            ToastService.Show(this, "单元格内容已复制");
             return true;
         }
 
@@ -167,6 +168,7 @@ namespace WpfApp1.Views
             string rowText = string.Join("\t", orderedColumns.Select(c => GetCellText(grid, item, c)));
             Clipboard.SetText(rowText);
             SetStatus("已复制当前行");
+            ToastService.Show(this, "当前行已复制");
             return true;
         }
 
@@ -689,6 +691,7 @@ namespace WpfApp1.Views
             {
                 Clipboard.SetText(TxtStructQuery.Text);
                 SetStatus("查询语句已复制到剪贴板");
+                ToastService.Show(this, "查询语句已复制到剪贴板");
             }
         }
 
@@ -757,6 +760,7 @@ namespace WpfApp1.Views
                 TxtDdlStatus.Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129));
                 SetStatus($"DDL 解析成功，共 {_targetColumns.Count} 个字段" +
                     (!string.IsNullOrEmpty(extractedName) ? $"，表名：{extractedName}" : ""));
+                ToastService.Show(this, TxtStatus.Text);
             }
             catch (Exception ex)
             {
@@ -800,6 +804,7 @@ namespace WpfApp1.Views
                 ClearValidationResultState();
                 TxtStructExcelInfo.Text = $"⌛️ {System.IO.Path.GetFileName(dlg.FileName)} — 已读取 {_targetColumns.Count} 个字段";
                 SetStatus($"结构 Excel 导入成功，共 {_targetColumns.Count} 个字段");
+                ToastService.Show(this, TxtStatus.Text);
             }
             catch (Exception ex)
             {
@@ -934,7 +939,7 @@ namespace WpfApp1.Views
                 TxtInsertStatus.Foreground = new SolidColorBrush(Color.FromRgb(220, 38, 38));
                 return;
             }
-            await TryParseInsertAsync();
+            if (await TryParseInsertAsync()) ToastService.Show(this, TxtStatus.Text);
         }
 
         /// <summary>
@@ -1019,6 +1024,7 @@ namespace WpfApp1.Views
                 _sourceDataFromInsert = false;
                 TxtDataExcelInfo.Text = $"⌛️ {System.IO.Path.GetFileName(dlg.FileName)} — {sourceData.RowCount} 行 × {sourceData.Headers.Count} 列";
                 SetStatus($"数据 Excel 导入成功，共 {sourceData.RowCount} 行");
+                ToastService.Show(this, TxtStatus.Text);
             }
             catch (Exception ex)
             {
@@ -1247,6 +1253,7 @@ namespace WpfApp1.Views
         {
             BuildMappings();
             SetStatus("已重新自动映射");
+            ToastService.Show(this, "已重新自动映射");
         }
 
         private void BtnNextUnconfirmed_Click(object sender, RoutedEventArgs e)
@@ -1264,6 +1271,7 @@ namespace WpfApp1.Views
                 }
             }
             SetStatus("所有字段均已确认");
+            ToastService.Show(this, "所有字段均已确认");
         }
 
         private void BtnIgnoreAllUuid_Click(object sender, RoutedEventArgs e)
@@ -2040,6 +2048,7 @@ namespace WpfApp1.Views
                 SetStatus(lastResult.ErrorCount == 0 && lastResult.WarningCount == 0
                     ? "校验通过，无错误无警告"
                     : $"校验完成：{lastResult.ErrorCount} 条异常记录，{lastResult.RawErrorCount} 项错误，{lastResult.WarningCount} 条警告记录");
+                ToastService.Show(this, TxtStatus.Text);
             }
         }
 
@@ -2069,6 +2078,7 @@ namespace WpfApp1.Views
                     dbType, TxtTableName.Text, dlg.FileName);
                 SetExportedReportPath(dlg.FileName);
                 SetStatus($"报告已导出：{System.IO.Path.GetFileName(dlg.FileName)}");
+                ToastService.Show(this, "校验报告已导出");
             }
             catch (Exception ex)
             {

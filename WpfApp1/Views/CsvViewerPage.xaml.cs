@@ -27,6 +27,14 @@ namespace WpfApp1.Views
             TxtMatchInfo.Foreground = MutedBrush;
         }
 
+        private void BtnToggleSidebar_Click(object sender, RoutedEventArgs e)
+        {
+            bool collapse = InfoSidebar.Visibility == Visibility.Visible;
+            InfoSidebar.Visibility = collapse ? Visibility.Collapsed : Visibility.Visible;
+            BtnExpandSidebar.Visibility = collapse ? Visibility.Visible : Visibility.Collapsed;
+            (collapse ? BtnExpandSidebar : BtnCollapseSidebar).Focus();
+        }
+
         private async void BtnOpen_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
@@ -60,12 +68,21 @@ namespace WpfApp1.Views
                 _data = result.Table;
 
                 DgCsv.ItemsSource = _data.DefaultView;
-                TxtFileInfo.Text = $"{result.FileName}  |  {FormatFileSize(result.FileSize)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  {result.Detail}";
+                TxtFileInfo.Text = result.FileName;
+                TxtFileDetails.Text = $"{FormatFileSize(result.FileSize)}  |  {_data.Rows.Count} 行 × {_data.Columns.Count} 列  |  {result.Detail}";
                 TxtEncoding.Text = result.EncodingLabel;
+                TxtSidebarCount.Text = $"{_data.Rows.Count} 行 × {_data.Columns.Count} 列";
+                TxtTotalCount.Text = $"共 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
+                TxtSidebarEncoding.Text = result.EncodingLabel[(result.EncodingLabel.IndexOf(':') + 1)..].Trim();
+                int detailSeparator = result.Detail.IndexOf(':');
+                TxtDetailLabel.Text = result.Detail[..detailSeparator];
+                TxtSidebarDetail.Text = result.Detail[(detailSeparator + 1)..].Trim();
+                TxtFileType.Text = Path.GetExtension(filePath).TrimStart('.').ToUpperInvariant();
                 TxtStatus.Text = $"已加载 {_data.Rows.Count} 行，{_data.Columns.Count} 列";
                 TxtStatus.Foreground = MutedBrush;
 
                 ClearSearch(clearKeyword: true);
+                ToastService.Show(this, "文件加载完成");
             }
             catch (Exception ex)
             {
@@ -237,6 +254,11 @@ namespace WpfApp1.Views
             DgCsv.UnselectAllCells();
             DgCsv.SelectedCells.Clear();
             DgCsv.CurrentCell = new DataGridCellInfo();
+        }
+
+        private void DgCsv_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            e.Row.Header = (e.Row.GetIndex() + 1).ToString(CultureInfo.InvariantCulture);
         }
 
         private void DgCsv_SelectedCellsChanged(object sender, SelectedCellsChangedEventArgs e)

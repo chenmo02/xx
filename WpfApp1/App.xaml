@@ -1,4 +1,4 @@
-<Application x:Class="CCToolbox.App"
+﻿<Application x:Class="CCToolbox.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:WpfApp1"
@@ -8,6 +8,8 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/LightTheme.xaml"/>
+                <ResourceDictionary Source="Themes/ScrollBarStyles.xaml"/>
+                <ResourceDictionary Source="Themes/ToastStyles.xaml"/>
                 <ResourceDictionary Source="Themes/ButtonStyles.xaml"/>
                 <ResourceDictionary Source="Themes/DataGridStyles.xaml"/>
                 <ResourceDictionary Source="Themes/InputStyles.xaml"/>

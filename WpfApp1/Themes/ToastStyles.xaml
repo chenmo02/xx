@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+    <!-- Negative moves left from the page center; positive moves right. -->
+    <sys:Double x:Key="ToastHorizontalOffset">-100</sys:Double>
+    <Style x:Key="AppToastStyle" TargetType="Border">
+        <Setter Property="Background" Value="#17345F"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="Margin" Value="0,16,0,0"/>
+        <Setter Property="MaxWidth" Value="600"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="RenderTransform">
+            <Setter.Value><TranslateTransform X="{StaticResource ToastHorizontalOffset}"/></Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="AppToastTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+    </Style>
+</ResourceDictionary>

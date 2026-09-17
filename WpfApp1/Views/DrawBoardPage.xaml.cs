@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using WpfApp1.Services;
 
 namespace WpfApp1.Views
 {
@@ -117,6 +118,7 @@ namespace WpfApp1.Views
                         if (result == "OK")
                         {
                             TxtStatus.Text = "  ✅ 文件加载成功";
+                            ToastService.Show(this, "文件加载成功");
                         }
                         else if (result.StartsWith("ERROR:"))
                         {
@@ -386,7 +388,7 @@ namespace WpfApp1.Views
                     {
                         File.WriteAllText(_pendingSavePath, data, Encoding.UTF8);
                         TxtStatus.Text = $"  ✅ 已保存: {Path.GetFileName(_pendingSavePath)}";
-                        MessageBox.Show($"文件已保存到：\n{_pendingSavePath}", "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                        ToastService.Show(this, "画板已保存");
                     }
                     catch (Exception ex)
                     {
@@ -460,7 +462,7 @@ namespace WpfApp1.Views
                     {
                         File.WriteAllText(dlg.FileName, svgData, Encoding.UTF8);
                         TxtStatus.Text = $"  ✅ SVG 已导出";
-                        MessageBox.Show($"SVG 已导出到：\n{dlg.FileName}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                        ToastService.Show(this, "SVG 已导出");
                     }
                 }
             });
@@ -487,7 +489,7 @@ namespace WpfApp1.Views
                 {
                     File.WriteAllBytes(dlg.FileName, bytes);
                     TxtStatus.Text = $"  ✅ PNG 已导出";
-                    MessageBox.Show($"图片已导出到：\n{dlg.FileName}", "导出成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ToastService.Show(this, "PNG 已导出");
                 }
             }
             catch (Exception ex)

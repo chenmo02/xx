@@ -37,6 +37,7 @@ public partial class QuickTablePage : Page
             TxtStatus.Text = $"已解析 {_columns.Count} 个字段、{parsed.Rows.Count} 行" +
                              (string.IsNullOrWhiteSpace(parsed.Warning) ? string.Empty : $"；警告：{parsed.Warning}");
             TxtOutput.Clear();
+            ToastService.Show(this, TxtStatus.Text);
         }
         catch (Exception ex)
         {
@@ -68,6 +69,7 @@ public partial class QuickTablePage : Page
         foreach (var column in _columns) column.Length = length;
         GridColumns.Items.Refresh();
         TxtStatus.Text = $"已将 {_columns.Count} 个字段长度设置为 {length}";
+        ToastService.Show(this, TxtStatus.Text);
     }
 
     private void CmbAllType_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -89,6 +91,7 @@ public partial class QuickTablePage : Page
         foreach (var column in _columns) column.Type = type;
         GridColumns.Items.Refresh();
         TxtStatus.Text = $"已将 {_columns.Count} 个字段设置为 {type}";
+        if (showEmptyMessage) ToastService.Show(this, TxtStatus.Text);
     }
 
     private void BtnGenerate_Click(object sender, RoutedEventArgs e)
@@ -106,6 +109,7 @@ public partial class QuickTablePage : Page
             TxtOutput.Text = QuickTableService.GenerateSql(GetDbType(), TxtTableName.Text,
                 _columns, ChkDrop.IsChecked == true, ChkQuote.IsChecked == true);
             TxtStatus.Text = "CREATE TABLE SQL 已生成";
+            ToastService.Show(this, "建表 SQL 已生成");
         }
         catch (Exception ex)
         {
@@ -117,7 +121,16 @@ public partial class QuickTablePage : Page
     private void BtnCopy_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(TxtOutput.Text)) { BtnGenerate_Click(sender, e); }
-        if (!string.IsNullOrWhiteSpace(TxtOutput.Text)) Clipboard.SetText(TxtOutput.Text);
+        if (string.IsNullOrWhiteSpace(TxtOutput.Text)) return;
+        try
+        {
+            Clipboard.SetText(TxtOutput.Text);
+            ToastService.Show(this, "SQL 已复制到剪贴板");
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            ToastService.Show(this, "剪贴板暂时不可用，请重试");
+        }
     }
 
     private void BtnExport_Click(object sender, RoutedEventArgs e)
@@ -129,6 +142,7 @@ public partial class QuickTablePage : Page
         {
             File.WriteAllText(dialog.FileName, TxtOutput.Text);
             TxtStatus.Text = "已导出：" + dialog.FileName;
+            ToastService.Show(this, "建表 SQL 已导出");
         }
     }
 

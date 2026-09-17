@@ -1,198 +1,331 @@
 <Page x:Class="WpfApp1.Views.CsvViewerPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Background="{DynamicResource PageBackgroundAltBrush}"
-      AllowDrop="True"
-      DragEnter="Page_DragEnter"
-      DragOver="Page_DragEnter"
-      Drop="Page_Drop">
+      Background="{DynamicResource PageBackgroundAltBrush}" Foreground="#102552"
+      UseLayoutRounding="True" SnapsToDevicePixels="True"
+      AllowDrop="True" DragEnter="Page_DragEnter" DragOver="Page_DragEnter" Drop="Page_Drop">
 
-    <DockPanel Margin="24,18,24,22" LastChildFill="True">
+    <Page.Resources>
+        <SolidColorBrush x:Key="InputHoverBorderBrush" Color="#A9C4FF"/>
+        <SolidColorBrush x:Key="InputFocusBorderBrush" Color="#416FFF"/>
+        <SolidColorBrush x:Key="InputFocusBackgroundBrush" Color="White"/>
+        <Style x:Key="PreviewCard" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+        </Style>
+        <Style x:Key="PreviewIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="Foreground" Value="#416FFF"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="InfoLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#102552"/>
+        </Style>
+        <Style x:Key="InfoValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#6B82AB"/>
+            <Setter Property="Margin" Value="0,5,0,0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="PreviewButton" TargetType="Button" BasedOn="{StaticResource ButtonPrimary}">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+        </Style>
+        <Style x:Key="PreviewHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridHeaderStyle}">
+            <Setter Property="Background" Value="#F0F6FF"/>
+            <Setter Property="Foreground" Value="#245BE8"/>
+            <Setter Property="BorderBrush" Value="#DCE9FF"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="PreviewCell" TargetType="DataGridCell">
+            <Setter Property="Foreground" Value="#314875"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#E5EEFF"/>
+                    <Setter Property="BorderBrush" Value="#416FFF"/>
+                    <Setter Property="Foreground" Value="#1648BD"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PreviewRowHeader" TargetType="DataGridRowHeader" BasedOn="{StaticResource DataGridRowHeaderStyle}">
+            <Setter Property="Background" Value="#F5F9FF"/>
+            <Setter Property="Foreground" Value="#314875"/>
+            <Setter Property="BorderBrush" Value="#E4EDFC"/>
+            <Setter Property="Width" Value="48"/>
+        </Style>
+    </Page.Resources>
 
-        <!-- 页头 -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+    <Grid Margin="18,14,18,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 页头与 CSV 对比页保持一致。 -->
+        <Grid Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Margin="0,0,18,0">
-                <TextBlock Text="CSV 预览工具"
-                           FontSize="22"
-                           FontWeight="Bold"
-                           Foreground="#111827"/>
+            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                <TextBlock Text="CSV 预览工具" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
                 <TextBlock Text="支持编码识别、分隔符识别和单元格定位查找。"
-                           Margin="0,4,0,0"
-                           FontSize="13"
-                           Foreground="#64748B"/>
+                           FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap"/>
             </StackPanel>
-
-            <Border Grid.Column="1"
-                    Background="White"
-                    CornerRadius="12"
-                    BorderBrush="#E5E7EB"
-                    BorderThickness="1"
-                    Padding="10,8"
-                    VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <StackPanel VerticalAlignment="Center"
-                                Margin="0,0,12,0">
-                        <TextBlock Text="文件操作"
-                                   FontSize="11"
-                                   Foreground="#94A3B8"/>
-                        <TextBlock Text="导入 CSV / DBF"
-                                   FontSize="12"
-                                   Foreground="#475569"
-                                   FontWeight="SemiBold"/>
-                    </StackPanel>
-
-                    <Button x:Name="BtnOpen"
-                            Content="打开文件"
-                            MinWidth="108"
-                            Background="#4E6EF2"
-                            Foreground="White"
-                            Style="{DynamicResource ButtonPrimary}"
-                            Click="BtnOpen_Click"/>
-                </StackPanel>
-            </Border>
+            <Button x:Name="BtnOpen" Grid.Column="1" Content="打开文件" VerticalAlignment="Center"
+                    Style="{DynamicResource ButtonPrimary}" Padding="16,8" FontWeight="SemiBold"
+                    ToolTip="导入 CSV / DBF 文件" Click="BtnOpen_Click" AutomationProperties.Name="打开文件"/>
         </Grid>
 
-        <!-- 文件信息 -->
-        <Border DockPanel.Dock="Top"
-                Style="{DynamicResource CardBorder}"
-                Padding="16,12"
-                Margin="0,0,0,12">
-            <DockPanel>
-                <TextBlock x:Name="TxtFileInfo"
-                           Text="请选择一个 CSV / DBF 文件"
-                           FontSize="13"
-                           Foreground="#475569"
-                           VerticalAlignment="Center"
-                           DockPanel.Dock="Left"/>
-                <TextBlock x:Name="TxtEncoding"
-                           FontSize="12"
-                           Foreground="#94A3B8"
-                           VerticalAlignment="Center"/>
-            </DockPanel>
+        <!-- 文件摘要和查找工具栏。 -->
+        <Border Grid.Row="1" Style="{StaticResource PreviewCard}" Padding="14" Margin="0,0,0,12">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="48" Height="48" Background="#EEF4FF" CornerRadius="9" Margin="0,0,14,0">
+                        <TextBlock Text="📂" FontFamily="Segoe UI Emoji" FontSize="25" Foreground="#416FFF"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtFileInfo" Text="请选择一个 CSV / DBF 文件" FontSize="17" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        <WrapPanel Margin="0,5,0,0">
+                            <TextBlock x:Name="TxtFileDetails" Text="打开文件或将文件拖放到此处" FontSize="12" Foreground="#6B82AB" Margin="0,0,14,0"/>
+                            <TextBlock x:Name="TxtEncoding" FontSize="12" Foreground="#6B82AB"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+                <Border Height="1" Background="#E2ECFF" Margin="0,12"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*" MaxWidth="360"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="查找" Style="{StaticResource InfoLabel}" VerticalAlignment="Center" Margin="4,0,20,0"/>
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="TxtSearch" Style="{DynamicResource TextBoxStandard}" MinHeight="36" Height="36"
+                                 Padding="34,6,10,6" Background="White" Foreground="#314875" BorderBrush="#D9E6FF"
+                                 VerticalContentAlignment="Center" KeyDown="TxtSearch_KeyDown" AutomationProperties.Name="查找内容">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <!-- 内边距只由文本宿主应用，避免边框重复挤压文字。 -->
+                                    <Border x:Name="SearchBorder" Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8">
+                                        <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}"
+                                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="SearchBorder" Property="BorderBrush" Value="{StaticResource InputHoverBorderBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                            <Setter TargetName="SearchBorder" Property="BorderBrush" Value="{StaticResource InputFocusBorderBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+                        <TextBlock Text="&#xE721;" Style="{StaticResource PreviewIcon}" FontSize="15" Foreground="#7C94BC"
+                                   HorizontalAlignment="Left" Margin="12,0,0,0" IsHitTestVisible="False"/>
+                        <TextBlock Text="请输入要查找的内容..." Foreground="#97ABCD" FontSize="12" VerticalAlignment="Center"
+                                   Margin="35,0,10,0" IsHitTestVisible="False" TextTrimming="CharacterEllipsis">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=TxtSearch}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <Button Grid.Column="2" Style="{StaticResource PreviewButton}" Margin="10,0,0,0" Click="BtnSearch_Click" AutomationProperties.Name="查找">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE721;" Style="{StaticResource PreviewIcon}" FontSize="14" Foreground="White" Margin="0,0,8,0"/>
+                            <TextBlock Text="查找"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="3" Style="{StaticResource PreviewButton}" Background="#7687A6" Margin="8,0,0,0" Click="BtnNextMatch_Click" AutomationProperties.Name="下一个匹配项">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE74B;" Style="{StaticResource PreviewIcon}" FontSize="14" Foreground="White" Margin="0,0,8,0"/>
+                            <TextBlock Text="下一个"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="4" Style="{StaticResource PreviewButton}" Background="#EDF3FD" Foreground="#536E9C" Margin="8,0,0,0" Click="BtnClearSearch_Click" AutomationProperties.Name="清除查找">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE711;" Style="{StaticResource PreviewIcon}" FontSize="13" Foreground="#536E9C" Margin="0,0,8,0"/>
+                            <TextBlock Text="清除"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+                <TextBlock x:Name="TxtMatchInfo" FontSize="12" Foreground="#6B82AB">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Margin" Value="52,8,0,0"/>
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
         </Border>
 
-        <!-- 查找栏 -->
-        <Border DockPanel.Dock="Top"
-                Style="{DynamicResource CardBorder}"
-                Padding="14,12"
-                Margin="0,0,0,12">
-            <DockPanel LastChildFill="False">
-                <StackPanel Orientation="Horizontal"
-                            DockPanel.Dock="Left"
-                            VerticalAlignment="Center">
-                    <TextBlock Text="查找"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               Foreground="#374151"
-                               VerticalAlignment="Center"
-                               Margin="0,0,12,0"/>
-                    <TextBox x:Name="TxtSearch"
-                             Width="360"
-                             Style="{DynamicResource TextBoxStandard}"
-                             KeyDown="TxtSearch_KeyDown"/>
-                    <Button Content="查找"
-                            Margin="10,0,0,0"
-                            Background="#4E6EF2"
-                            Foreground="White"
-                            Style="{DynamicResource ButtonPrimary}"
-                            Click="BtnSearch_Click"/>
-                    <Button Content="下一个"
-                            Margin="8,0,0,0"
-                            Background="#64748B"
-                            Foreground="White"
-                            Style="{DynamicResource ButtonSecondary}"
-                            Click="BtnNextMatch_Click"/>
-                    <Button Content="清除"
-                            Margin="8,0,0,0"
-                            Background="#E5E7EB"
-                            Foreground="#475569"
-                            Style="{DynamicResource ButtonGhost}"
-                            Click="BtnClearSearch_Click"/>
-                </StackPanel>
-
-                <TextBlock x:Name="TxtMatchInfo"
-                           FontSize="12"
-                           Foreground="#64748B"
-                           VerticalAlignment="Center"
-                           Margin="16,0,0,0"/>
-            </DockPanel>
-        </Border>
-
-        <!-- 数据区（填满剩余高度） -->
-        <Border Style="{DynamicResource CardBorder}"
-                Padding="16,14">
-            <DockPanel LastChildFill="True">
-
-                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBlock Text="数据预览"
-                               FontSize="15"
-                               FontWeight="SemiBold"
-                               Foreground="#1F2937"
-                               DockPanel.Dock="Left"/>
-                    <TextBlock Text="查找结果只定位当前单元格，不整行高亮"
-                               FontSize="12"
-                               Foreground="#94A3B8"
-                               HorizontalAlignment="Right"/>
+        <DockPanel Grid.Row="2">
+            <Border x:Name="InfoSidebar" DockPanel.Dock="Left" Width="196" Margin="0,0,12,0"
+                    Style="{StaticResource PreviewCard}" Padding="10,16,10,12">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="4,0,0,16">
+                        <Button x:Name="BtnCollapseSidebar" DockPanel.Dock="Right" Width="26" Height="26" Padding="0"
+                                Style="{StaticResource PreviewButton}" Background="#EDF3FD"
+                                ToolTip="收起信息栏" AutomationProperties.Name="收起信息栏" Click="BtnToggleSidebar_Click">
+                            <TextBlock Text="&#xE76B;" Style="{StaticResource PreviewIcon}" FontSize="13"/>
+                        </Button>
+                        <TextBlock Text="数据预览" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <Border Background="#EFF5FF" CornerRadius="7" Margin="0,0,0,12">
+                                <Grid>
+                                    <Border Width="3" Background="#416FFF" HorizontalAlignment="Left" CornerRadius="2"/>
+                                    <Grid Margin="12">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Text="&#xE80A;" Style="{StaticResource PreviewIcon}" HorizontalAlignment="Left"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                            <TextBlock Text="全部数据" Style="{StaticResource InfoLabel}" Foreground="#416FFF"/>
+                                            <TextBlock x:Name="TxtSidebarCount" Text="等待导入" Style="{StaticResource InfoValue}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <Grid Margin="4,8,4,16">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Border Width="34" Height="36" Background="#F0F5FD" CornerRadius="9" VerticalAlignment="Top">
+                                    <TextBlock Text="&#xE8D2;" Style="{StaticResource PreviewIcon}" Foreground="#607CAB" FontSize="18"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="编码信息" Style="{StaticResource InfoLabel}"/>
+                                    <TextBlock x:Name="TxtSidebarEncoding" Text="待识别" Style="{StaticResource InfoValue}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="4,8,4,16">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Border Width="34" Height="36" Background="#F0F5FD" CornerRadius="9" VerticalAlignment="Top">
+                                    <TextBlock Text="&#xE8AB;" Style="{StaticResource PreviewIcon}" Foreground="#607CAB" FontSize="18"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock x:Name="TxtDetailLabel" Text="分隔符" Style="{StaticResource InfoLabel}"/>
+                                    <TextBlock x:Name="TxtSidebarDetail" Text="待识别" Style="{StaticResource InfoValue}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="4,8,4,16">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Border Width="34" Height="36" Background="#F0F5FD" CornerRadius="9" VerticalAlignment="Top">
+                                    <TextBlock Text="&#xE8A5;" Style="{StaticResource PreviewIcon}" Foreground="#607CAB" FontSize="18"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="文件类型" Style="{StaticResource InfoLabel}"/>
+                                    <TextBlock x:Name="TxtFileType" Text="待识别" Style="{StaticResource InfoValue}"/>
+                                </StackPanel>
+                            </Grid>
+                            <Border Height="1" Background="#E2ECFF" Margin="4,2,4,12"/>
+                            <Border Background="#F1F7FF" CornerRadius="8" Padding="12">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <TextBlock Text="&#xEA80;" Style="{StaticResource PreviewIcon}" FontSize="18" Margin="0,0,8,0"/>
+                                        <TextBlock Text="提示" Foreground="#416FFF" FontSize="13" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                    <TextBlock Text="打开文件后可滚动查看全部数据。使用上方查找功能快速定位单元格，按 Enter 开始查找。"
+                                               Foreground="#6B82AB" FontSize="11.5" TextWrapping="Wrap" LineHeight="21"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
                 </DockPanel>
+            </Border>
 
-                <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-                    <TextBlock x:Name="TxtStatus"
-                               Text="就绪"
-                               FontSize="11.5"
-                               Foreground="#64748B"
-                               VerticalAlignment="Center"
-                               DockPanel.Dock="Left"/>
-                    <TextBlock x:Name="TxtRowCol"
-                               Text="未选择单元格"
-                               FontSize="11.5"
-                               Foreground="#64748B"
-                               VerticalAlignment="Center"/>
+            <Border Style="{StaticResource PreviewCard}" Padding="14,12">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <Button x:Name="BtnExpandSidebar" DockPanel.Dock="Left" Visibility="Collapsed" Height="26" Padding="8,0"
+                                Style="{StaticResource PreviewButton}" Background="#EDF3FD" Foreground="#416FFF" Margin="0,0,12,0"
+                                ToolTip="展开信息栏" AutomationProperties.Name="展开信息栏" Click="BtnToggleSidebar_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE76C;" Style="{StaticResource PreviewIcon}" FontSize="12" Margin="0,0,6,0"/>
+                                <TextBlock Text="展开信息栏" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Text="&#xE80A;" Style="{StaticResource PreviewIcon}" DockPanel.Dock="Left" Margin="0,0,10,0"/>
+                        <TextBlock Text="数据预览" FontSize="16" FontWeight="SemiBold" DockPanel.Dock="Left"/>
+                        <TextBlock x:Name="TxtTotalCount" Text="等待导入数据" FontSize="12" Foreground="#6B82AB"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#6B82AB" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Margin="0,0,12,0"/>
+                        <TextBlock x:Name="TxtRowCol" Grid.Column="1" Text="未选择单元格" FontSize="11" Foreground="#6B82AB"
+                                   HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                    </Grid>
+                    <Border Style="{StaticResource PreviewCard}" CornerRadius="7" Padding="1">
+                        <Grid>
+                            <DataGrid x:Name="DgCsv" AutoGenerateColumns="True" IsReadOnly="True"
+                                      CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False"
+                                      CanUserResizeRows="False" CanUserSortColumns="False" MinColumnWidth="80"
+                                      Background="White" Foreground="#314875" BorderThickness="0"
+                                      GridLinesVisibility="All" HorizontalGridLinesBrush="#E4EDFC" VerticalGridLinesBrush="#E4EDFC"
+                                      FontSize="12" HeadersVisibility="All" RowHeaderWidth="48"
+                                      SelectionUnit="Cell" SelectionMode="Single"
+                                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                      EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                                      ColumnHeaderHeight="36" RowHeight="28" RowBackground="White" AlternatingRowBackground="#FAFCFF"
+                                      ColumnHeaderStyle="{StaticResource PreviewHeader}" CellStyle="{StaticResource PreviewCell}"
+                                      RowHeaderStyle="{StaticResource PreviewRowHeader}"
+                                      LoadingRow="DgCsv_LoadingRow" SelectedCellsChanged="DgCsv_SelectedCellsChanged"
+                                      SelectionChanged="DgCsv_SelectionChanged"/>
+                            <Border Width="48" Height="36" VerticalAlignment="Top" HorizontalAlignment="Left"
+                                    Background="#F0F6FF" BorderBrush="#DCE9FF" BorderThickness="0,0,1,1">
+                                <TextBlock Text="序号" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Border>
                 </DockPanel>
-
-                <Border BorderBrush="#D9D9D9"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="1"
-                        Background="White">
-                    <DataGrid x:Name="DgCsv"
-                              AutoGenerateColumns="True"
-                              IsReadOnly="True"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              CanUserReorderColumns="False"
-                              CanUserResizeRows="False"
-                              CanUserSortColumns="False"
-                              MinColumnWidth="90"
-                              Background="White"
-                              BorderThickness="0"
-                              GridLinesVisibility="All"
-                              HorizontalGridLinesBrush="#E5E7EB"
-                              VerticalGridLinesBrush="#E5E7EB"
-                              FontSize="12"
-                              HeadersVisibility="Column"
-                              RowHeaderWidth="0"
-                              SelectionUnit="Cell"
-                              SelectionMode="Single"
-                              VerticalScrollBarVisibility="Visible"
-                              HorizontalScrollBarVisibility="Auto"
-                              EnableRowVirtualization="True"
-                              EnableColumnVirtualization="True"
-                              ColumnHeaderHeight="42"
-                              RowBackground="White"
-                              SelectedCellsChanged="DgCsv_SelectedCellsChanged"
-                              Style="{DynamicResource QuickTableGridStyle}" SelectionChanged="DgCsv_SelectionChanged"/>
-                </Border>
-
-            </DockPanel>
-        </Border>
-
-    </DockPanel>
+            </Border>
+        </DockPanel>
+    </Grid>
 </Page>

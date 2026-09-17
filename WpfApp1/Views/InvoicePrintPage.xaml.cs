@@ -255,6 +255,7 @@ namespace WpfApp1.Views
                 if (CmbTemplate.Items[i] is ComboBoxItem ci && ci.Content?.ToString() == name)
                 { CmbTemplate.SelectedIndex = i; break; }
             SetStatus("✅ 模板已保存");
+            ToastService.Show(this, "模板已保存");
         }
 
         private void BtnDeleteTemplate_Click(object sender, RoutedEventArgs e)
@@ -267,6 +268,7 @@ namespace WpfApp1.Views
             _service.SaveTemplates(_templates);
             LoadTemplates();
             SetStatus($"🗑️ 模板 \"{name}\" 已删除");
+            ToastService.Show(this, "模板已删除");
         }
 
         // ═══════════════════════════════════════
@@ -346,6 +348,7 @@ namespace WpfApp1.Views
                 if (result.addedItems.Count > 0)
                 {
                     SetStatus($"📥 已导入 {result.addedItems.Count} 个文件" + (result.duplicates.Count > 0 ? $"，跳过 {result.duplicates.Count} 个重复" : ""));
+                    ToastService.Show(this, $"已导入 {result.addedItems.Count} 个文件");
                     DropHintPanel.Visibility = Visibility.Collapsed;
                     PreviewScroller.Visibility = Visibility.Visible;
                     if (FileListBox.SelectedIndex < 0) FileListBox.SelectedIndex = 0;
@@ -391,6 +394,7 @@ namespace WpfApp1.Views
             _fileItems.Clear(); _fileHashes.Clear(); UpdateFileCount(); LayoutPreviewGrid.Children.Clear();
             DropHintPanel.Visibility = Visibility.Visible; PreviewScroller.Visibility = Visibility.Collapsed;
             PanelPageNav.Visibility = Visibility.Collapsed; SetStatus("🗑️ 列表已清空");
+            ToastService.Show(this, "列表已清空");
         }
         private void BtnSelectAll_Click(object sender, RoutedEventArgs e) => FileListBox.SelectAll();
         private void UpdateFileCount() => TxtFileCount.Text = $"已导入 {_fileItems.Count} 个文件";
@@ -840,6 +844,7 @@ namespace WpfApp1.Views
                 {
                     foreach (var it in originalItems) it.IsPrinted = true;
                     SetPrintProgress($"{result.Message} 共 {pageCount} 页 x {request.Copies} 份。");
+                    ToastService.Show(this, result.Message);
                 }
                 else
                 {

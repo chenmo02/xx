@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -26,11 +27,24 @@ namespace WpfApp1.Views
         private bool _isBusy;
         private bool _settingsSubscribed;
         private bool _suppressDbfEncodingReload;
+        private bool _isWheelScrolling;
+        private double _wheelScrollTarget;
+        private long _lastWheelFrame;
 
         public DataImportPage()
         {
             InitializeComponent();
             Unloaded += Page_Unloaded;
+        }
+
+        private void ImportLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            bool compact = e.NewSize.Width < 700;
+            SqlOptions.Columns = compact ? 2 : 4;
+            FileInfoColumn.Width = compact ? new GridLength(0) : new GridLength(270);
+            Grid.SetColumn(FileInfoCard, compact ? 0 : 1);
+            Grid.SetRow(FileInfoCard, compact ? 1 : 0);
+            FileInfoCard.Margin = compact ? new Thickness(0, 14, 0, 0) : new Thickness(18, 0, 0, 0);
         }
 
         private void Page_Loaded(object sender, RoutedEventArgs e)
@@ -58,12 +72,87 @@ namespace WpfApp1.Views
 
         private void Page_Unloaded(object sender, RoutedEventArgs e)
         {
+            StopWheelScrolling();
             if (_settingsSubscribed)
             {
                 ImportSettingsService.SettingsSaved -= ImportSettingsService_SettingsSaved;
                 _settingsSubscribed = false;
             }
         }
+
+        private void PageScroller_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (e.Handled || e.Delta == 0 || PageScroller.ScrollableHeight <= 0) return;
+
+            // Let a nested editor/table consume the wheel only while it can move in that direction.
+            for (DependencyObject? current = e.OriginalSource as DependencyObject;
+                 current != null && current != PageScroller;)
+            {
+                var nested = current as ScrollViewer;
+                if (nested == null && current is TextBox or DataGrid)
+                    nested = FindScrollViewer(current);
+                if (nested != null && (e.Delta < 0
+                    ? nested.VerticalOffset < nested.ScrollableHeight - 0.01
+                    : nested.VerticalOffset > 0.01))
+                {
+                    StopWheelScrolling();
+                    return;
+                }
+                current = current is Visual
+                    ? VisualTreeHelper.GetParent(current)
+                    : LogicalTreeHelper.GetParent(current);
+            }
+
+            double movement = -e.Delta / 3.0;
+            double offset = PageScroller.VerticalOffset;
+            if (!_isWheelScrolling || Math.Sign(movement) != Math.Sign(_wheelScrollTarget - offset))
+                _wheelScrollTarget = offset;
+            _wheelScrollTarget = Math.Clamp(_wheelScrollTarget + movement, 0, PageScroller.ScrollableHeight);
+            if (!_isWheelScrolling && Math.Abs(_wheelScrollTarget - offset) > 0.01)
+            {
+                _lastWheelFrame = Stopwatch.GetTimestamp();
+                _isWheelScrolling = true;
+                CompositionTarget.Rendering += AnimateWheelScroll;
+            }
+            e.Handled = true;
+        }
+
+        private static ScrollViewer? FindScrollViewer(DependencyObject root)
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is ScrollViewer scroll) return scroll;
+                if (FindScrollViewer(child) is ScrollViewer descendant) return descendant;
+            }
+            return null;
+        }
+
+        private void AnimateWheelScroll(object? sender, EventArgs e)
+        {
+            double elapsed = Stopwatch.GetElapsedTime(_lastWheelFrame).TotalSeconds;
+            _lastWheelFrame = Stopwatch.GetTimestamp();
+            _wheelScrollTarget = Math.Clamp(_wheelScrollTarget, 0, PageScroller.ScrollableHeight);
+            double remaining = _wheelScrollTarget - PageScroller.VerticalOffset;
+            if (Math.Abs(remaining) < 0.5)
+            {
+                PageScroller.ScrollToVerticalOffset(_wheelScrollTarget);
+                StopWheelScrolling();
+                return;
+            }
+            // Time-based easing keeps the motion consistent across different refresh rates.
+            double progress = 1 - Math.Exp(-Math.Min(elapsed, 0.05) / 0.045);
+            PageScroller.ScrollToVerticalOffset(PageScroller.VerticalOffset + remaining * progress);
+        }
+
+        private void StopWheelScrolling()
+        {
+            if (!_isWheelScrolling) return;
+            CompositionTarget.Rendering -= AnimateWheelScroll;
+            _isWheelScrolling = false;
+        }
+
+        private void PageScroller_PreviewMouseDown(object sender, MouseButtonEventArgs e) => StopWheelScrolling();
 
         private void ImportSettingsService_SettingsSaved(object? sender, ImportSettings settings)
         {
@@ -103,6 +192,7 @@ namespace WpfApp1.Views
             _currentSheetName = null;
             TxtFilePath.Text = filePath;
             TxtFilePath.Foreground = Brushes.Black;
+            TxtFileInfo.Text = Path.GetFileName(filePath);
 
             string ext = Path.GetExtension(filePath).ToLowerInvariant();
             PanelDbfEncoding.Visibility = ext == ".dbf" ? Visibility.Visible : Visibility.Collapsed;
@@ -135,8 +225,6 @@ namespace WpfApp1.Views
                         _currentSheetName = null;
                         CbSheetList.SelectedIndex = -1;
                     }
-
-                    TxtFileInfo.Text = $"文件: {Path.GetFileName(filePath)}  |  工作表: {sheets.Count}";
                 }
                 catch (Exception ex)
                 {
@@ -209,6 +297,7 @@ namespace WpfApp1.Views
                 TxtPreviewInfo.Text = $"已加载 {_currentData.Rows.Count:N0} 行 × {_currentData.Columns.Count:N0} 列，可直接编辑并重新生成 SQL。";
                 TxtPreviewInfo.Foreground = SuccessBrush;
                 UpdateStatus("文件加载完成");
+                ToastService.Show(this, "文件加载完成");
                 UpdateExportButtons();
             }
             catch (Exception ex)
@@ -304,6 +393,7 @@ namespace WpfApp1.Views
                 TxtSqlStats.Text = $"数据库: {dbType}  |  表名: {tableName}  |  数据: {dataSnapshot.Rows.Count:N0} 行  |  SQL: {lineCount:N0} 行  |  {sizeKb:F1} KB";
 
                 UpdateStatus("SQL 生成完成");
+                ToastService.Show(this, "SQL 生成完成");
                 ShowProgress(100);
             }
             catch (Exception ex)
@@ -336,6 +426,7 @@ namespace WpfApp1.Views
 
             BtnCopySql.Content = "已复制";
             UpdateStatus("SQL 已复制到剪贴板");
+            ToastService.Show(this, "SQL 已复制到剪贴板");
 
             var timer = new DispatcherTimer
             {
@@ -370,6 +461,7 @@ namespace WpfApp1.Views
             {
                 ExportService.ExportSql(dialog.FileName, TxtSqlOutput.Text);
                 UpdateStatus($"SQL 已保存: {dialog.FileName}");
+                ToastService.Show(this, "SQL 已保存");
             }
         }
 
@@ -396,6 +488,7 @@ namespace WpfApp1.Views
             {
                 ExportService.ExportCsv(dialog.FileName, _currentData);
                 UpdateStatus($"CSV 已导出: {dialog.FileName}");
+                ToastService.Show(this, "CSV 已导出");
             }
         }
 
@@ -422,6 +515,7 @@ namespace WpfApp1.Views
             {
                 ExportService.ExportJson(dialog.FileName, _currentData);
                 UpdateStatus($"JSON 已导出: {dialog.FileName}");
+                ToastService.Show(this, "JSON 已导出");
             }
         }
 
@@ -458,6 +552,7 @@ namespace WpfApp1.Views
 
         private async void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            StopWheelScrolling();
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.O)
             {
                 e.Handled = true;
@@ -490,6 +585,12 @@ namespace WpfApp1.Views
         {
             _currentData = null;
             DgPreview.ItemsSource = null;
+            TxtFileInfo.Text = "尚未选择文件";
+            TxtFileSize.Text = "—";
+            TxtRowCount.Text = "—";
+            TxtColumnCount.Text = "—";
+            TxtSheetName.Text = "—";
+            TxtPreviewTitle.Text = "数据预览";
             TxtPreviewInfo.Text = "请先选择数据文件";
             TxtPreviewInfo.Foreground = MutedBrush;
             TxtSqlOutput.Clear();
@@ -503,9 +604,12 @@ namespace WpfApp1.Views
             string sizeLabel = fileSize >= 1024 * 1024
                 ? $"{fileSize / 1024d / 1024d:F2} MB"
                 : $"{fileSize / 1024d:F1} KB";
-            string sheetLabel = string.IsNullOrWhiteSpace(sheetName) ? "" : $"  |  Sheet: {sheetName}";
-
-            TxtFileInfo.Text = $"文件: {fileName}  |  大小: {sizeLabel}  |  行数: {totalRows:N0}  |  列数: {totalCols:N0}{sheetLabel}";
+            TxtFileInfo.Text = fileName;
+            TxtFileSize.Text = sizeLabel;
+            TxtRowCount.Text = $"{totalRows:N0}";
+            TxtColumnCount.Text = $"{totalCols:N0}";
+            TxtSheetName.Text = string.IsNullOrWhiteSpace(sheetName) ? "—" : sheetName;
+            TxtPreviewTitle.Text = string.IsNullOrWhiteSpace(sheetName) ? Path.GetFileNameWithoutExtension(filePath) : sheetName;
         }
 
         private void ShowLoadHints(int totalRows)
@@ -689,6 +793,10 @@ namespace WpfApp1.Views
         {
             _currentData = null;
             DgPreview.ItemsSource = null;
+            TxtRowCount.Text = "—";
+            TxtColumnCount.Text = "—";
+            TxtSheetName.Text = "—";
+            TxtPreviewTitle.Text = "数据预览";
             TxtPreviewInfo.Text = $"解析失败: {ex.Message}";
             TxtPreviewInfo.Foreground = ErrorBrush;
             UpdateStatus("加载失败");

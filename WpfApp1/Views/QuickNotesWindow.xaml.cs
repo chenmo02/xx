@@ -44,6 +44,7 @@ public partial class QuickNotesWindow : Window
             File.WriteAllText(dialog.FileName, NoteEditor.Text);
             SaveNotes();
             SaveStatus.Text = $"已保存：{Path.GetFileName(dialog.FileName)}";
+            ToastService.Show(this, "便签已保存");
         }
         catch (Exception ex)
         {

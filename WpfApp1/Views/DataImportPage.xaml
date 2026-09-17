@@ -1,295 +1,331 @@
 <Page x:Class="WpfApp1.Views.DataImportPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      Background="{DynamicResource PageBackgroundAltBrush}"
-      AllowDrop="True"
-      Focusable="True"
-      Loaded="Page_Loaded"
-      PreviewKeyDown="Page_PreviewKeyDown"
-      DragEnter="Page_DragEnter"
-      Drop="Page_Drop">
+      xmlns:controls="clr-namespace:WpfApp1.Controls"
+      xmlns:behaviors="clr-namespace:WpfApp1.Behaviors"
+      Background="{DynamicResource PageBackgroundAltBrush}" Foreground="#203454"
+      UseLayoutRounding="True" AllowDrop="True" Focusable="True"
+      Loaded="Page_Loaded" PreviewKeyDown="Page_PreviewKeyDown"
+      DragEnter="Page_DragEnter" Drop="Page_Drop">
+    <Page.Resources>
+        <Style x:Key="ImportCard" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E1EBFA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="Margin" Value="0,0,0,14"/>
+        </Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#172E54"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#536887"/>
+            <Setter Property="Margin" Value="0,0,0,7"/>
+        </Style>
+        <Style x:Key="FileValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#304C76"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+        </Style>
+        <Style x:Key="ImportInput" TargetType="TextBox" BasedOn="{StaticResource TextBoxStandard}">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#203454"/>
+            <Setter Property="BorderBrush" Value="#DCE7F6"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="ImportCombo" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStandard}">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#203454"/>
+            <Setter Property="BorderBrush" Value="#DCE7F6"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ComboBoxItemStandard}"/>
+        </Style>
+        <Style x:Key="ImportPrimary" TargetType="Button" BasedOn="{StaticResource ButtonPrimary}">
+            <Setter Property="Background" Value="#2475F5"/>
+            <Setter Property="MinHeight" Value="40"/>
+        </Style>
+        <Style x:Key="ImportSecondary" TargetType="Button" BasedOn="{StaticResource ButtonPrimary}">
+            <Setter Property="Background" Value="#EDF4FF"/>
+            <Setter Property="Foreground" Value="#2563CE"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Margin" Value="8,0,0,6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style x:Key="ImportOption" TargetType="CheckBox">
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#536887"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="OptionBorder" Background="White" BorderBrush="#DCE7F6" BorderThickness="1" CornerRadius="7" Padding="12,0">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Border x:Name="CheckBorder" Width="16" Height="16" CornerRadius="4" BorderBrush="#A7B8D0" BorderThickness="1" Background="White">
+                                    <Path x:Name="CheckMark" Data="M 3,7 L 6,10 L 12,4" Stroke="White" StrokeThickness="1.8" Visibility="Collapsed"/>
+                                </Border>
+                                <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="OptionBorder" Property="Background" Value="#F0F6FF"/>
+                                <Setter TargetName="OptionBorder" Property="BorderBrush" Value="#C7DCFC"/>
+                                <Setter TargetName="CheckBorder" Property="Background" Value="#2475F5"/>
+                                <Setter TargetName="CheckBorder" Property="BorderBrush" Value="#2475F5"/>
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                <Setter Property="Foreground" Value="#2563CE"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="OptionBorder" Property="BorderBrush" Value="#2475F5"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="OptionBorder" Property="BorderBrush" Value="#2475F5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="OptionBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ImportColumnHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#EAF3FF"/>
+            <Setter Property="Foreground" Value="#304C76"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="BorderBrush" Value="#DDE9F8"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        </Style>
+        <Style x:Key="ImportCell" TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellStyle}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#304C76"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="14,7"/>
+        </Style>
+        <Style x:Key="ImportRow" TargetType="DataGridRow">
+            <Setter Property="MinHeight" Value="38"/>
+        </Style>
+    </Page.Resources>
 
     <Grid>
-        <ScrollViewer Style="{DynamicResource PageScrollViewerStyle}"
-                      Padding="28,24"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Stretch"
-                      CanContentScroll="False"
-                      IsDeferredScrollingEnabled="False">
-            <StackPanel MaxWidth="1120">
-
-            <TextBlock Text="数据导入 SQL 生成器"
-                       FontSize="22"
-                       FontWeight="Bold"
-                       Foreground="#1A2332"
-                       Margin="0,0,0,4"/>
-            <TextBlock Text="支持 Excel / CSV / DBF，支持 PostgreSQL / SQL Server / MySQL / Oracle，支持编辑后重新生成。"
-                       FontSize="14"
-                       Foreground="#6B7A90"
-                       Margin="0,0,0,20"/>
-
-            <Border Background="White" CornerRadius="12" Padding="24,20" Margin="0,0,0,16">
-                <Border.Effect>
-                    <DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/>
-                </Border.Effect>
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,14">
-                        <TextBlock Text="1. 文件导入"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"
-                                   Foreground="#2D3748"
-                                   DockPanel.Dock="Left"/>
-                        <TextBlock Text="支持拖拽文件到本页"
-                                   FontSize="12"
-                                   Foreground="#9CA3AF"
-                                   HorizontalAlignment="Right"/>
-                    </DockPanel>
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="TxtFilePath"
-                                 Grid.Column="0"
-                                 Style="{DynamicResource TextBoxStandard}"
-                                 IsReadOnly="True"
-                                 Text="请选择 Excel / CSV / DBF 文件..."
-                                 Foreground="#9CA3AF"/>
-                        <Button x:Name="BtnSelectFile"
-                                Grid.Column="1"
-                                Content="浏览"
-                                Padding="18,8"
-                                Margin="10,0,0,0"
-                                FontSize="13"
-                                Background="#1A56DB"
-                                Foreground="White"
-                                Style="{DynamicResource ButtonPrimary}"
-                                Click="BtnSelectFile_Click"/>
-                    </Grid>
-
-                    <Border Background="#F8FAFC"
-                            BorderBrush="#E5E7EB"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Margin="0,12,0,0"
-                            Padding="12,10">
-                        <TextBlock Text="可导入 .xlsx / .xls / .csv / .dbf。CSV 自动识别编码和分隔符，DBF 可手动切换编码。"
-                                   FontSize="12"
-                                   Foreground="#64748B"/>
-                    </Border>
-
-                    <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="0,12,0,0">
-                        <TextBlock Text="选择 Sheet 工作表" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CbSheetList" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="CbSheetList_SelectionChanged"/>
-                    </StackPanel>
-
-                    <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="0,12,0,0">
-                        <TextBlock Text="DBF 编码" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CbDbfEncoding" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
-                    </StackPanel>
-
-                    <TextBlock x:Name="TxtFileInfo" Text="" FontSize="12" Foreground="#6B7A90" Margin="0,10,0,0"/>
-                    <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="12" Foreground="#4B5563" Margin="0,4,0,0"/>
-                    <ProgressBar x:Name="ProgressLoad" Height="10" Margin="0,10,0,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+        <ScrollViewer x:Name="PageScroller" Style="{DynamicResource PageScrollViewerStyle}"
+                      behaviors:ScrollViewerAssist.EnableHiddenWheelScroll="False"
+                      PreviewMouseWheel="PageScroller_PreviewMouseWheel" PreviewMouseDown="PageScroller_PreviewMouseDown"
+                      Padding="18,14,18,24" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+            <StackPanel>
+                <StackPanel Margin="0,0,0,14">
+                    <TextBlock Text="数据导入 SQL 生成器" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                    <TextBlock Text="支持 Excel / CSV / DBF，支持 PostgreSQL / SQL Server / MySQL / Oracle，支持编辑后重新生成。"
+                               FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
-            </Border>
 
-            <Border Background="White" CornerRadius="12" Padding="24,20" Margin="0,0,0,16">
-                <Border.Effect>
-                    <DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/>
-                </Border.Effect>
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,12">
-                        <TextBlock Text="2. 数据预览与编辑"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"
-                                   Foreground="#2D3748"
-                                   DockPanel.Dock="Left"/>
-                        <TextBlock Text="双击单元格即可修改，生成 SQL 时使用当前表格内容"
-                                   FontSize="12"
-                                   Foreground="#9CA3AF"
-                                   HorizontalAlignment="Right"/>
-                    </DockPanel>
-
-                    <Border Background="#F8FAFC"
-                            BorderBrush="#D9D9D9"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="1">
-                        <DataGrid x:Name="DgPreview"
-                                  AutoGenerateColumns="True"
-                                  IsReadOnly="False"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  CanUserReorderColumns="False"
-                                  CanUserResizeRows="False"
-                                  EnableRowVirtualization="True"
-                                  EnableColumnVirtualization="True"
-                                  RowHeaderWidth="0"
-                                  MaxHeight="380"
-                                  Background="White"
-                                  BorderThickness="0"
-                                  GridLinesVisibility="All"
-                                  HorizontalGridLinesBrush="#E4E7EB"
-                                  VerticalGridLinesBrush="#E4E7EB"
-                                  FontSize="12"
-                                  ColumnHeaderHeight="42"
-                                  HeadersVisibility="Column"
-                                  RowBackground="White"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto"
-                                  SelectionUnit="CellOrRowHeader"
-                                  SelectionMode="Extended"
-                                  Style="{DynamicResource QuickTableGridStyle}"/>
-                    </Border>
-
-                    <TextBlock x:Name="TxtPreviewInfo"
-                               Text="请先选择数据文件"
-                               FontSize="12"
-                               Foreground="#9CA3AF"
-                               Margin="0,8,0,0"/>
-                </StackPanel>
-            </Border>
-
-            <Border Background="White" CornerRadius="12" Padding="24,20" Margin="0,0,0,16">
-                <Border.Effect>
-                    <DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/>
-                </Border.Effect>
-                <StackPanel>
-                    <TextBlock Text="3. SQL 生成配置"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="#2D3748"
-                               Margin="0,0,0,14"/>
-
-                    <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*"/>
-                            <ColumnDefinition Width="16"/>
-                            <ColumnDefinition Width="2*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="目标数据库类型" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                            <ComboBox x:Name="CbDatabaseType"
-                                      Style="{DynamicResource ComboBoxStandard}"
-                                      ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"
-                                      Height="40"
-                                      SelectionChanged="DbType_Changed">
-                                <ComboBoxItem Content="PostgreSQL" IsSelected="True"/>
-                                <ComboBoxItem Content="SQL Server"/>
-                                <ComboBoxItem Content="MySQL"/>
-                                <ComboBoxItem Content="Oracle"/>
-                            </ComboBox>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="表名" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/>
-                            <TextBox x:Name="TxtTableName"
-                                     Style="{DynamicResource TextBoxStandard}"
-                                     Height="40"
-                                     Padding="10,5"
-                                     Text="temp_table"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <TextBlock x:Name="TxtTableHint"
-                               Text="提示：PostgreSQL/MySQL 使用临时表语法，Oracle 使用全局临时表。"
-                               FontSize="11"
-                               Foreground="#9CA3AF"
-                               Margin="0,0,0,10"/>
-
-                    <WrapPanel Margin="0,0,0,10">
-                        <CheckBox x:Name="ChkTemporaryTable" Content="是否生成临时表" IsChecked="True" Checked="TemporaryTable_Changed" Unchecked="TemporaryTable_Changed" Margin="0,0,20,0" FontSize="13"/>
-                        <CheckBox x:Name="ChkDropIfExists" Content="生成 DROP TABLE" IsChecked="True" Margin="0,0,20,0" FontSize="13"/>
-                        <CheckBox x:Name="ChkBatchInsert" Content="批量 INSERT" IsChecked="True" Margin="0,0,20,0" FontSize="13"/>
-                        <CheckBox x:Name="ChkLimitFieldLength" Content="限制文本字段长度(1000)" IsChecked="True" FontSize="13"/>
-                    </WrapPanel>
-
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="BtnGenerateSql"
-                                Content="生成 SQL"
-                                Padding="20,9"
-                                FontSize="13"
-                                FontWeight="SemiBold"
-                                Background="#1A56DB"
-                                Foreground="White"
-                                Style="{DynamicResource ButtonPrimary}"
-                                Click="BtnGenerateSql_Click"/>
+                <Border Style="{StaticResource ImportCard}">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,14">
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                                <TextBlock Text="文件导入" Style="{StaticResource SectionTitle}"/>
+                            </StackPanel>
+                            <TextBlock Text="支持拖拽文件到本页" FontSize="12" Foreground="#7B8EAD" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <Grid x:Name="ImportLayout" SizeChanged="ImportLayout_SizeChanged">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition x:Name="FileInfoColumn" Width="270"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <StackPanel>
+                                <Border Background="#F8FBFF" BorderBrush="#E1EDFF" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel>
+                                        <TextBlock Text="选择文件" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <TextBox x:Name="TxtFilePath" Style="{StaticResource ImportInput}" IsReadOnly="True"
+                                                     Text="请选择 Excel / CSV / DBF 文件..." Foreground="#8292AB"
+                                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                            <Button x:Name="BtnSelectFile" Grid.Column="1" Style="{StaticResource ImportPrimary}" Margin="12,0,0,0" Click="BtnSelectFile_Click">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Path Width="17" Height="14" Stretch="Uniform" Stroke="White" StrokeThickness="1.5"
+                                                          Data="M 1,13 L 1,2 L 6,2 L 8,4 L 16,4 L 16,6 M 1,13 L 4,6 L 18,6 L 15,13 Z"
+                                                          Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="浏览..."/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                        <TextBlock Text="支持 .xlsx / .xls / .csv / .dbf。CSV 自动识别编码和分隔符，DBF 可手动切换编码。"
+                                                   FontSize="11" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="0,14,0,0">
+                                    <TextBlock Text="选择 Sheet 工作表" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="CbSheetList" Style="{StaticResource ImportCombo}" SelectionChanged="CbSheetList_SelectionChanged"/>
+                                </StackPanel>
+                                <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="0,14,0,0">
+                                    <TextBlock Text="DBF 编码" Style="{StaticResource FieldLabel}"/>
+                                    <ComboBox x:Name="CbDbfEncoding" Style="{StaticResource ImportCombo}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#7B8EAD" Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="0,8,0,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+                            </StackPanel>
+                            <Border x:Name="FileInfoCard" Grid.Column="1" Background="#F4F8FF" CornerRadius="8" Padding="18" Margin="18,0,0,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                        <Path Width="16" Height="18" Stretch="Uniform" Stroke="#2475F5" StrokeThickness="1.5"
+                                              Data="M 2,1 L 10,1 L 15,6 L 15,18 L 2,18 Z M 10,1 L 10,6 L 15,6 M 5,10 L 12,10 M 5,13 L 12,13"
+                                              Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="文件信息" FontSize="14" FontWeight="SemiBold" Foreground="#2563CE"/>
+                                    </StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="文件名" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock x:Name="TxtFileInfo" Grid.Column="1" Text="尚未选择文件" Style="{StaticResource FileValue}"/>
+                                        <TextBlock Grid.Row="1" Text="大小" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock x:Name="TxtFileSize" Grid.Row="1" Grid.Column="1" Text="—" Style="{StaticResource FileValue}"/>
+                                        <TextBlock Grid.Row="2" Text="行数" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock x:Name="TxtRowCount" Grid.Row="2" Grid.Column="1" Text="—" Style="{StaticResource FileValue}"/>
+                                        <TextBlock Grid.Row="3" Text="列数" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock x:Name="TxtColumnCount" Grid.Row="3" Grid.Column="1" Text="—" Style="{StaticResource FileValue}"/>
+                                        <TextBlock Grid.Row="4" Text="Sheet" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock x:Name="TxtSheetName" Grid.Row="4" Grid.Column="1" Text="—" Style="{StaticResource FileValue}" Margin="0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </Border>
 
-            <Border Background="White" CornerRadius="12" Padding="24,20">
-                <Border.Effect>
-                    <DropShadowEffect ShadowDepth="1" Opacity="0.06" BlurRadius="10"/>
-                </Border.Effect>
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,10">
-                        <TextBlock Text="4. SQL 与导出"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"
-                                   Foreground="#2D3748"
-                                   DockPanel.Dock="Left"
-                                   VerticalAlignment="Center"/>
-                        <WrapPanel HorizontalAlignment="Right">
-                            <Button x:Name="BtnCopySql"
-                                    Content="复制 SQL"
-                                    Padding="14,6"
-                                    FontSize="12"
-                                    Background="#10B981"
-                                    Foreground="White"
-                                    Style="{DynamicResource ButtonPrimary}"
-                                    Margin="0,0,8,0"
-                                    Click="BtnCopySql_Click"/>
-                            <Button x:Name="BtnSaveSql"
-                                    Content="保存 SQL"
-                                    Padding="14,6"
-                                    FontSize="12"
-                                    Background="#6366F1"
-                                    Foreground="White"
-                                    Style="{DynamicResource ButtonPrimary}"
-                                    Margin="0,0,8,0"
-                                    Click="BtnSaveSql_Click"/>
-                            <Button x:Name="BtnExportCsv"
-                                    Content="导出 CSV"
-                                    Padding="14,6"
-                                    FontSize="12"
-                                    Background="#0F766E"
-                                    Foreground="White"
-                                    Style="{DynamicResource ButtonPrimary}"
-                                    Margin="0,0,8,0"
-                                    Click="BtnExportCsv_Click"/>
-                            <Button x:Name="BtnExportJson"
-                                    Content="导出 JSON"
-                                    Padding="14,6"
-                                    FontSize="12"
-                                    Background="#7C3AED"
-                                    Foreground="White"
-                                    Style="{DynamicResource ButtonPrimary}"
-                                    Click="BtnExportJson_Click"/>
+                <Border Style="{StaticResource ImportCard}">
+                    <StackPanel>
+                        <WrapPanel Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                                <TextBlock Text="数据预览与编辑" Style="{StaticResource SectionTitle}"/>
+                            </StackPanel>
+                            <TextBlock Text="双击单元格即可修改，生成 SQL 时使用当前表格内容" FontSize="11" Foreground="#7B8EAD" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,6"/>
                         </WrapPanel>
-                    </DockPanel>
+                        <Border Background="#F8FBFF" BorderBrush="#E1EDFF" BorderThickness="1" CornerRadius="8" Padding="12">
+                            <StackPanel>
+                                <WrapPanel Margin="0,0,0,10">
+                                    <Border Background="#EAF3FF" BorderBrush="#DEEBFF" BorderThickness="1" CornerRadius="5" Padding="10,5" Margin="0,0,14,0" MaxWidth="320">
+                                        <TextBlock x:Name="TxtPreviewTitle" Text="数据预览" FontSize="13" FontWeight="SemiBold" Foreground="#2467D8" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                    </Border>
+                                    <TextBlock FontSize="12" Foreground="#6686B7" VerticalAlignment="Center" Margin="0,5,18,5">
+                                        <Run Text="共 "/><Run Text="{Binding Text, ElementName=TxtRowCount, Mode=OneWay}"/><Run Text=" 行"/>
+                                    </TextBlock>
+                                    <TextBlock FontSize="12" Foreground="#6686B7" VerticalAlignment="Center" Margin="0,5,0,5">
+                                        <Run Text="{Binding Text, ElementName=TxtColumnCount, Mode=OneWay}"/><Run Text=" 列"/>
+                                    </TextBlock>
+                                </WrapPanel>
+                                <Border Background="White" BorderBrush="#DDE9F8" BorderThickness="1" CornerRadius="6" Padding="1">
+                                    <Grid>
+                                        <DataGrid x:Name="DgPreview" AutoGenerateColumns="True" IsReadOnly="False"
+                                                  CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeRows="False"
+                                                  EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                                                  RowHeaderWidth="0" MinHeight="200" MaxHeight="300" ColumnWidth="*" MinColumnWidth="110"
+                                                  Background="White" BorderThickness="0" GridLinesVisibility="All"
+                                                  HorizontalGridLinesBrush="#E7EEF8" VerticalGridLinesBrush="#E7EEF8"
+                                                  FontSize="12" ColumnHeaderHeight="38" HeadersVisibility="Column"
+                                                  RowBackground="White" AlternatingRowBackground="#F7FAFF"
+                                                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                                  SelectionUnit="CellOrRowHeader" SelectionMode="Extended"
+                                                  ColumnHeaderStyle="{StaticResource ImportColumnHeader}"
+                                                  CellStyle="{StaticResource ImportCell}" RowStyle="{StaticResource ImportRow}"/>
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers><DataTrigger Binding="{Binding ItemsSource, ElementName=DgPreview}" Value="{x:Null}"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="&#xE80A;" FontFamily="Segoe MDL2 Assets" FontSize="30" Foreground="#A7C4ED" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                                            <TextBlock Text="导入文件后，在这里预览和编辑数据" FontSize="13" Foreground="#8292AB"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <Border CornerRadius="6" Padding="10,8" Margin="0,10,0,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#EFFAF7"/>
+                                            <Setter Property="BorderBrush" Value="#D7F1E8"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Style.Triggers><DataTrigger Binding="{Binding ItemsSource, ElementName=DgPreview}" Value="{x:Null}">
+                                                <Setter Property="Background" Value="#F4F8FF"/><Setter Property="BorderBrush" Value="#E1EBFA"/>
+                                            </DataTrigger></Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock x:Name="TxtPreviewInfo" Text="请先选择数据文件" FontSize="11" Foreground="#7B8EAD" TextWrapping="Wrap"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
 
-                    <TextBlock x:Name="TxtSqlStats" Text="" FontSize="12" Foreground="#6B7A90" Margin="0,0,0,8"/>
+                <Border Style="{StaticResource ImportCard}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                            <TextBlock Text="SQL 生成配置" Style="{StaticResource SectionTitle}"/>
+                        </StackPanel>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="目标数据库类型" Style="{StaticResource FieldLabel}"/>
+                                <ComboBox x:Name="CbDatabaseType" Style="{StaticResource ImportCombo}" SelectionChanged="DbType_Changed">
+                                    <ComboBoxItem Content="PostgreSQL" IsSelected="True"/><ComboBoxItem Content="SQL Server"/><ComboBoxItem Content="MySQL"/><ComboBoxItem Content="Oracle"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="表名" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="TxtTableName" Style="{StaticResource ImportInput}" Text="temp_table"/>
+                            </StackPanel>
+                            <Button x:Name="BtnGenerateSql" Grid.Column="3" Content="生成 SQL" Style="{StaticResource ImportPrimary}" FontWeight="SemiBold" MinWidth="136" Margin="20,0,0,0" VerticalAlignment="Bottom" Click="BtnGenerateSql_Click"/>
+                        </Grid>
+                        <TextBlock x:Name="TxtTableHint" Text="提示：PostgreSQL/MySQL 使用临时表语法，Oracle 使用全局临时表。" FontSize="11" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                        <UniformGrid x:Name="SqlOptions" Columns="4" Margin="0,0,-8,-8">
+                            <CheckBox x:Name="ChkTemporaryTable" Content="生成临时表" IsChecked="True" Checked="TemporaryTable_Changed" Unchecked="TemporaryTable_Changed" Style="{StaticResource ImportOption}"/>
+                            <CheckBox x:Name="ChkDropIfExists" Content="生成 DROP TABLE" IsChecked="True" Style="{StaticResource ImportOption}"/>
+                            <CheckBox x:Name="ChkBatchInsert" Content="批量 INSERT" IsChecked="True" Style="{StaticResource ImportOption}"/>
+                            <CheckBox x:Name="ChkLimitFieldLength" Content="文本长度上限 1000" IsChecked="True" Style="{StaticResource ImportOption}"/>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
 
-                    <TextBox x:Name="TxtSqlOutput"
-                             Height="380"
-                             IsReadOnly="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Auto"
-                             FontSize="12.5"
-                             FontFamily="Consolas, Courier New"
-                             Background="#1E293B"
-                             Foreground="#A5F3FC"
-                             Padding="14,12"
-                             BorderThickness="0"
-                             AcceptsReturn="True"/>
-                </StackPanel>
-            </Border>
+                <Border Style="{StaticResource ImportCard}" Margin="0">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,10">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,0,16,6">
+                                <TextBlock Text="SQL 与导出" Style="{StaticResource SectionTitle}"/>
+                            </StackPanel>
+                            <WrapPanel HorizontalAlignment="Right">
+                                <Button x:Name="BtnCopySql" Content="复制 SQL" Style="{StaticResource ImportSecondary}" Click="BtnCopySql_Click"/>
+                                <Button x:Name="BtnSaveSql" Content="保存 SQL" Style="{StaticResource ImportSecondary}" Click="BtnSaveSql_Click"/>
+                                <Button x:Name="BtnExportCsv" Content="导出 CSV" Style="{StaticResource ImportSecondary}" Click="BtnExportCsv_Click"/>
+                                <Button x:Name="BtnExportJson" Content="导出 JSON" Style="{StaticResource ImportSecondary}" Click="BtnExportJson_Click"/>
+                            </WrapPanel>
+                        </DockPanel>
+                        <TextBlock x:Name="TxtSqlStats" Text="" FontSize="12" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <Grid Height="600" Background="#1E293B" ClipToBounds="True">
+                            <TextBox x:Name="TxtSqlOutput" IsReadOnly="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FontSize="13"
+                                 FontFamily="Consolas, 'Courier New'" IsInactiveSelectionHighlightEnabled="True"
+                                 SelectionBrush="#426A9D" SelectionOpacity="0.6" CaretBrush="#F59E0B"
+                                 Background="Transparent" Foreground="Transparent" Padding="12,8" BorderThickness="0" AcceptsReturn="True"/>
+                            <controls:SqlSyntaxLayer Editor="{Binding ElementName=TxtSqlOutput}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </Grid>

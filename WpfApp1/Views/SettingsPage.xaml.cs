@@ -1,9 +1,8 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 using WpfApp1.Services;
 
 namespace WpfApp1.Views
@@ -65,7 +64,7 @@ namespace WpfApp1.Views
                 ImportSettingsService.Save(settings);
                 TxtDefaultTableName.Text = settings.DefaultTableName;
 
-                ShowToast("✅ 设置已保存");
+                ToastService.Show(this, "✅ 设置已保存");
             }
             catch (Exception ex)
             {
@@ -103,47 +102,5 @@ namespace WpfApp1.Views
 
         private string GetSelectedDbType() => (CmbDefaultDbType.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "PostgreSQL";
 
-        // ═══════════════════════════════════════
-        // Toast 提示
-        // ═══════════════════════════════════════
-
-        private void ShowToast(string message)
-        {
-            // 简单实现：在页面顶部短暂显示消息
-            var popup = new Border
-            {
-                Background = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#333")),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(16, 8, 16, 8),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 10, 0, 0),
-                Opacity = 0.92,
-                Child = new TextBlock
-                {
-                    Text = message,
-                    Foreground = System.Windows.Media.Brushes.White,
-                    FontSize = 13
-                }
-            };
-
-            // 找到页面的根 Grid 或 ScrollViewer 的父级
-            if (this.Content is ScrollViewer sv)
-            {
-                var grid = new Grid();
-                this.Content = grid;
-                grid.Children.Add(sv);
-                grid.Children.Add(popup);
-
-                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-                timer.Tick += (_, _) =>
-                {
-                    grid.Children.Remove(popup);
-                    timer.Stop();
-                };
-                timer.Start();
-            }
-        }
     }
 }
