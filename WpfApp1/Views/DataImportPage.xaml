@@ -130,7 +130,6 @@
                     <TextBlock Text="支持 Excel / CSV / DBF，支持 PostgreSQL / SQL Server / MySQL / Oracle，支持编辑后重新生成。"
                                FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
-
                 <Border Style="{StaticResource ImportCard}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,14">
@@ -144,16 +143,22 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition x:Name="FileInfoColumn" Width="270"/>
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
                             <StackPanel>
-                                <Border Background="#F8FBFF" BorderBrush="#E1EDFF" BorderThickness="1" CornerRadius="8" Padding="16">
+                                <Border Background="White" BorderBrush="White" BorderThickness="1" CornerRadius="8" Padding="16">
                                     <StackPanel>
                                         <TextBlock Text="选择文件" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
                                             <TextBox x:Name="TxtFilePath" Style="{StaticResource ImportInput}" IsReadOnly="True"
                                                      Text="请选择 Excel / CSV / DBF 文件..." Foreground="#8292AB"
-                                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
                                             <Button x:Name="BtnSelectFile" Grid.Column="1" Style="{StaticResource ImportPrimary}" Margin="12,0,0,0" Click="BtnSelectFile_Click">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Path Width="17" Height="14" Stretch="Uniform" Stroke="White" StrokeThickness="1.5"
@@ -167,16 +172,16 @@
                                                    FontSize="11" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,10,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="0,14,0,0">
+                                <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="17,14,17,0" MaxWidth="320" HorizontalAlignment="Left">
                                     <TextBlock Text="选择 Sheet 工作表" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
                                     <ComboBox x:Name="CbSheetList" Style="{StaticResource ImportCombo}" SelectionChanged="CbSheetList_SelectionChanged"/>
                                 </StackPanel>
-                                <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="0,14,0,0">
+                                <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="17,14,17,0">
                                     <TextBlock Text="DBF 编码" Style="{StaticResource FieldLabel}"/>
                                     <ComboBox x:Name="CbDbfEncoding" Style="{StaticResource ImportCombo}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
                                 </StackPanel>
-                                <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#7B8EAD" Margin="0,10,0,0" TextWrapping="Wrap"/>
-                                <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="0,8,0,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+                                <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#7B8EAD" Margin="17,10,17,0" TextWrapping="Wrap"/>
+                                <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="17,8,17,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
                             </StackPanel>
                             <Border x:Name="FileInfoCard" Grid.Column="1" Background="#F4F8FF" CornerRadius="8" Padding="18" Margin="18,0,0,0">
                                 <StackPanel>
@@ -187,9 +192,16 @@
                                         <TextBlock Text="文件信息" FontSize="14" FontWeight="SemiBold" Foreground="#2563CE"/>
                                     </StackPanel>
                                     <Grid>
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
                                         <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <TextBlock Text="文件名" Style="{StaticResource FieldLabel}"/>
                                         <TextBlock x:Name="TxtFileInfo" Grid.Column="1" Text="尚未选择文件" Style="{StaticResource FileValue}"/>
@@ -216,7 +228,7 @@
                             </StackPanel>
                             <TextBlock Text="双击单元格即可修改，生成 SQL 时使用当前表格内容" FontSize="11" Foreground="#7B8EAD" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,6"/>
                         </WrapPanel>
-                        <Border Background="#F8FBFF" BorderBrush="#E1EDFF" BorderThickness="1" CornerRadius="8" Padding="12">
+                        <Border Background="White" BorderBrush="White" BorderThickness="1" CornerRadius="8" Padding="12">
                             <StackPanel>
                                 <WrapPanel Margin="0,0,0,10">
                                     <Border Background="#EAF3FF" BorderBrush="#DEEBFF" BorderThickness="1" CornerRadius="5" Padding="10,5" Margin="0,0,14,0" MaxWidth="320">
@@ -293,12 +305,12 @@
                             <Button x:Name="BtnGenerateSql" Grid.Column="3" Content="生成 SQL" Style="{StaticResource ImportPrimary}" FontWeight="SemiBold" MinWidth="136" Margin="20,0,0,0" VerticalAlignment="Bottom" Click="BtnGenerateSql_Click"/>
                         </Grid>
                         <TextBlock x:Name="TxtTableHint" Text="提示：PostgreSQL/MySQL 使用临时表语法，Oracle 使用全局临时表。" FontSize="11" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                        <UniformGrid x:Name="SqlOptions" Columns="4" Margin="0,0,-8,-8">
+                        <WrapPanel ItemWidth="160" HorizontalAlignment="Left" Margin="0,0,0,-8">
                             <CheckBox x:Name="ChkTemporaryTable" Content="生成临时表" IsChecked="True" Checked="TemporaryTable_Changed" Unchecked="TemporaryTable_Changed" Style="{StaticResource ImportOption}"/>
                             <CheckBox x:Name="ChkDropIfExists" Content="生成 DROP TABLE" IsChecked="True" Style="{StaticResource ImportOption}"/>
                             <CheckBox x:Name="ChkBatchInsert" Content="批量 INSERT" IsChecked="True" Style="{StaticResource ImportOption}"/>
-                            <CheckBox x:Name="ChkLimitFieldLength" Content="文本长度上限 1000" IsChecked="True" Style="{StaticResource ImportOption}"/>
-                        </UniformGrid>
+                            <CheckBox x:Name="ChkLimitFieldLength" Content="文本长度 1000" IsChecked="True" Style="{StaticResource ImportOption}"/>
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
 

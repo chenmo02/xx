@@ -40,7 +40,6 @@ namespace WpfApp1.Views
         private void ImportLayout_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             bool compact = e.NewSize.Width < 700;
-            SqlOptions.Columns = compact ? 2 : 4;
             FileInfoColumn.Width = compact ? new GridLength(0) : new GridLength(270);
             Grid.SetColumn(FileInfoCard, compact ? 0 : 1);
             Grid.SetRow(FileInfoCard, compact ? 1 : 0);

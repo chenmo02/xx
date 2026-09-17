@@ -38,7 +38,7 @@
         <Style x:Key="SqlPreferenceButton" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Padding" Value="10,8"/>
             <Setter Property="MinHeight" Value="42"/>
             <Setter Property="Foreground" Value="{DynamicResource ButtonGhostForegroundBrush}"/>
             <Setter Property="Background" Value="{DynamicResource ButtonGhostBackgroundBrush}"/>
@@ -129,7 +129,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <Grid Margin="0,0,0,14">
+                    <Grid Width="470" HorizontalAlignment="Left" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="8"/>
