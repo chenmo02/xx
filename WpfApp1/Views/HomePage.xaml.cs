@@ -32,10 +32,10 @@ namespace WpfApp1.Views
             { mw.MainFrame.Navigate(new CsvViewerPage()); mw.NavCsvViewer.IsChecked = true; }
         }
 
-        private void GoToCsvCompare_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void GoToQuickTable_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (Application.Current.MainWindow is MainWindow mw)
-            { mw.NavigateToCsvCompare(); }
+            { mw.NavigateToQuickTable(); }
         }
 
         private void GoToJsonTool_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)

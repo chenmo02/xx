@@ -35,19 +35,64 @@
             <Setter Property="Padding" Value="10,5"/>
         </Style>
 
+        <Style x:Key="SqlPreferenceButton" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonGhostForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonGhostBackgroundBrush}"/>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <DockPanel>
+                                <TextBlock x:Name="StateIcon" Text="○" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                                <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="StateIcon" Property="Text" Value="✓"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.78"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Page.Resources>
 
-    <ScrollViewer Style="{DynamicResource PageScrollViewerStyle}" Padding="32,24">
-        <StackPanel MaxWidth="880">
+    <ScrollViewer Style="{DynamicResource PageScrollViewerStyle}" Padding="18,14,18,24">
+        <StackPanel>
 
             <!-- 页面标题 -->
             <TextBlock Text="⚙️ 系统设置" FontSize="22" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
-            <TextBlock Text="全局配置与工具位预留" FontSize="13" Foreground="#999" Margin="0,0,0,22"/>
+            <TextBlock Text="全局配置与工具位预留" FontSize="13" Foreground="#999" Margin="0,0,0,14"/>
 
             <!-- ═══════════════════════════════════════ -->
             <!-- 1. SQL 生成偏好 -->
             <!-- ═══════════════════════════════════════ -->
-            <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16">
+            <Border Style="{DynamicResource CardBorder}" Padding="18" Margin="0,0,0,14">
                 <StackPanel>
                     <TextBlock Text="🗄️ SQL 生成偏好" Style="{StaticResource CardTitle}"/>
                     <TextBlock Text="保存后会自动应用到数据导入页和导出对话框" Style="{StaticResource CardDesc}"/>
@@ -84,22 +129,27 @@
                         </StackPanel>
                     </Grid>
 
-                    <WrapPanel Margin="0,0,0,14">
-                        <CheckBox x:Name="ChkDefaultDropIfExists"
-                                  Content="默认生成 DROP TABLE"
-                                  FontSize="13"
-                                  IsChecked="True"
-                                  Margin="0,0,24,0"/>
-                        <CheckBox x:Name="ChkDefaultBatchInsert"
-                                  Content="默认启用批量 INSERT"
-                                  FontSize="13"
-                                  IsChecked="True"
-                                  Margin="0,0,24,0"/>
-                        <CheckBox x:Name="ChkDefaultLimitFieldLength"
-                                  Content="默认限制文本长度为 1000"
-                                  FontSize="13"
-                                  IsChecked="True"/>
-                    </WrapPanel>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ToggleButton x:Name="ChkDefaultDropIfExists"
+                                      Content="默认生成 DROP TABLE"
+                                      Style="{StaticResource SqlPreferenceButton}"
+                                      IsChecked="True"/>
+                        <ToggleButton x:Name="ChkDefaultBatchInsert" Grid.Column="2"
+                                      Content="默认启用批量 INSERT"
+                                      Style="{StaticResource SqlPreferenceButton}"
+                                      IsChecked="True"/>
+                        <ToggleButton x:Name="ChkDefaultLimitFieldLength" Grid.Column="4"
+                                      Content="默认限制文本长度为 1000"
+                                      Style="{StaticResource SqlPreferenceButton}"
+                                      IsChecked="True"/>
+                    </Grid>
 
                     <Border Background="#F8FAFC"
                             BorderBrush="#E5E7EB"
@@ -117,7 +167,7 @@
             <!-- ═══════════════════════════════════════ -->
             <!-- 2. 默认路径 -->
             <!-- ═══════════════════════════════════════ -->
-            <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16">
+            <Border Style="{DynamicResource CardBorder}" Padding="18" Margin="0,0,0,14">
                 <StackPanel>
                     <TextBlock Text="📁 默认导出路径" Style="{StaticResource CardTitle}"/>
                     <TextBlock Text="SQL 文件、CSV 导出的默认保存位置" Style="{StaticResource CardDesc}"/>
@@ -145,19 +195,19 @@
             <!-- ═══════════════════════════════════════ -->
             <Border Height="1" Background="#E5E5E5" Margin="0,0,0,20"/>
             <TextBlock Text="🔧 实用小工具" FontSize="18" FontWeight="Bold" Foreground="#222" Margin="0,0,0,4"/>
-            <TextBlock Text="用于快速生成临时表或基础表结构。" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
+            <TextBlock Text="用于比较 CSV 文件并查看数据差异。" FontSize="13" Foreground="#999" Margin="0,0,0,18"/>
 
-            <Border Style="{DynamicResource CardBorder}" Padding="20" Margin="0,0,0,16">
+            <Border Style="{DynamicResource CardBorder}" Width="240" MinHeight="170"
+                    HorizontalAlignment="Left" Padding="18" Margin="0,0,0,14">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="⚡ 快速建表" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937"/>
-                        <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成 CREATE TABLE SQL。" FontSize="13" Foreground="#64748B" Margin="0,7,20,0" TextWrapping="Wrap"/>
-                    </StackPanel>
-                    <Button Grid.Column="1" Content="打开快速建表" Style="{DynamicResource ButtonPrimary}" Padding="18,9" VerticalAlignment="Center" Click="BtnOpenQuickTable_Click"/>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="CSV 对比工具" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937"/>
+                    <TextBlock Grid.Row="1" Text="支持按行号或复合主键比较差异，结果可筛选导出。" FontSize="13" Foreground="#64748B" Margin="0,8,0,18" TextWrapping="Wrap"/>
+                    <Button Grid.Row="2" Content="打开 CSV 对比工具" Style="{DynamicResource ButtonPrimary}" Padding="18,9" Click="BtnOpenCsvCompare_Click"/>
                 </Grid>
             </Border>
         </StackPanel>

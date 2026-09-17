@@ -27,14 +27,13 @@ namespace WpfApp1
 
         public void NavigateToCsvCompare()
         {
+            NavSettings.IsChecked = true;
             MainFrame.Navigate(new CsvComparePage());
-            NavCsvCompare.IsChecked = true;
         }
 
         public void NavigateToQuickTable()
         {
-            MainFrame.Navigate(new QuickTablePage());
-            // NavQuickTable.IsChecked = true; // 左侧入口暂时隐藏，保留代码供后续恢复
+            NavQuickTable.IsChecked = true;
         }
 
         private void NavButton_Checked(object sender, RoutedEventArgs e)
@@ -46,14 +45,17 @@ namespace WpfApp1
             if (rb == NavHome) MainFrame.Navigate(_homePage);
             else if (rb == NavImport) MainFrame.Navigate(new DataImportPage());
             else if (rb == NavCsvViewer) MainFrame.Navigate(new CsvViewerPage());
-            else if (rb == NavCsvCompare) MainFrame.Navigate(new CsvComparePage());
+            else if (rb == NavQuickTable) MainFrame.Navigate(new QuickTablePage());
             else if (rb == NavDataValidation) MainFrame.Navigate(new DataValidationPage());
             else if (rb == NavJsonTool) MainFrame.Navigate(new JsonToolPage());
             else if (rb == NavJsonDiff) MainFrame.Navigate(new JsonDiffPage());
             else if (rb == NavDrawBoard) MainFrame.Navigate(new DrawBoardPage());
             else if (rb == NavInvoice) MainFrame.Navigate(new InvoicePrintPage());
-            else if (rb == NavSettings) MainFrame.Navigate(new SettingsPage());
-            // else if (rb == NavQuickTable) MainFrame.Navigate(new QuickTablePage()); // 左侧入口暂时隐藏
+        }
+
+        private void NavSettings_Click(object sender, RoutedEventArgs e)
+        {
+            MainFrame.Navigate(new SettingsPage());
         }
 
         private void NotesButton_Click(object sender, RoutedEventArgs e)

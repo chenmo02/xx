@@ -79,10 +79,10 @@ namespace WpfApp1.Views
                 TxtDefaultExportPath.Text = dialog.FolderName;
         }
 
-        private void BtnOpenQuickTable_Click(object sender, RoutedEventArgs e)
+        private void BtnOpenCsvCompare_Click(object sender, RoutedEventArgs e)
         {
             if (Application.Current.MainWindow is MainWindow mainWindow)
-                mainWindow.NavigateToQuickTable();
+                mainWindow.NavigateToCsvCompare();
         }
 
         private void SelectDbType(string dbType)

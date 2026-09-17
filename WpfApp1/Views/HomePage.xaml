@@ -165,7 +165,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="数据导入临时表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="生成临时表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="Excel、CSV、DBF 一键转换为 SQL 临时表脚本"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -192,7 +192,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="CSV 预览工具" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="CSV 只读预览" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="稳定打开分隔文本，支持搜索、定位与编码识别"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -204,30 +204,30 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource HomeCardStyle}" MouseLeftButtonUp="GoToCsvCompare_Click">
+                <Border Style="{StaticResource HomeCardStyle}" MouseLeftButtonUp="GoToQuickTable_Click">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#FEF3C7">
-                            <Image Source="/img/空间查询.png" 
+                        <Border Style="{StaticResource QuickCardIconStyle}" Background="#DBEAFE">
+                            <Image Source="/img/快速建表.png"
                                    Stretch="Uniform"
                                    Width="38" Height="38"
                                    HorizontalAlignment="Center" 
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="CSV 对比工具" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
-                            <TextBlock Text="支持按行号或复合主键比较差异，结果可筛选导出"
+                            <TextBlock Text="快速建表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成建表 SQL"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
                                        Margin="0,8,0,0"
                                        TextWrapping="Wrap"
                                        LineHeight="24"/>
                         </StackPanel>
-                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="14" FontWeight="SemiBold" Foreground="#D97706" Margin="0,14,0,0"/>
+                        <TextBlock Grid.Row="2" Text="点击进入" FontSize="14" FontWeight="SemiBold" Foreground="#2563EB" Margin="0,14,0,0"/>
                     </Grid>
                 </Border>
 
@@ -246,7 +246,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="JSON 处理工具" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="JSON 处理" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="格式化、校验、搜索与嵌套 GRID 浏览一体完成"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -273,7 +273,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="JSON 对比工具" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="JSON 对比" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="深度比较结构和值差异，快速定位新增、删除和变更"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -327,7 +327,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="发票打印工具" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="发票打印" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="PDF、OFD 排版打印与模板管理，适合办公场景"
                                        FontSize="13"
                                        Foreground="#7B8BB0"

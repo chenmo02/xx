@@ -6,6 +6,42 @@
       xmlns:behaviors="clr-namespace:WpfApp1.Behaviors"
       Background="{DynamicResource PageBackgroundAltBrush}">
     <Page.Resources>
+        <Style x:Key="SettingButton" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Foreground" Value="{DynamicResource ButtonGhostForegroundBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonGhostBackgroundBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="StateIcon" Text="○" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                                <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="StateIcon" Property="Text" Value="✓"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.78"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="SqlOutputBox" TargetType="TextBox">
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontSize" Value="13"/>
@@ -38,12 +74,26 @@
     </Page.Resources>
     <ScrollViewer x:Name="PageScroller" Style="{DynamicResource PageScrollViewerStyle}"
                   behaviors:ScrollViewerAssist.EnableHiddenWheelScroll="False"
-                  Padding="28,24" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
-        <StackPanel MaxWidth="1180">
-            <TextBlock Text="快速建表" FontSize="22" FontWeight="Bold" Foreground="#1A2332" Margin="0,0,0,4"/>
-            <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成 CREATE TABLE。" FontSize="14" Foreground="#6B7A90" Margin="0,0,0,20"/>
+                  Padding="18,14,18,24" VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+        <StackPanel>
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="快速建表" FontSize="22" FontWeight="Bold" Foreground="#1A2332" Margin="0,0,0,4"/>
+                    <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成 CREATE TABLE。" FontSize="14" Foreground="#6B7A90" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                    <CheckBox x:Name="ChkQuote" Content="自动引用标识符" IsChecked="True"
+                              Style="{StaticResource SettingButton}" Margin="0,0,8,0"
+                              ToolTip="开启后引用表名和字段名，避免与数据库关键字冲突；点击切换。"/>
+                    <CheckBox x:Name="ChkDrop" Content="生成前删除同名表" IsChecked="True"
+                              Style="{StaticResource SettingButton}"
+                              ToolTip="开启后在生成的 SQL 中加入删除同名表语句；执行该 SQL 会删除原表及其数据。点击切换。"/>
+                </StackPanel>
+            </Grid>
 
-            <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16">
+            <Border Style="{DynamicResource CardBorder}" Padding="18" Margin="0,0,0,14">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,14">
                         <TextBlock Text="1. 输入 INSERT SQL" FontSize="16" FontWeight="SemiBold" Foreground="#2D3748" DockPanel.Dock="Left"/>
@@ -55,13 +105,12 @@
                         <StackPanel Grid.Column="2"><TextBlock Text="表名" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/><TextBox x:Name="TxtTableName" Height="40" Padding="10,4,10,4" VerticalContentAlignment="Center" Style="{DynamicResource TextBoxStandard}" TextChanged="TxtTableName_TextChanged" SelectionOpacity="0.4"/></StackPanel>
                         <StackPanel Grid.Column="4"><TextBlock Text="字段大小写" FontSize="13" Foreground="#4A5568" Margin="0,0,0,6"/><ComboBox x:Name="CmbCase" SelectedIndex="0" Height="40" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}"><ComboBoxItem Content="保持原样"/><ComboBoxItem Content="全部大写"/><ComboBoxItem Content="全部小写"/></ComboBox></StackPanel>
                     </Grid>
-                    <WrapPanel Margin="0,0,0,10"><CheckBox x:Name="ChkQuote" Content="自动引用标识符" IsChecked="True" FontSize="13" Margin="0,0,24,0"/><TextBlock Text="引用可避免字段名与数据库关键字冲突" FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center"/></WrapPanel>
                     <TextBlock Text="INSERT INTO SQL" FontSize="13" FontWeight="SemiBold" Foreground="#4A5568" Margin="0,0,0,6"/>
                     <TextBox x:Name="TxtInsert" Height="122" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" Style="{DynamicResource TextBoxStandard}" ToolTip="例如：INSERT INTO user_info (id, name) VALUES (1, '张三');"/>
                 </StackPanel>
             </Border>
 
-            <Border Style="{DynamicResource CardBorder}" Padding="24,20" Margin="0,0,0,16">
+            <Border Style="{DynamicResource CardBorder}" Padding="18" Margin="0,0,0,14">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,12"><TextBlock Text="2. 字段预览与类型调整" FontSize="16" FontWeight="SemiBold" Foreground="#2D3748" DockPanel.Dock="Left"/><TextBlock x:Name="TxtStatus" Text="请先解析 INSERT SQL" FontSize="12" Foreground="#6B7A90" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"/></DockPanel>
                     <WrapPanel Margin="0,0,0,12"><Button Content="解析并推断" Style="{DynamicResource ButtonPrimary}" Padding="20,9" Click="BtnParse_Click"/><TextBlock Text="全部字段类型" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center" Margin="24,0,8,0"/><ComboBox x:Name="CmbAllType" Width="130" Height="40" ItemsSource="{x:Static svc:QuickTableService.TypeChoices}" Style="{DynamicResource ComboBoxStandard}" ItemContainerStyle="{DynamicResource ComboBoxItemStandard}" SelectionChanged="CmbAllType_SelectionChanged"/><Button Content="应用" Style="{DynamicResource ButtonPrimary}" Padding="18,9" Margin="8,0,0,0" Click="BtnApplyType_Click"/><TextBlock Text="全部长度" FontSize="13" Foreground="#4A5568" VerticalAlignment="Center" Margin="24,0,8,0"/><TextBox x:Name="TxtAllLength" Width="90" Height="40" Text="1000" Style="{DynamicResource TextBoxStandard}" TextChanged="TxtAllLength_TextChanged"/><Button Content="应用长度" Style="{DynamicResource ButtonPrimary}" Padding="18,9" Margin="8,0,0,0" Click="BtnApplyLength_Click"/></WrapPanel>
@@ -90,7 +139,7 @@
                 </StackPanel>
             </Border>
 
-            <Border Style="{DynamicResource CardBorder}" Padding="24,20">
+            <Border Style="{DynamicResource CardBorder}" Padding="18">
                 <StackPanel>
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -104,7 +153,6 @@
                             <Button Content="导出 .sql" Style="{DynamicResource ButtonSecondary}" Padding="18,9" Margin="8,0,0,0" Click="BtnExport_Click"/>
                         </WrapPanel>
                     </Grid>
-                    <WrapPanel Margin="0,0,0,12"><CheckBox x:Name="ChkDrop" Content="生成前删除同名表" IsChecked="True" FontSize="13"/></WrapPanel>
                     <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="8" Padding="1">
                         <Grid Height="420" ClipToBounds="True">
                             <TextBox x:Name="TxtOutput" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" Style="{StaticResource SqlOutputBox}"/>
