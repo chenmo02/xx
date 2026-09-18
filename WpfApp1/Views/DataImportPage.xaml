@@ -30,7 +30,7 @@
         <Style x:Key="FileValue" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#304C76"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
         </Style>
@@ -154,7 +154,7 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel>
-                                <Border Background="White" BorderBrush="White" BorderThickness="1" CornerRadius="8" Padding="16">
+                                <Border Background="White" BorderBrush="White" BorderThickness="0" CornerRadius="8" Padding="0">
                                     <StackPanel>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -177,19 +177,19 @@
                                                    FontSize="11" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,10,0,0"/>
                                     </StackPanel>
                                 </Border>
-                                <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="17,14,17,0" MaxWidth="320" HorizontalAlignment="Left">
+                                <StackPanel x:Name="PanelSheetSelect" Visibility="Collapsed" Margin="0,14,0,0" MaxWidth="320" HorizontalAlignment="Left">
                                     <TextBlock Text="选择 Sheet 工作表" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
                                     <ComboBox x:Name="CbSheetList" Style="{StaticResource ImportCombo}" SelectionChanged="CbSheetList_SelectionChanged"/>
                                 </StackPanel>
-                                <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="17,14,17,0">
+                                <StackPanel x:Name="PanelDbfEncoding" Visibility="Collapsed" Margin="0,14,0,0">
                                     <TextBlock Text="DBF 编码" Style="{StaticResource FieldLabel}"/>
                                     <ComboBox x:Name="CbDbfEncoding" Style="{StaticResource ImportCombo}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
                                 </StackPanel>
-                                <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="17,8,17,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+                                <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="0,8,0,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
                             </StackPanel>
-                            <Border x:Name="FileInfoCard" Grid.Column="1" Background="#F4F8FF" CornerRadius="8" Padding="18" Margin="18,0,0,0">
+                            <Border x:Name="FileInfoCard" Grid.Column="1" Background="#F4F8FF" CornerRadius="8" Padding="14,10" Margin="18,0,0,0">
                                 <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                         <Path Width="16" Height="18" Stretch="Uniform" Stroke="#2475F5" StrokeThickness="1.5"
                                               Data="M 2,1 L 10,1 L 15,6 L 15,18 L 2,18 Z M 10,1 L 10,6 L 15,6 M 5,10 L 12,10 M 5,13 L 12,13"
                                               Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -207,15 +207,15 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
-                                        <TextBlock Text="文件名" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Text="文件名" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
                                         <TextBlock x:Name="TxtFileInfo" Grid.Column="1" Text="尚未选择文件" Style="{StaticResource FileValue}"/>
-                                        <TextBlock Grid.Row="1" Text="大小" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Grid.Row="1" Text="大小" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
                                         <TextBlock x:Name="TxtFileSize" Grid.Row="1" Grid.Column="1" Text="—" Style="{StaticResource FileValue}"/>
-                                        <TextBlock Grid.Row="2" Text="行数" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Grid.Row="2" Text="行数" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
                                         <TextBlock x:Name="TxtRowCount" Grid.Row="2" Grid.Column="1" Text="—" Style="{StaticResource FileValue}"/>
-                                        <TextBlock Grid.Row="3" Text="列数" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Grid.Row="3" Text="列数" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
                                         <TextBlock x:Name="TxtColumnCount" Grid.Row="3" Grid.Column="1" Text="—" Style="{StaticResource FileValue}"/>
-                                        <TextBlock Grid.Row="4" Text="Sheet" Style="{StaticResource FieldLabel}"/>
+                                        <TextBlock Grid.Row="4" Text="Sheet" Style="{StaticResource FieldLabel}" Margin="0"/>
                                         <TextBlock x:Name="TxtSheetName" Grid.Row="4" Grid.Column="1" Text="—" Style="{StaticResource FileValue}" Margin="0"/>
                                     </Grid>
                                 </StackPanel>
@@ -232,7 +232,7 @@
                             </StackPanel>
                             <TextBlock Text="双击单元格即可修改，生成 SQL 时使用当前表格内容" FontSize="11" Foreground="#7B8EAD" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,6"/>
                         </WrapPanel>
-                        <Border Background="White" BorderBrush="White" BorderThickness="1" CornerRadius="8" Padding="12">
+                        <Border Background="White" BorderBrush="White" BorderThickness="0" CornerRadius="8" Padding="0">
                             <StackPanel>
                                 <Border Background="White" BorderBrush="#DDE9F8" BorderThickness="1" CornerRadius="0" Padding="0">
                                     <Grid>
