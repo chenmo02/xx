@@ -109,7 +109,7 @@
                 <Grid Margin="0,0,0,14">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                     <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                        <TextBlock Text="JSON 对比工具" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="JSON内容比对" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
                         <TextBlock Text="快速对比两个 JSON 数据的差异，支持新增、删除、修改、类型变化。" Foreground="#94A3B8" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

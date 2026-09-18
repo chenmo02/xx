@@ -126,7 +126,7 @@
                       HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
             <StackPanel>
                 <StackPanel Margin="0,0,0,14">
-                    <TextBlock Text="数据导入 SQL 生成器" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                    <TextBlock FontSize="22" FontWeight="Bold" Foreground="#0F172A"><Run Language="zh-cn" Text="表格"/><Run Text="数据导入 SQL 生成器"/></TextBlock>
                     <TextBlock Text="支持 Excel / CSV / DBF，支持 PostgreSQL / SQL Server / MySQL / Oracle，支持编辑后重新生成。"
                                FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
@@ -135,6 +135,12 @@
                         <DockPanel Margin="0,0,0,14">
                             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                 <TextBlock Text="文件导入" Style="{StaticResource SectionTitle}"/>
+                                <Border Background="#EFFAF7" BorderBrush="#D7F1E8" BorderThickness="1"
+                                        CornerRadius="5" Padding="10,3" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#10B981"
+                                               MaxWidth="280" TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Text, RelativeSource={RelativeSource Mode=Self}}"/>
+                                </Border>
                             </StackPanel>
                             <TextBlock Text="支持拖拽文件到本页" FontSize="12" Foreground="#7B8EAD" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </DockPanel>
@@ -179,7 +185,6 @@
                                     <TextBlock Text="DBF 编码" Style="{StaticResource FieldLabel}"/>
                                     <ComboBox x:Name="CbDbfEncoding" Style="{StaticResource ImportCombo}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
                                 </StackPanel>
-                                <TextBlock x:Name="TxtStatus" Text="就绪" FontSize="11" Foreground="#7B8EAD" Margin="17,10,17,0" TextWrapping="Wrap"/>
                                 <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="17,8,17,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
                             </StackPanel>
                             <Border x:Name="FileInfoCard" Grid.Column="1" Background="#F4F8FF" CornerRadius="8" Padding="18" Margin="18,0,0,0">

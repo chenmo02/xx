@@ -98,7 +98,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                <TextBlock Text="CSV 预览工具" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                <TextBlock FontSize="22" FontWeight="Bold" Foreground="#0F172A"><Run Text="CSV"/><Run Language="zh-cn" Text=" "/><Run Text="文件预览"/></TextBlock>
                 <TextBlock Text="支持编码识别、分隔符识别和单元格定位查找。"
                            FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap"/>
             </StackPanel>

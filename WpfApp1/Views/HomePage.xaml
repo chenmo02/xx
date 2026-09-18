@@ -135,7 +135,7 @@
                                        FontSize="24"
                                        FontWeight="Bold"
                                        Foreground="#4E6EF2"
-                                       Margin="0,2,0,0"><Run Text="v2.3."/><Run Language="zh-cn" Text="1"/></TextBlock>
+                                       Margin="0,2,0,0"><Run Text="v2.3."/><Run Language="zh-cn" Text="2"/></TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -165,7 +165,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="生成临时表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="临时数据建表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="Excel、CSV、DBF 一键转换为 SQL 临时表脚本"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -192,7 +192,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="CSV 只读预览" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"><Run Text="CSV"/><Run Language="zh-cn" Text=" "/><Run Text="文件预览"/></TextBlock>
                             <TextBlock Text="稳定打开分隔文本，支持搜索、定位与编码识别"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -219,7 +219,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="快速建表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="快速建数据表" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成建表 SQL"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -246,7 +246,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="JSON 处理" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"><Run Text="JSON"/><Run Language="zh-cn" Text=" "/><Run Text="数据解析"/></TextBlock>
                             <TextBlock Text="格式化、校验、搜索与嵌套 GRID 浏览一体完成"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -273,7 +273,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="JSON 对比" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"><Run Text="JSON"/><Run Language="zh-cn" Text=" "/><Run Text="内容比对"/></TextBlock>
                             <TextBlock Text="深度比较结构和值差异，快速定位新增、删除和变更"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -300,7 +300,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="Excalidraw 画板" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="在线绘图工具" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="流程图、草图和示意图快速绘制，适合沟通方案"
                                        FontSize="13"
                                        Foreground="#7B8BB0"
@@ -327,7 +327,7 @@
                                    VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Row="1" Margin="0,14,0,0">
-                            <TextBlock Text="发票打印" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
+                            <TextBlock Text="发票打印操作" FontSize="18" FontWeight="SemiBold" Foreground="#101A42" TextWrapping="Wrap"/>
                             <TextBlock Text="PDF、OFD 排版打印与模板管理，适合办公场景"
                                        FontSize="13"
                                        Foreground="#7B8BB0"

@@ -113,7 +113,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
-                <TextBlock Text="JSON 处理工具" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                <TextBlock FontSize="22" FontWeight="Bold" Foreground="#0F172A"><Run Text="JSON"/><Run Language="zh-cn" Text=" "/><Run Text="数据解析"/></TextBlock>
                 <TextBlock Text="支持 JSON 格式化、压缩、校验和表格编辑。"
                            FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0" TextWrapping="Wrap"/>
             </StackPanel>

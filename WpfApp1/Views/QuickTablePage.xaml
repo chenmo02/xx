@@ -80,7 +80,7 @@
             <Grid Margin="0,0,0,14">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,20,0">
-                    <TextBlock Text="快速建表" FontSize="22" FontWeight="Bold" Foreground="#1A2332" Margin="0,0,0,4"/>
+                    <TextBlock Text="快速建数据表" FontSize="22" FontWeight="Bold" Foreground="#1A2332" Margin="0,0,0,4"/>
                     <TextBlock Text="粘贴 INSERT INTO，自动提取字段、推断类型并生成 CREATE TABLE。" FontSize="14" Foreground="#6B7A90" TextWrapping="Wrap"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">

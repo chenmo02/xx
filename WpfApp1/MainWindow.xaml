@@ -40,16 +40,16 @@
                     <StackPanel>
                         <TextBlock Text="数据工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavHome" Content="首页概览" Tag=""
+                        <RadioButton x:Name="NavHome" Content="首页数据概览" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav" IsChecked="True"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavImport" Content="生成临时表" Tag=""
+                        <RadioButton x:Name="NavImport" Content="临时数据建表" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavCsvViewer" Content="CSV 只读预览" Tag=""
+                        <RadioButton x:Name="NavCsvViewer" Content="CSV文件预览" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavQuickTable" Content="快速建表" Tag=""
+                        <RadioButton x:Name="NavQuickTable" Content="快速建数据表" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
                         <RadioButton x:Name="NavDataValidation" Content="数据验证排查" Tag=""
@@ -60,13 +60,13 @@
 
                         <TextBlock Text="开发工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavJsonTool" Content="JSON 处理" Tag=""
+                        <RadioButton x:Name="NavJsonTool" Content="JSON数据解析" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavJsonDiff" Content="JSON 对比" Tag=""
+                        <RadioButton x:Name="NavJsonDiff" Content="JSON内容比对" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
-                        <RadioButton x:Name="NavDrawBoard" Content="Excalidraw 画板" Tag=""
+                        <RadioButton x:Name="NavDrawBoard" Content="在线绘图工具" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
 
@@ -74,7 +74,7 @@
 
                         <TextBlock Text="办公工具" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavInvoice" Content="发票打印" Tag=""
+                        <RadioButton x:Name="NavInvoice" Content="发票打印操作" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Checked="NavButton_Checked"/>
 
@@ -82,7 +82,7 @@
 
                         <TextBlock Text="系统" FontSize="11" Foreground="#BBB" FontWeight="SemiBold" Margin="20,6,0,4"/>
 
-                        <RadioButton x:Name="NavSettings" Content="系统设置" Tag=""
+                        <RadioButton x:Name="NavSettings" Content="系统参数配置" Tag=""
                                      Style="{StaticResource NavButtonStyle}" GroupName="Nav"
                                      Click="NavSettings_Click"/>
                        
