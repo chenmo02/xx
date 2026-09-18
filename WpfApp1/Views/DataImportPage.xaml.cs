@@ -589,7 +589,6 @@ namespace WpfApp1.Views
             TxtRowCount.Text = "—";
             TxtColumnCount.Text = "—";
             TxtSheetName.Text = "—";
-            TxtPreviewTitle.Text = "数据预览";
             TxtPreviewInfo.Text = "请先选择数据文件";
             TxtPreviewInfo.Foreground = MutedBrush;
             TxtSqlOutput.Clear();
@@ -608,7 +607,6 @@ namespace WpfApp1.Views
             TxtRowCount.Text = $"{totalRows:N0}";
             TxtColumnCount.Text = $"{totalCols:N0}";
             TxtSheetName.Text = string.IsNullOrWhiteSpace(sheetName) ? "—" : sheetName;
-            TxtPreviewTitle.Text = string.IsNullOrWhiteSpace(sheetName) ? Path.GetFileNameWithoutExtension(filePath) : sheetName;
         }
 
         private void ShowLoadHints(int totalRows)
@@ -795,7 +793,6 @@ namespace WpfApp1.Views
             TxtRowCount.Text = "—";
             TxtColumnCount.Text = "—";
             TxtSheetName.Text = "—";
-            TxtPreviewTitle.Text = "数据预览";
             TxtPreviewInfo.Text = $"解析失败: {ex.Message}";
             TxtPreviewInfo.Foreground = ErrorBrush;
             UpdateStatus("加载失败");

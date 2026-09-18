@@ -2,32 +2,32 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework">
 
-    <!-- ==================== DataGrid 样式 ==================== -->
+    <!-- ==================== 现代简洁 DataGrid 样式设计 ==================== -->
 
-    <!-- 列头样式 -->
-    <Style x:Key="DataGridHeaderStyle" TargetType="DataGridColumnHeader">
-        <Style.Resources>
-            <Style x:Key="DataGridHeaderGripper" TargetType="primitives:Thumb">
-                <Setter Property="Width" Value="8"/>
-                <Setter Property="Cursor" Value="SizeWE"/>
-                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="primitives:Thumb">
-                            <Border Background="Transparent"/>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-        </Style.Resources>
-        <Setter Property="Background" Value="#F2F7FE"/>
-        <Setter Property="Foreground" Value="#304F7E"/>
-        <Setter Property="Height" Value="46"/>
-        <Setter Property="FontSize" Value="12.5"/>
+    <!-- 表头 Drag 调整列宽抓手 -->
+    <Style x:Key="ModernHeaderGripper" TargetType="primitives:Thumb">
+        <Setter Property="Width" Value="8"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Cursor" Value="SizeWE"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="primitives:Thumb">
+                    <Border Background="{TemplateBinding Background}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 列头样式 (Header) -->
+    <Style x:Key="ModernDataGridHeaderStyle" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="#F8FAFC"/>
+        <Setter Property="Foreground" Value="#475569"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Padding" Value="10,9"/>
-        <Setter Property="BorderBrush" Value="#E5EDF8"/>
-        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="BorderBrush" Value="#E2E8F0"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Template">
@@ -41,165 +41,143 @@
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Border>
-                        <primitives:Thumb x:Name="PART_LeftHeaderGripper"
-                                          HorizontalAlignment="Left"
-                                          Style="{StaticResource DataGridHeaderGripper}"/>
-                        <primitives:Thumb x:Name="PART_RightHeaderGripper"
-                                          HorizontalAlignment="Right"
-                                          Style="{StaticResource DataGridHeaderGripper}"/>
+                        <primitives:Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left" Style="{StaticResource ModernHeaderGripper}"/>
+                        <primitives:Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right" Style="{StaticResource ModernHeaderGripper}"/>
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#F1F5F9"/>
+                <Setter Property="Foreground" Value="#0F172A"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
-    <!-- 行头样式 -->
-    <Style x:Key="DataGridRowHeaderStyle" TargetType="DataGridRowHeader">
-        <Setter Property="Background" Value="{DynamicResource GridHeaderBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource GridBorderBrush}"/>
+    <!-- 行头样式 (RowHeader) -->
+    <Style x:Key="ModernDataGridRowHeaderStyle" TargetType="DataGridRowHeader">
+        <Setter Property="Background" Value="#F8FAFC"/>
+        <Setter Property="Foreground" Value="#64748B"/>
+        <Setter Property="BorderBrush" Value="#E2E8F0"/>
         <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="Width" Value="40"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Width" Value="50"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGridRowHeader">
-                    <Border x:Name="HeaderBorder"
-                            Background="{TemplateBinding Background}"
+                    <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}">
                         <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                     </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="HeaderBorder" Property="Background"
-                                    Value="{DynamicResource RowHeaderHoverBrush}"/>
-                        </Trigger>
-                        <Trigger Property="IsRowSelected" Value="True">
-                            <Setter TargetName="HeaderBorder" Property="Background"
-                                    Value="{DynamicResource RowHeaderSelectedBrush}"/>
-                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- 单元格样式 -->
-    <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
+    <!-- 单元格样式 (Cell) -->
+    <Style x:Key="ModernDataGridCellStyle" TargetType="DataGridCell">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="TextBlock.TextAlignment" Value="Center"/>
-        <Setter Property="Foreground" Value="#29476F"/>
-        <Setter Property="Padding" Value="12,8"/>
-        <Setter Property="BorderBrush" Value="#E5EDF8"/>
-        <Setter Property="BorderThickness" Value="0,0,1,1"/>
+        <Setter Property="Foreground" Value="#334155"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="BorderBrush" Value="#F1F5F9"/>
+        <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGridCell">
-                    <Grid>
-                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}">
-                            <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
-                        </Border>
-                        <Border x:Name="SelectionAccent" Width="3" HorizontalAlignment="Left"
-                                Background="#1677FF" Visibility="Collapsed" IsHitTestVisible="False"/>
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <MultiDataTrigger>
-                            <MultiDataTrigger.Conditions>
-                                <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True"/>
-                                <Condition Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0"/>
-                            </MultiDataTrigger.Conditions>
-                            <Setter TargetName="SelectionAccent" Property="Visibility" Value="Visible"/>
-                        </MultiDataTrigger>
-                    </ControlTemplate.Triggers>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
         <Style.Triggers>
+            <!-- 选中单元格无强制高亮，保持整行协同变色 -->
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="#F0F7FF"/>
-                <Setter Property="BorderBrush" Value="#D6EBFF"/>
+                <Setter Property="Foreground" Value="#0F172A"/>
             </Trigger>
-            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                <Setter Property="BorderBrush" Value="#D6EBFF"/>
-                <Setter Property="BorderThickness" Value="0,1,1,1"/>
-            </DataTrigger>
         </Style.Triggers>
     </Style>
 
-    <!-- 行样式 -->
-    <Style x:Key="DataGridRowStyle" TargetType="DataGridRow">
-        <Setter Property="Height" Value="82"/>
-        <Setter Property="Background" Value="White"/>
+    <!-- 行样式 (Row) -->
+    <Style x:Key="ModernDataGridRowStyle" TargetType="DataGridRow">
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Background" Value="#FFFFFF"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Style.Triggers>
-            <Trigger Property="AlternationIndex" Value="1">
-                <Setter Property="Background" Value="#FAFBFF"/>
-            </Trigger>
+            <!-- 悬浮微渐变 -->
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="#F1F5FF"/>
+                <Setter Property="Background" Value="#F8FAFC"/>
             </Trigger>
+            <!-- 选中行优雅淡蓝高亮 -->
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="#F0F7FF"/>
+                <Setter Property="Background" Value="#EFF6FF"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- 应用级默认表格；页面可覆盖行高、列宽及业务专属状态。 -->
-    <Style x:Key="DataGridStandard" TargetType="DataGrid">
-        <Setter Property="ColumnHeaderStyle" Value="{StaticResource DataGridHeaderStyle}"/>
-        <Setter Property="CellStyle" Value="{StaticResource DataGridCellStyle}"/>
-        <Setter Property="RowStyle" Value="{StaticResource DataGridRowStyle}"/>
-        <Setter Property="RowHeaderStyle" Value="{StaticResource DataGridRowHeaderStyle}"/>
+    <!-- 主 DataGrid 核心样式 -->
+    <Style x:Key="ModernDataGridStyle" TargetType="DataGrid">
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource ModernDataGridHeaderStyle}"/>
+        <Setter Property="RowHeaderStyle" Value="{StaticResource ModernDataGridRowHeaderStyle}"/>
+        <Setter Property="CellStyle" Value="{StaticResource ModernDataGridCellStyle}"/>
+        <Setter Property="RowStyle" Value="{StaticResource ModernDataGridRowStyle}"/>
         <Setter Property="HeadersVisibility" Value="Column"/>
         <Setter Property="GridLinesVisibility" Value="None"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="#E5EDF8"/>
+        <Setter Property="Background" Value="#FFFFFF"/>
+        <Setter Property="BorderBrush" Value="#E2E8F0"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="AlternationCount" Value="2"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="CanUserResizeRows" Value="False"/>
+        <Setter Property="AutoGenerateColumns" Value="False"/>
         <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
         <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
     </Style>
-    <Style TargetType="DataGrid" BasedOn="{StaticResource DataGridStandard}"/>
 
-    <!-- 快速建表表格组件：可供其他页面复用 -->
-    <Style x:Key="QuickTableCellTextStyle" TargetType="TextBlock">
+    <!-- 默认应用主样式 -->
+    <Style TargetType="DataGrid" BasedOn="{StaticResource ModernDataGridStyle}"/>
+
+    <!-- 快速通用文本列单元格样式 -->
+    <Style x:Key="ModernTableCellTextStyle" TargetType="TextBlock">
         <Setter Property="VerticalAlignment" Value="Center"/>
-        <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="Foreground" Value="#334155"/>
         <Setter Property="FontSize" Value="13"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
     </Style>
 
-    <Style x:Key="QuickTableHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridHeaderStyle}">
-        <Setter Property="Background" Value="#F1F6FF"/>
-        <Setter Property="Foreground" Value="#164EAB"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Height" Value="42"/>
-        <Setter Property="Padding" Value="10,8"/>
+    <!-- 兼容现有页面的资源名称，统一继承新的表格样式。 -->
+    <Style x:Key="DataGridHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource ModernDataGridHeaderStyle}"/>
+    <Style x:Key="DataGridRowHeaderStyle" TargetType="DataGridRowHeader" BasedOn="{StaticResource ModernDataGridRowHeaderStyle}"/>
+    <Style x:Key="DataGridCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource ModernDataGridCellStyle}"/>
+    <Style x:Key="DataGridRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource ModernDataGridRowStyle}"/>
+    <Style x:Key="DataGridStandard" TargetType="DataGrid" BasedOn="{StaticResource ModernDataGridStyle}"/>
+    <Style x:Key="QuickTableHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource ModernDataGridHeaderStyle}">
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="8,0"/>
     </Style>
-
-    <Style x:Key="QuickTableCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellStyle}">
-        <Setter Property="Padding" Value="8,3"/>
-        <Setter Property="FontSize" Value="13"/>
+    <Style x:Key="QuickTableCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource ModernDataGridCellStyle}">
+        <Setter Property="Padding" Value="4,0"/>
+        <Setter Property="TextBlock.TextAlignment" Value="Center"/>
     </Style>
-
-    <Style x:Key="QuickTableRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowStyle}">
-        <Setter Property="Height" Value="46"/>
-    </Style>
-
-    <Style x:Key="QuickTableGridStyle" TargetType="DataGrid">
+    <Style x:Key="QuickTableRowStyle" TargetType="DataGridRow" BasedOn="{StaticResource ModernDataGridRowStyle}"/>
+    <Style x:Key="QuickTableGridStyle" TargetType="DataGrid" BasedOn="{StaticResource ModernDataGridStyle}">
         <Setter Property="ColumnHeaderStyle" Value="{StaticResource QuickTableHeaderStyle}"/>
-        <Setter Property="RowHeaderStyle" Value="{StaticResource DataGridRowHeaderStyle}"/>
         <Setter Property="CellStyle" Value="{StaticResource QuickTableCellStyle}"/>
-        <Setter Property="RowStyle" Value="{StaticResource QuickTableRowStyle}"/>
+    </Style>
+    <Style x:Key="QuickTableCellTextStyle" TargetType="TextBlock" BasedOn="{StaticResource ModernTableCellTextStyle}">
+        <Setter Property="TextAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="QuickTableEditingTextStyle" TargetType="TextBox" BasedOn="{x:Static DataGridTextColumn.DefaultEditingElementStyle}">
+        <Setter Property="TextAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
 </ResourceDictionary>

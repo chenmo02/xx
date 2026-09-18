@@ -38,11 +38,13 @@
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="Background" Value="{DynamicResource PrimaryBrush}"/>
         </Style>
-        <Style x:Key="PreviewHeader" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridHeaderStyle}">
-            <Setter Property="Background" Value="#F0F6FF"/>
-            <Setter Property="Foreground" Value="#245BE8"/>
-            <Setter Property="BorderBrush" Value="#DCE9FF"/>
-            <Setter Property="Height" Value="36"/>
+        <Style x:Key="PreviewHeader" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#EAF3FF"/>
+            <Setter Property="Foreground" Value="#304C76"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="BorderBrush" Value="#DDE9F8"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
         </Style>
         <Style x:Key="PreviewCell" TargetType="DataGridCell">
@@ -68,6 +70,11 @@
                     <Setter Property="Foreground" Value="#1648BD"/>
                 </Trigger>
             </Style.Triggers>
+        </Style>
+        <!-- 独立行样式，避免全局固定行高覆盖预览表格的紧凑行高。 -->
+        <Style x:Key="PreviewRow" TargetType="DataGridRow">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
         </Style>
         <Style x:Key="PreviewRowHeader" TargetType="DataGridRowHeader" BasedOn="{StaticResource DataGridRowHeaderStyle}">
             <Setter Property="Background" Value="#F5F9FF"/>
@@ -302,25 +309,27 @@
                         <TextBlock x:Name="TxtRowCol" Grid.Column="1" Text="未选择单元格" FontSize="11" Foreground="#6B82AB"
                                    HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                     </Grid>
-                    <Border Style="{StaticResource PreviewCard}" CornerRadius="7" Padding="1">
+                    <Border Style="{StaticResource PreviewCard}" CornerRadius="0 " Padding="0">
                         <Grid>
                             <DataGrid x:Name="DgCsv" AutoGenerateColumns="True" IsReadOnly="True"
                                       CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False"
-                                      CanUserResizeRows="False" CanUserSortColumns="False" MinColumnWidth="80"
+                                      CanUserResizeRows="False" CanUserSortColumns="False" MinColumnWidth="80" ColumnWidth="160"
                                       Background="White" Foreground="#314875" BorderThickness="0"
                                       GridLinesVisibility="All" HorizontalGridLinesBrush="#E4EDFC" VerticalGridLinesBrush="#E4EDFC"
                                       FontSize="12" HeadersVisibility="All" RowHeaderWidth="48"
                                       SelectionUnit="Cell" SelectionMode="Single"
                                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                                       EnableRowVirtualization="True" EnableColumnVirtualization="True"
-                                      ColumnHeaderHeight="36" RowHeight="28" RowBackground="White" AlternatingRowBackground="#FAFCFF"
+                                      ScrollViewer.CanContentScroll="True" VirtualizingPanel.ScrollUnit="Pixel"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      ColumnHeaderHeight="38" RowHeight="28" RowBackground="White" AlternatingRowBackground="#FAFCFF"
                                       ColumnHeaderStyle="{StaticResource PreviewHeader}" CellStyle="{StaticResource PreviewCell}"
-                                      RowHeaderStyle="{StaticResource PreviewRowHeader}"
+                                      RowStyle="{StaticResource PreviewRow}" RowHeaderStyle="{StaticResource PreviewRowHeader}"
                                       LoadingRow="DgCsv_LoadingRow" SelectedCellsChanged="DgCsv_SelectedCellsChanged"
                                       SelectionChanged="DgCsv_SelectionChanged"/>
-                            <Border Width="48" Height="36" VerticalAlignment="Top" HorizontalAlignment="Left"
-                                    Background="#F0F6FF" BorderBrush="#DCE9FF" BorderThickness="0,0,1,1">
-                                <TextBlock Text="序号" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border Width="48" Height="38" VerticalAlignment="Top" HorizontalAlignment="Left"
+                                    Background="#EAF3FF" BorderBrush="#DDE9F8" BorderThickness="0,0,1,1">
+                                <TextBlock Text="序号" FontSize="12" FontWeight="SemiBold" Foreground="#304C76" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                         </Grid>
                     </Border>

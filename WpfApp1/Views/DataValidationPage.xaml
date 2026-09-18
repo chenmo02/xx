@@ -708,7 +708,7 @@
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="BtnRunValidation"
-                            Content="▶ 开始校验"
+                            Content="⚡️ 开始校验"
                             Style="{DynamicResource ButtonPrimary}"
                             Padding="18,10"
                             MinWidth="128"
@@ -1095,7 +1095,7 @@
                                 </StackPanel>
                             </Border>
                             <!-- 字段映射 DataGrid -->
-                            <Border BorderBrush="#E5EDF8" BorderThickness="1" CornerRadius="10" Padding="0">
+                            <Border BorderBrush="#E5EDF8" BorderThickness="1" CornerRadius="0" Padding="0">
                                 <DataGrid x:Name="DgMapping" IsReadOnly="True"
                                     AutoGenerateColumns="False"
                                     CanUserAddRows="False"
@@ -1200,23 +1200,6 @@
                                                                 TextAlignment="Center" VerticalContentAlignment="Center"
                                                                 BorderThickness="0" Background="Transparent" FontSize="12" Padding="4,2"/>
                                                         </Grid>
-                                                        <Border Background="#EFF4FA" CornerRadius="4" Padding="5,2" HorizontalAlignment="Center" Margin="0,4,0,0">
-                                                            <TextBlock Foreground="#7B8FAA" FontSize="11">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock">
-                                                                        <Setter Property="Text" Value="不参与字段映射"/>
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsSourceMode}" Value="True">
-                                                                                <Setter Property="Text" Value="来自源文件字段"/>
-                                                                            </DataTrigger>
-                                                                            <DataTrigger Binding="{Binding IsConstantMode}" Value="True">
-                                                                                <Setter Property="Text" Value="使用固定值"/>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-                                                        </Border>
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -1712,7 +1695,7 @@
                                         FontSize="12"
                                         Click="BtnRefreshIssueView_Click"/>
                             </Grid>
-                            <Border BorderBrush="#E5EDF8" BorderThickness="1" CornerRadius="10">
+                            <Border BorderBrush="#E5EDF8" BorderThickness="1" CornerRadius="0">
                             <DataGrid x:Name="DgIssues"
                                       AutoGenerateColumns="False"
                                       CanUserAddRows="False"

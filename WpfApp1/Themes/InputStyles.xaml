@@ -141,6 +141,7 @@
 
     <!-- 标准 ComboBox -->
     <Style x:Key="ComboBoxStandard" TargetType="ComboBox">
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="Foreground" Value="#333"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
@@ -168,7 +169,7 @@
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                           Margin="10,0,34,0"
                                           VerticalAlignment="Center"
-                                          HorizontalAlignment="Left"/>
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
                         <Popup x:Name="Popup" Placement="Bottom"
                                IsOpen="{TemplateBinding IsDropDownOpen}"
                                AllowsTransparency="True" Focusable="False"
@@ -199,6 +200,7 @@
 
     <!-- 快速建表表格内编辑下拉框：全局可复用 -->
     <Style x:Key="QuickTableEditComboStyle" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStandard}">
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="Height" Value="26"/>
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="Padding" Value="3,0"/>

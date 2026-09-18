@@ -105,7 +105,7 @@
             <Setter Property="Padding" Value="14,9"/>
             <Setter Property="BorderBrush" Value="#DDE9F8"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
         </Style>
         <Style x:Key="ImportCell" TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellStyle}">
             <Setter Property="Background" Value="Transparent"/>
@@ -150,7 +150,6 @@
                             <StackPanel>
                                 <Border Background="White" BorderBrush="White" BorderThickness="1" CornerRadius="8" Padding="16">
                                     <StackPanel>
-                                        <TextBlock Text="选择文件" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -230,18 +229,7 @@
                         </WrapPanel>
                         <Border Background="White" BorderBrush="White" BorderThickness="1" CornerRadius="8" Padding="12">
                             <StackPanel>
-                                <WrapPanel Margin="0,0,0,10">
-                                    <Border Background="#EAF3FF" BorderBrush="#DEEBFF" BorderThickness="1" CornerRadius="5" Padding="10,5" Margin="0,0,14,0" MaxWidth="320">
-                                        <TextBlock x:Name="TxtPreviewTitle" Text="数据预览" FontSize="13" FontWeight="SemiBold" Foreground="#2467D8" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                                    </Border>
-                                    <TextBlock FontSize="12" Foreground="#6686B7" VerticalAlignment="Center" Margin="0,5,18,5">
-                                        <Run Text="共 "/><Run Text="{Binding Text, ElementName=TxtRowCount, Mode=OneWay}"/><Run Text=" 行"/>
-                                    </TextBlock>
-                                    <TextBlock FontSize="12" Foreground="#6686B7" VerticalAlignment="Center" Margin="0,5,0,5">
-                                        <Run Text="{Binding Text, ElementName=TxtColumnCount, Mode=OneWay}"/><Run Text=" 列"/>
-                                    </TextBlock>
-                                </WrapPanel>
-                                <Border Background="White" BorderBrush="#DDE9F8" BorderThickness="1" CornerRadius="6" Padding="1">
+                                <Border Background="White" BorderBrush="#DDE9F8" BorderThickness="1" CornerRadius="0" Padding="0">
                                     <Grid>
                                         <DataGrid x:Name="DgPreview" AutoGenerateColumns="True" IsReadOnly="False"
                                                   CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeRows="False"
