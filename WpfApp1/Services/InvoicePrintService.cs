@@ -43,6 +43,7 @@ namespace WpfApp1.Services
     public class PrintTemplate
     {
         public string Name { get; set; } = "默认模板";
+        public bool IsLandscape { get; set; } = false;
         public string PaperMode { get; set; } = "A4"; // A4 / Invoice (鍙戠エ涓撶敤绾?
         public int LayoutCount { get; set; } = 1; // 姣忛〉鍙戠エ鏁? 1, 2, 4
         public double MarginTop { get; set; } = 0;
@@ -59,7 +60,7 @@ namespace WpfApp1.Services
     // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
     public class InvoicePrintService
     {
-        public sealed record PreviewDocumentData(Size MediaSize, Size ContentSize, Point ContentOrigin, List<BitmapSource> Images);
+        public sealed record PreviewDocumentData(Size MediaSize, Size ContentSize, Point ContentOrigin, List<ImageSource> Images);
 
         // PrintQueue and WPF visuals must be created and used on the same STA thread.
         public static Task<T> RunPrintWorkerAsync<T>(Func<T> work)
@@ -111,20 +112,28 @@ namespace WpfApp1.Services
         public static PreviewDocumentData RenderPreviewDocument(List<DrawingVisual> pages, PrintLayoutContext context,
             CancellationToken cancellationToken = default)
         {
-            var images = new List<BitmapSource>();
-            double scale = context.OutputDpi / 96.0;
+            var images = new List<ImageSource>();
             foreach (var page in pages)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var bitmap = new RenderTargetBitmap(
-                    Math.Max(1, (int)Math.Ceiling(context.ContentSize.Width * scale)),
-                    Math.Max(1, (int)Math.Ceiling(context.ContentSize.Height * scale)),
-                    context.OutputDpi, context.OutputDpi, PixelFormats.Pbgra32);
-                bitmap.Render(page);
-                bitmap.Freeze();
-                images.Add(bitmap);
+                images.Add(CreatePageImage(page, context.ContentSize));
             }
             return new PreviewDocumentData(context.MediaSize, context.ContentSize, context.ContentOrigin, images);
+        }
+
+        private static DrawingImage CreatePageImage(DrawingVisual visual, Size contentSize)
+        {
+            // Reuse the full-quality source images instead of allocating another full-page DPI bitmap.
+            var bounds = new Rect(contentSize);
+            var drawing = new DrawingGroup { ClipGeometry = new RectangleGeometry(bounds) };
+            using (var context = drawing.Open())
+            {
+                context.DrawRectangle(Brushes.Transparent, null, bounds);
+                context.DrawDrawing(visual.Drawing);
+            }
+            var image = new DrawingImage(drawing);
+            image.Freeze();
+            return image;
         }
 
         private readonly string _templatePath;
@@ -151,11 +160,12 @@ namespace WpfApp1.Services
 
         public static readonly string[] SupportedExtensions = { ".pdf", ".ofd", ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff" };
 
-        public List<InvoiceFileItem> ImportFiles(string[] filePaths)
+        public List<InvoiceFileItem> ImportFiles(IEnumerable<string> filePaths, CancellationToken cancellationToken = default)
         {
             var items = new List<InvoiceFileItem>();
             foreach (var path in filePaths)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!File.Exists(path)) continue;
                 var ext = Path.GetExtension(path).ToLowerInvariant();
                 if (!SupportedExtensions.Contains(ext)) continue;
@@ -536,17 +546,9 @@ namespace WpfApp1.Services
                     Height = context.MediaSize.Height
                 };
 
-                double dpiScale = Math.Max(1, context.OutputDpi) / 96.0;
-                int pixelWidth = Math.Max(1, (int)Math.Ceiling(context.ContentSize.Width * dpiScale));
-                int pixelHeight = Math.Max(1, (int)Math.Ceiling(context.ContentSize.Height * dpiScale));
-
-                var rtb = new RenderTargetBitmap(pixelWidth, pixelHeight, context.OutputDpi, context.OutputDpi, PixelFormats.Pbgra32);
-                rtb.Render(visual);
-                rtb.Freeze();
-
                 var img = new System.Windows.Controls.Image
                 {
-                    Source = rtb,
+                    Source = CreatePageImage(visual, context.ContentSize),
                     Width = context.ContentSize.Width,
                     Height = context.ContentSize.Height,
                     Stretch = Stretch.Fill

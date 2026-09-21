@@ -4,6 +4,40 @@
       Background="{DynamicResource PageBackgroundBrush}" AllowDrop="True" Drop="Page_Drop" DragOver="Page_DragOver">
 
     <Page.Resources>
+        <Style x:Key="OrientationSwitch" TargetType="RadioButton">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="#555"/>
+            <Setter Property="Background" Value="#F0F1F5"/>
+            <Setter Property="BorderBrush" Value="#D1D5DB"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="ButtonBorder" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#E0E7FF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" Value="#4E6EF2"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="BorderBrush" Value="#4E6EF2"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <!-- 页面特有：刷新按钮（带边框的浅蓝风格） -->
         <Style x:Key="RefreshBtn" TargetType="Button">
             <Setter Property="Padding" Value="14,0"/>
@@ -89,6 +123,7 @@
                     <Button Content="✅ 全选" Style="{DynamicResource ButtonGhost}" Background="#F0F1F5" Foreground="#555" Padding="14,8" FontSize="12.5" Margin="0,0,0,4" Click="BtnSelectAll_Click"/>
                 </StackPanel>
                 <ListBox x:Name="FileListBox" BorderThickness="0" Background="Transparent"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                          SelectionChanged="FileListBox_SelectionChanged" SelectionMode="Extended"
                          MouseDoubleClick="FileListBox_MouseDoubleClick">
                     <ListBox.ItemTemplate>
@@ -215,10 +250,10 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                         <TextBlock Text="纸张方向" Style="{StaticResource LabelText}" VerticalAlignment="Center" Margin="0,0,16,0"/>
                         <RadioButton x:Name="RbPortrait" Content="纵向" GroupName="Orientation" IsChecked="True"
-                                     FontSize="13" VerticalAlignment="Center" Margin="0,0,20,0"
+                                     Style="{StaticResource OrientationSwitch}" VerticalAlignment="Center" Margin="0,0,6,0"
                                      Checked="Orientation_Changed"/>
                         <RadioButton x:Name="RbLandscape" Content="横向" GroupName="Orientation"
-                                     FontSize="13" VerticalAlignment="Center"
+                                     Style="{StaticResource OrientationSwitch}" VerticalAlignment="Center"
                                      Checked="Orientation_Changed"/>
                     </StackPanel>
 

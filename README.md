@@ -1,171 +1,120 @@
 # CC 实施工具箱
 
-> 一款基于 WPF 的本地桌面工具，面向数据实施、数据校验、JSON 处理、办公输出等日常场景。离线可用，操作直观，旨在降低实施人员的数据处理和问题排查成本。
+> 把表格转 SQL、数据校验、差异对比和 JSON 处理集中到一个桌面工具中，让实施工作少一些重复操作，多一些清晰结果。
 
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue)](https://www.microsoft.com/windows)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.1.2-orange)](https://github.com)
 
----
+## 产品介绍
 
-## 功能模块
+**CC 实施工具箱（CCToolbox）**是一款面向实施工程师、数据处理人员和开发调试人员的 Windows 桌面工具，围绕项目现场常见的“整理数据、生成脚本、排查错误、核对差异”提供集中入口。
 
-| 模块            | 说明                                                         |
-| --------------- | ------------------------------------------------------------ |
-| 首页概览        | 版本信息、快捷入口、系统信息面板，统一导航中枢               |
-| 数据导入临时表  | Excel / CSV / DBF → SQL 临时表脚本，适配 SQL Server / PostgreSQL |
-| CSV 预览工具    | 稳定打开大文件分隔文本，支持搜索定位与编码识别               |
-| CSV 对比工具    | 按行号或复合主键比较两个 CSV 数据集的差异，结果可筛选导出    |
-| 数据验证排查    | DDL 建表 + INSERT 数据 → 自动字段映射 → 逐行类型校验 → 导出错误报告 |
-| JSON 处理工具   | 格式化、校验、搜索、嵌套 GRID 浏览、表格编辑同步回写、导出 JSON/CSV |
-| JSON 对比工具   | 两个 JSON 文本的结构与内容差异比较，快速定位新增、删除和变更字段 |
-| 发票打印工具    | 支持 PDF / OFD / 图片的排版与打印，多种模板、纸张方向、边距配置 |
-| Excalidraw 画板 | 流程图、草图和示意图绘制，适合与实施方案沟通配套使用         |
-| 系统设置        | 应用级配置项与通用参数维护                                   |
+拿到 Excel、CSV、DBF 或一段 SQL、JSON 后，可以在工具中预览和编辑数据、生成建表及插入脚本、检查字段类型与格式、比较前后差异，并导出脚本、数据或问题报告。工具同时提供发票排版打印、在线画板和便签，兼顾日常办公与方案沟通。
 
-## 数据验证排查（核心模块）
+核心文件处理功能在本地完成，适合需要在本机整理和检查数据的工作场景。在线画板通过 WebView2 加载 Excalidraw，需要网络连接。
 
-这是当前功能最完整、迭代最多的模块，完整流程 4 步走：
+## 解决哪些痛点
 
-```
-结构输入 → 数据输入 → 字段映射 → 校验结果
-```
+### 1. 表格转入库脚本，手工拼接繁琐
 
-### 1. 结构输入
+Excel、CSV、DBF 来自不同来源，字段和数据需要反复整理；切换数据库时，还要调整建表语法、字段引用和插入语句。
 
-- **DDL 粘贴**：直接粘贴 CREATE TABLE 语句，自动解析字段名、类型、必填、长度/精度
-- **SQL 查询导入**：在数据库执行查询 → 导出 Excel → 导入结构
-- 支持 SQL Server 和 PostgreSQL 两种数据库类型
+工具支持导入后预览、编辑，再生成建表与批量 INSERT 脚本，适配 PostgreSQL、SQL Server、MySQL、Oracle，减少重复拼接和格式调整。
 
-### 2. 数据输入
+### 2. 导入报错后，很难定位到具体数据
 
-- **INSERT 语句**：直接粘贴 INSERT INTO 语句，支持多表、批量 VALUES、字符串中特殊字符、SQL 注释
-- **Excel 导入**：导入中间表数据 Excel，首行为表头
-- 内置增强版 INSERT 解析器，按字符扫描而非正则截取，稳定处理千行级别的批量 SQL
+必填项为空、字符超长、数值越界或日期格式错误，往往需要逐行检查；源数据字段与目标表字段命名不一致时，还要先理清对应关系。
 
-### 3. 字段映射
+“数据验证排查”按目标表结构建立字段映射，逐行检查类型与格式约束，将问题定位到行号、字段和实际值，并支持导出带主键定位信息的 Excel 报告，方便修正与复核。
 
-- 源字段与目标字段自动匹配（支持精确/标准化/前缀剥离/语义优先/包含等多种匹配方式）
-- 支持源字段映射、固定值、忽略三种模式
-- 必填字段未映射红色高亮提醒
-- 一键自动映射、全部确认、忽略自动生成 UUID
+### 3. 两份数据看起来相似，人工核对容易遗漏
 
-### 4. 校验结果
+迁移前后、调整前后或不同批次的数据，需要确认哪些记录新增、删除或修改；仅靠肉眼查看，很难快速找全差异。
 
-- 总行数 / 异常记录（去重）/ 错误项数（明细）/ 警告记录 / 耗时 概览
-- 逐行逐字段校验：必填为空、字符超长、整数溢出、数值精度溢出、日期/时间/GUID/布尔/JSON 格式错误
-- 可配置忽略项：整数格式、UUID 格式、日期时间格式、指定实际值
-- 结果表格支持排序、右键复制单元格/行、Ctrl+C
-- 导出 Excel 错误报告（含主键定位信息）
+CSV 对比支持按行号或复合主键匹配，分类展示新增、删除、修改和重复键问题，支持筛选与导出。JSON 对比则展示结构和值的差异，便于核对接口响应与配置内容。
 
-## 技术栈
+### 4. JSON 层级深，查找和修改不直观
 
-```
-.NET 10.0  |  WPF / XAML  |  CsvHelper  |  EPPlus  |  ExcelDataReader
-Microsoft.Data.SqlClient  |  Npgsql  |  WebView2  |  System.Text.Json
-```
+接口返回或配置文件包含多层对象与数组时，单纯阅读文本容易丢失上下文，修改后还需要重新检查格式。
 
-## 项目结构
+JSON 工具集成格式化、压缩、语法校验和搜索，并提供嵌套表格浏览与编辑回写，让查看结构和修改数据更直观。
 
-```
-xx
-├── WpfApp1/
-│   ├── Views/              # 所有页面 (XAML + code-behind)
-│   │   ├── HomePage.xaml              # 首页概览
-│   │   ├── DataImportPage.xaml        # 数据导入临时表
-│   │   ├── CsvViewerPage.xaml         # CSV 预览工具
-│   │   ├── CsvComparePage.xaml        # CSV 对比工具
-│   │   ├── DataValidationPage.xaml    # 数据验证排查（核心）
-│   │   ├── JsonToolPage.xaml          # JSON 处理工具
-│   │   ├── JsonDiffPage.xaml          # JSON 对比工具
-│   │   ├── DrawBoardPage.xaml         # Excalidraw 画板
-│   │   ├── InvoicePrintPage.xaml      # 发票打印工具
-│   │   └── SettingsPage.xaml          # 系统设置
-│   ├── Services/           # 业务逻辑层
-│   │   ├── ValidationEngine.cs        # 核心校验引擎
-│   │   ├── DdlParser.cs               # DDL 建表语句解析器
-│   │   ├── InsertStatementParser.cs   # INSERT 语句解析器
-│   │   ├── ValidationReportService.cs # Excel 校验报告生成
-│   │   ├── JsonToolService.cs         # JSON 处理服务
-│   │   ├── JsonGridParser.cs          # JSON → DataTable 解析
-│   │   ├── InvoicePrintService.cs     # 票据打印服务
-│   │   ├── CsvCompareService.cs       # CSV 对比服务
-│   │   ├── SqlGeneratorService.cs     # SQL 临时表生成
-│   │   ├── FieldMatcherService.cs     # 字段自动匹配
-│   │   └── ...
-│   ├── Models/             # 数据模型
-│   ├── Themes/             # 主题与控件样式
-│   ├── Converters/         # 值转换器
-│   ├── MainWindow.xaml     # 主窗口（导航框架）
-│   └── App.xaml            # 应用入口
-├── docs/                   # 文档
-└── README.md
-```
+### 5. 零散任务多，频繁切换工具打断工作
 
-## 本地运行
+数据处理之外，还需要画流程、记问题、整理发票。每项工作都打开一个工具，容易分散注意力。
 
-### 环境要求
+工具箱将常用数据功能与画板、便签、发票打印集中在统一导航中，减少寻找入口和重复设置的操作。
 
-- Windows 10 19041 及以上
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)（含 Windows Desktop Runtime）
+## 产品亮点
 
-### 启动
+### 覆盖数据准备、检查与复核的常见环节
+
+从表格预览、SQL 生成，到字段校验和差异对比，围绕实施工作中的实际任务组织功能。结果可以复制或导出，便于继续执行脚本、修正数据和交接问题。
+
+### 两种建表入口，适应不同资料来源
+
+- **已有表格文件**：导入 Excel / CSV / DBF，编辑数据后生成 SQL，可选择生成临时表。
+- **只有 INSERT 语句**：使用“快速建数据表”提取字段并推断类型，调整字段名、类型、长度、精度和可空属性后，生成 CREATE TABLE 脚本。
+
+两种入口均支持 PostgreSQL、SQL Server、MySQL、Oracle 的 SQL 生成。推断出的字段类型可人工调整，便于按实际需求确认表结构。
+
+### 字段自动匹配，校验过程清晰可确认
+
+数据验证采用“结构输入 → 数据输入 → 字段映射 → 校验结果”四步流程。目标结构支持 DDL 或结构 Excel，源数据支持 INSERT 或数据 Excel；字段可自动匹配，也可手动指定源字段、设置固定值或按规则忽略。
+
+校验覆盖必填、字符串长度、整数范围、数值精度，以及日期、时间、GUID、布尔和 JSON 格式。报告包含校验摘要、错误明细和字段汇总，既能定位单条问题，也能查看集中出错的字段。
+
+### 差异分类呈现，复核更有针对性
+
+CSV 支持行号与主键两种对比方式，JSON 支持新增、删除、修改及类型变化的差异展示。通过筛选和差异标记，优先查看本次需要处理的变化。
+
+### 本地处理，兼顾常见文件格式
+
+表格转换、CSV 预览与对比、JSON 处理和数据校验均可在本地完成。CSV 预览支持 CSV / TSV / TXT、编码识别和搜索定位；表格导入支持选择 Excel 工作表与切换 DBF 编码，适应不同来源的文件。
+
+### 常用办公功能随手可用
+
+- **发票打印**：支持 PDF 和图片预览、排版与打印，可配置每页张数、纸张方向、边距、裁剪线及打印模板。
+- **在线画板**：内嵌 Excalidraw，用于绘制流程图、草图和方案示意图。
+- **便签与设置**：记录临时事项，维护默认数据库类型、批量行数和导出路径等常用配置。
+
+## 典型使用场景
+
+- **项目初始数据准备**：拿到业务表格后，先预览和修正内容，再生成目标数据库的建表与插入脚本。
+- **导入失败排查**：输入目标表结构和待导入数据，确认字段映射，导出问题明细，修正后再次校验。
+- **数据迁移复核**：将迁移前后的数据导出为 CSV，选择主键进行对比，检查新增、缺失和变更记录。
+- **接口与配置调试**：格式化 JSON、查看嵌套结构，并对比两次响应或两个版本的配置。
+- **现场沟通与办公**：用画板梳理处理流程，用便签记录待办，集中排版打印 PDF 或图片发票。
+
+## 使用说明
+
+- **系统要求**：Windows 10 19041 及以上。
+- **数据库适配范围**：SQL 生成支持 PostgreSQL、SQL Server、MySQL、Oracle；数据验证排查当前支持 SQL Server 和 PostgreSQL。
+- **校验范围**：当前主要检查字段类型、格式及部分结构约束；业务语义、跨字段关系、外键存在性和 JSON Schema 需另行核对。详细规则见[数据验证排查校验规则](docs/data-validation-rules.md)。
+- **画板运行条件**：需要 WebView2 Runtime 和网络连接。
+- **OFD 支持情况**：当前可选择 OFD 文件，但尚未实现直接渲染；发票预览与打印请使用 PDF 或图片。
+
+## 开发与运行
+
+项目基于 .NET 10、WPF / XAML 开发。源码运行需安装 [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)。
+
+在项目根目录执行：
 
 ```powershell
 # 还原依赖
 dotnet restore .\WpfApp1\WpfApp1.csproj --configfile .\NuGet.Config
 
-# 运行
+# 启动应用
 dotnet run --project .\WpfApp1\WpfApp1.csproj --launch-profile CCToolbox-DebugLocal
 ```
 
-### 从本地 SDK 运行（无需全局安装 dotnet）
-
-```powershell
-# 安装 .NET SDK 到本地目录
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\tmp\dotnet-install.ps1 -Channel 10.0 -InstallDir C:\tmp\dotnet-10 -Architecture x64
-
-# 编译运行
-C:\tmp\dotnet-10\dotnet.exe restore .\WpfApp1\WpfApp1.csproj --configfile .\NuGet.Config
-C:\tmp\dotnet-10\dotnet.exe build .\WpfApp1\WpfApp1.csproj --no-restore
-$env:DOTNET_ROOT="C:\tmp\dotnet-10"
-$env:PATH="C:\tmp\dotnet-10;$env:PATH"
-.\WpfApp1\bin\Debug\net10.0-windows10.0.19041.0\CCToolbox.exe
-```
-
-### 发布单文件
+发布 Windows x64 自包含单文件版本：
 
 ```powershell
 dotnet publish .\WpfApp1\WpfApp1.csproj -c Release -p:PublishProfile=SingleFile-win-x64
 ```
 
-## NuGet 依赖
-
-| 包                                                           | 用途            |
-| ------------------------------------------------------------ | --------------- |
-| [CsvHelper](https://joshclose.github.io/CsvHelper/)          | CSV 读写        |
-| [EPPlus](https://www.epplussoftware.com/)                    | Excel 导出      |
-| [ExcelDataReader](https://github.com/ExcelDataReader/ExcelDataReader) | Excel 导入      |
-| [Microsoft.Data.SqlClient](https://github.com/dotnet/SqlClient) | SQL Server 连接 |
-| [Npgsql](https://www.npgsql.org/)                            | PostgreSQL 连接 |
-
-## 更新记录
-
-### v2.1.3 (2026-06-12)
-
-- 优化已知问题
-- 调整UI显示
-- 本次主要改了数据导入页：
-  修复 JSON 导出不使用默认导出路径的问题。
-  删除 ApplyDatabaseHint 里被覆盖的重复提示赋值。
-  从数据导入页面移除“每批行数”输入框。
-  生成 SQL 时改为使用设置页里的默认批量行数，异常时回退 1000。
-
-### v2.1.5 (2026-06-13)
-
-- 优化数据验证功能UI页面
-- 优化打印功能：打印清晰度调整，强制单面打印，保存模板弹窗统一
+发布输出位于 `artifacts/publish/win-x64-single/`。页面与服务代码分别位于 `WpfApp1/Views/` 和 `WpfApp1/Services/`。
 
 ---
 

@@ -40,6 +40,13 @@ namespace WpfApp1.Views
         private int _previewVersion;
         private bool _isImporting;
         private bool _isPrintBusy;
+        private bool _isLoadingPrinters;
+        private int _importVersion;
+        private CancellationTokenSource? _importCancellation;
+        private readonly SemaphoreSlim _previewGate = new(1, 1);
+        private readonly SemaphoreSlim _printerPreviewGate = new(1, 1);
+        private readonly Dictionary<InvoiceFileItem, Task<int>> _pdfPageCounts = new();
+        private int _navigationVersion;
 
         private sealed class PrinterOption
         {
@@ -52,61 +59,65 @@ namespace WpfApp1.Views
             InitializeComponent();
             FileListBox.ItemsSource = _fileItems;
             CmbPrinter.ItemsSource = _printers;
-            LoadPrinters();
+            _ = LoadPrintersAsync();
             LoadTemplates();
             UpdateLayoutCardSelection();
             _isInitialized = true;
+            Unloaded += (_, _) =>
+            {
+                _previewCancellation?.Cancel();
+                _marginDebounceTimer?.Stop();
+                _importVersion++;
+                _importCancellation?.Cancel();
+                _navigationVersion++;
+            };
+            Loaded += (_, _) => UpdatePreview();
         }
 
-        private void LoadPrinters()
+        private async Task LoadPrintersAsync()
         {
+            if (_isLoadingPrinters) return;
+            _isLoadingPrinters = true;
             string? selectedName = (CmbPrinter.SelectedItem as PrinterOption)?.FullName;
-
-            _printers.Clear();
 
             try
             {
-                var server = new LocalPrintServer();
-                var queues = server
-                    .GetPrintQueues(new[]
-                    {
-                        EnumeratedPrintQueueTypes.Local,
-                        EnumeratedPrintQueueTypes.Connections
-                    })
-                    .OrderBy(q => q.Name)
-                    .ToList();
-
-                foreach (var queue in queues)
+                SetStatus("正在加载打印机列表...");
+                var result = await InvoicePrintService.RunPrintWorkerAsync(() =>
                 {
-                    _printers.Add(new PrinterOption
+                    using var server = new LocalPrintServer();
+                    using var queues = server.GetPrintQueues(new[]
+                    { EnumeratedPrintQueueTypes.Local, EnumeratedPrintQueueTypes.Connections });
+                    var options = new List<PrinterOption>();
+                    foreach (var queue in queues)
                     {
-                        Name = queue.Name,
-                        FullName = queue.FullName
-                    });
-                }
-
-                string? defaultName = server.DefaultPrintQueue?.FullName;
+                        using (queue) options.Add(new PrinterOption { Name = queue.Name, FullName = queue.FullName });
+                    }
+                    using var defaultQueue = server.DefaultPrintQueue;
+                    return (options, defaultName: defaultQueue?.FullName);
+                });
+                selectedName = (CmbPrinter.SelectedItem as PrinterOption)?.FullName ?? selectedName;
+                _printers.Clear();
+                foreach (var option in result.options.OrderBy(p => p.Name)) _printers.Add(option);
+                string? defaultName = result.defaultName;
                 var preferred = _printers.FirstOrDefault(p => string.Equals(p.FullName, selectedName, StringComparison.OrdinalIgnoreCase))
                     ?? _printers.FirstOrDefault(p => string.Equals(p.FullName, defaultName, StringComparison.OrdinalIgnoreCase))
                     ?? _printers.FirstOrDefault();
 
                 if (preferred != null)
                     CmbPrinter.SelectedItem = preferred;
+                SetStatus(preferred == null ? "未找到可用的打印机。" : $"已刷新打印机列表，当前打印机：{preferred.Name}");
             }
             catch (Exception ex)
             {
                 SetStatus($"打印机列表加载失败: {ex.Message}");
             }
+            finally { _isLoadingPrinters = false; }
         }
 
-        private void BtnRefreshPrinters_Click(object sender, RoutedEventArgs e)
+        private async void BtnRefreshPrinters_Click(object sender, RoutedEventArgs e)
         {
-            LoadPrinters();
-
-            if (_printers.Count > 0)
-                SetStatus($"已刷新打印机列表，当前打印机：{((PrinterOption?)CmbPrinter.SelectedItem)?.Name}");
-            else
-                SetStatus("未找到可用的打印机。");
+            await LoadPrintersAsync();
         }
 
         private void BtnToggleLeftPanel_Click(object sender, RoutedEventArgs e)
@@ -207,6 +218,7 @@ namespace WpfApp1.Views
             if (CmbPaperMode.SelectedItem is ComboBoxItem pi)
                 t.PaperMode = pi.Tag?.ToString() ?? "A4";
             t.LayoutCount = _selectedLayout;
+            t.IsLandscape = IsLandscape;
             double.TryParse(TxtMarginTop.Text, out var mt); t.MarginTop = mt;
             double.TryParse(TxtMarginBottom.Text, out var mb); t.MarginBottom = mb;
             double.TryParse(TxtMarginLeft.Text, out var ml); t.MarginLeft = ml;
@@ -220,6 +232,8 @@ namespace WpfApp1.Views
         private void ApplyTemplate(PrintTemplate t)
         {
             _isInitialized = false;
+            RbPortrait.IsChecked = !t.IsLandscape;
+            RbLandscape.IsChecked = t.IsLandscape;
             CmbPaperMode.SelectedIndex = t.PaperMode == "Invoice" ? 1 : 0;
             UpdatePaperModeUI(t.PaperMode);
             _selectedLayout = t.LayoutCount;
@@ -291,10 +305,7 @@ namespace WpfApp1.Views
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "选择发票文件夹" };
             if (dlg.ShowDialog() != true) return;
-            SetStatus("正在扫描文件夹...");
-            var files = await Task.Run(() => Directory.GetFiles(dlg.FolderName, "*.*", SearchOption.AllDirectories)
-                .Where(f => InvoicePrintService.SupportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToArray());
-            await AddFilesAsync(files);
+            await AddFilesAsync(new[] { dlg.FolderName });
         }
 
         private async Task AddFilesAsync(string[] paths)
@@ -306,6 +317,9 @@ namespace WpfApp1.Views
             }
 
             _isImporting = true;
+            int version = ++_importVersion;
+            using var cancellation = new CancellationTokenSource();
+            _importCancellation = cancellation;
             try
             {
                 SetStatus("正在导入文件...");
@@ -316,8 +330,13 @@ namespace WpfApp1.Views
                 {
                     var addedItems = new List<(InvoiceFileItem Item, string? Hash)>();
                     var duplicates = new List<string>();
-                    foreach (var item in _service.ImportFiles(paths))
+                    var files = paths.SelectMany(path => Directory.Exists(path)
+                        ? Directory.EnumerateFiles(path, "*", new EnumerationOptions
+                        { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint })
+                        : new[] { path });
+                    foreach (var item in _service.ImportFiles(files, cancellation.Token))
                     {
+                        cancellation.Token.ThrowIfCancellationRequested();
                         if (!existingPaths.Add(item.FilePath))
                         {
                             duplicates.Add(item.FileName);
@@ -336,15 +355,24 @@ namespace WpfApp1.Views
                     return (addedItems, duplicates);
                 });
 
+                if (version != _importVersion) return;
+                int applied = 0;
                 foreach (var (item, hash) in result.addedItems)
                 {
+                    if (version != _importVersion) return;
                     _fileItems.Add(item);
                     _fileHashes[item.FilePath] = hash;
+                    if (++applied % 50 == 0)
+                    {
+                        UpdateFileCount();
+                        await Dispatcher.Yield(DispatcherPriority.Background);
+                    }
                 }
 
+                if (version != _importVersion) return;
                 UpdateFileCount();
                 if (result.duplicates.Count > 0)
-                    MessageBox.Show($"以下 {result.duplicates.Count} 个文件已存在，已自动跳过：\n\n{string.Join("\n", result.duplicates.Select(n => $"  • {n}"))}", "⚠️ 重复文件提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show($"以下 {result.duplicates.Count} 个文件已存在，已自动跳过（最多展示 20 项）：\n\n{string.Join("\n", result.duplicates.Take(20).Select(n => $"  • {n}"))}", "⚠️ 重复文件提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 if (result.addedItems.Count > 0)
                 {
                     SetStatus($"📥 已导入 {result.addedItems.Count} 个文件" + (result.duplicates.Count > 0 ? $"，跳过 {result.duplicates.Count} 个重复" : ""));
@@ -357,11 +385,12 @@ namespace WpfApp1.Views
                 else if (result.duplicates.Count > 0) SetStatus("⚠️ 所有文件均已存在");
                 else SetStatus("⚠️ 没有找到支持的文件格式");
             }
+            catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                SetStatus($"❌ 导入失败: {ex.Message}");
+                if (version == _importVersion) SetStatus($"❌ 导入失败: {ex.Message}");
             }
-            finally { _isImporting = false; }
+            finally { _isImporting = false; _importCancellation = null; }
         }
 
         private static string? ComputeFileHash(string path)
@@ -375,23 +404,16 @@ namespace WpfApp1.Views
         {
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
             var paths = (string[])e.Data.GetData(DataFormats.FileDrop)!;
-            var all = await Task.Run(() =>
-            {
-                var files = new List<string>();
-                foreach (var p in paths)
-                {
-                    if (Directory.Exists(p)) files.AddRange(Directory.GetFiles(p, "*.*", SearchOption.AllDirectories).Where(f => InvoicePrintService.SupportedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())));
-                    else if (File.Exists(p)) files.Add(p);
-                }
-                return files;
-            });
-            if (all.Count > 0) await AddFilesAsync(all.ToArray());
+            await AddFilesAsync(paths);
         }
 
         private void BtnClearList_Click(object sender, RoutedEventArgs e)
         {
+            _importVersion++;
+            _importCancellation?.Cancel();
             _previewCancellation?.Cancel();
-            _fileItems.Clear(); _fileHashes.Clear(); UpdateFileCount(); LayoutPreviewGrid.Children.Clear();
+            _fileItems.Clear(); _fileHashes.Clear(); _pdfPageCounts.Clear(); _navigationVersion++;
+            UpdateFileCount(); LayoutPreviewGrid.Children.Clear(); LayoutPreviewGrid.RowDefinitions.Clear();
             DropHintPanel.Visibility = Visibility.Visible; PreviewScroller.Visibility = Visibility.Collapsed;
             PanelPageNav.Visibility = Visibility.Collapsed; SetStatus("🗑️ 列表已清空");
             ToastService.Show(this, "列表已清空");
@@ -403,13 +425,19 @@ namespace WpfApp1.Views
         // 预览渲染（核心）
         // ═══════════════════════════════════════
 
-        private void FileListBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdatePreview();
+        private void FileListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isImporting) UpdatePageNavigation();
+        }
 
         private void FileListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
+            if (_isImporting) return;
             if (FileListBox.SelectedItem is InvoiceFileItem item)
             {
                 _fileItems.Remove(item);
+                _fileHashes.Remove(item.FilePath);
+                _pdfPageCounts.Remove(item);
                 UpdateFileCount();
                 UpdatePreview();
                 if (_fileItems.Count == 0)
@@ -430,9 +458,34 @@ namespace WpfApp1.Views
         private void UpdatePreview()
         {
             if (!_isInitialized) return;
+            UpdatePageNavigation();
             _previewCancellation?.Cancel();
+            _previewCancellation?.Dispose();
             _previewCancellation = new CancellationTokenSource();
             _ = UpdatePreviewAsync(++_previewVersion, _previewCancellation.Token);
+        }
+
+        private async void UpdatePageNavigation()
+        {
+            int version = ++_navigationVersion;
+            PanelPageNav.Visibility = Visibility.Collapsed;
+            if (FileListBox.SelectedItems.Count != 1 || FileListBox.SelectedItem is not InvoiceFileItem item ||
+                !Path.GetExtension(item.FilePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase)) return;
+            try
+            {
+                if (!_pdfPageCounts.TryGetValue(item, out var task))
+                {
+                    var path = item.FilePath;
+                    task = Task.Run(() => InvoicePrintService.GetPdfPageCount(path));
+                    _pdfPageCounts[item] = task;
+                }
+                int count = await task;
+                if (version != _navigationVersion) return;
+                item.PageCount = Math.Max(1, count);
+                PanelPageNav.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
+                TxtPageInfo.Text = $"第 {item.SelectedPage + 1} / {item.PageCount} 页";
+            }
+            catch (Exception ex) { if (version == _navigationVersion) SetStatus($"分页读取失败: {ex.Message}"); }
         }
 
         private async Task UpdatePreviewAsync(int version, CancellationToken cancellationToken)
@@ -447,28 +500,23 @@ namespace WpfApp1.Views
             DropHintPanel.Visibility = Visibility.Collapsed;
             PreviewScroller.Visibility = Visibility.Visible;
 
+            bool entered = false;
             try
             {
+                await Task.Delay(120, cancellationToken);
+                await _previewGate.WaitAsync(cancellationToken);
+                entered = true;
+                cancellationToken.ThrowIfCancellationRequested();
                 var template = GetCurrentTemplate();
                 var previewItems = _fileItems.ToList();
                 var isLandscape = IsLandscape;
                 var showCutLine = ShowCutLine;
-                InvoiceFileItem? selectedItem = FileListBox.SelectedItems.Count == 1
-                    ? FileListBox.SelectedItem as InvoiceFileItem
-                    : null;
-                Task<int>? pageCountTask = null;
-
-                if (selectedItem != null && Path.GetExtension(selectedItem.FilePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-                {
-                    var pdfPath = selectedItem.FilePath;
-                    pageCountTask = Task.Run(() => InvoicePrintService.GetPdfPageCount(pdfPath), cancellationToken);
-                }
 
                 var previewImages = new Dictionary<InvoiceFileItem, BitmapSource?>();
                 var imagesToLoad = new List<(InvoiceFileItem Item, int PageIndex)>();
                 foreach (var item in previewItems)
                 {
-                    if (item.PreviewImage != null && item.PreviewPageIndex == item.SelectedPage)
+                    if (item.PreviewPageIndex == item.SelectedPage)
                         previewImages[item] = item.PreviewImage;
                     else
                         imagesToLoad.Add((item, item.SelectedPage));
@@ -489,22 +537,9 @@ namespace WpfApp1.Views
                     }
                 }
 
-                if (pageCountTask != null)
-                {
-                    var pageCount = await pageCountTask;
-                    if (cancellationToken.IsCancellationRequested || version != _previewVersion) return;
-                    selectedItem!.PageCount = Math.Max(1, pageCount);
-                    selectedItem.SelectedPage = Math.Min(selectedItem.SelectedPage, selectedItem.PageCount - 1);
-                    PanelPageNav.Visibility = selectedItem.PageCount > 1 ? Visibility.Visible : Visibility.Collapsed;
-                    TxtPageInfo.Text = $"第 {selectedItem.SelectedPage + 1} / {selectedItem.PageCount} 页";
-                }
-                else
-                {
-                    PanelPageNav.Visibility = Visibility.Collapsed;
-                }
-
-                var pages = await RenderLayoutPreviewPagesAsync(
-                    previewItems, template, previewImages, isLandscape, showCutLine, cancellationToken);
+                var rotations = previewItems.Select(item => item.RotationAngle).ToArray();
+                var pages = await InvoicePrintService.RunPrintWorkerAsync(() => RenderLayoutPreviewPages(
+                    previewItems, template, previewImages, rotations, isLandscape, showCutLine, cancellationToken));
                 if (cancellationToken.IsCancellationRequested || version != _previewVersion) return;
 
                 LayoutPreviewGrid.Children.Clear();
@@ -514,6 +549,7 @@ namespace WpfApp1.Views
 
                 for (int pi = 0; pi < pages.Count; pi++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // 每页一行，页间留 20px 间距
                     LayoutPreviewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
@@ -550,8 +586,10 @@ namespace WpfApp1.Views
 
                     Grid.SetRow(pagePanel, pi);
                     LayoutPreviewGrid.Children.Add(pagePanel);
+                    if (pi % 10 == 9) await Dispatcher.Yield(DispatcherPriority.Background);
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 PreviewContainer.LayoutTransform = new ScaleTransform(_zoomLevel, _zoomLevel);
                 TxtZoomLevel.Text = $"{(int)(_zoomLevel * 100)}%";
                 if (pages.Count > 1)
@@ -563,6 +601,7 @@ namespace WpfApp1.Views
                 if (version == _previewVersion)
                     SetStatus($"❌ 预览失败: {ex.Message}");
             }
+            finally { if (entered) _previewGate.Release(); }
         }
 
         private static Dictionary<InvoiceFileItem, BitmapSource?> LoadPreviewImages(
@@ -584,10 +623,11 @@ namespace WpfApp1.Views
         /// 渲染排版预览：支持多页分页、纸张方向、裁剪线
         /// 返回每页一张 BitmapSource 的列表
         /// </summary>
-        private async Task<List<BitmapSource>> RenderLayoutPreviewPagesAsync(
+        private static List<BitmapSource> RenderLayoutPreviewPages(
             List<InvoiceFileItem> items,
             PrintTemplate template,
             IReadOnlyDictionary<InvoiceFileItem, BitmapSource?> previewImages,
+            double[] rotations,
             bool isLandscape,
             bool showCutLine,
             CancellationToken cancellationToken)
@@ -610,7 +650,7 @@ namespace WpfApp1.Views
             double ox = template.OffsetX * mmToWpf, oy = template.OffsetY * mmToWpf;
             double contentW = paperW - ml - mr, contentH = paperH - mt - mb;
 
-            int perPage = template.PaperMode == "Invoice" ? 1 : _selectedLayout;
+            int perPage = template.PaperMode == "Invoice" ? 1 : template.LayoutCount;
             int cols = perPage == 4 ? 2 : 1;
             int rows = perPage >= 2 ? 2 : 1;
             double gap = 3 * mmToWpf;
@@ -655,8 +695,8 @@ namespace WpfApp1.Views
                         previewImages.TryGetValue(items[globalIdx], out var bmp);
                         if (bmp != null)
                         {
-                            if (items[globalIdx].RotationAngle != 0)
-                                bmp = InvoicePrintService.RotateImage(bmp, items[globalIdx].RotationAngle);
+                            if (rotations[globalIdx] != 0)
+                                bmp = InvoicePrintService.RotateImage(bmp, rotations[globalIdx]);
                             double pad = 4, aw = w - pad * 2, ah = h - pad * 2;
                             double sc = Math.Min(aw / bmp.PixelWidth, ah / bmp.PixelHeight);
                             double dw = bmp.PixelWidth * sc, dh = bmp.PixelHeight * sc;
@@ -719,7 +759,6 @@ namespace WpfApp1.Views
                 rtb.Render(dv);
                 rtb.Freeze();
                 result.Add(rtb);
-                await Dispatcher.Yield(DispatcherPriority.Background);
             }
 
             return result;
@@ -808,6 +847,7 @@ namespace WpfApp1.Views
         private async void BtnPrint_Click2(object sender, RoutedEventArgs e)
         {
             if (_isPrintBusy) return;
+            DispatcherTimer? progressTimer = null;
             PrintProgressPanel.Visibility = Visibility.Collapsed;
             SetPrintBusy(true);
             try
@@ -833,12 +873,22 @@ namespace WpfApp1.Views
                 PrintProgressBar.IsIndeterminate = true;
                 BtnStartPrint.Content = "正在打印...";
                 SetPrintProgress("正在连接打印机...");
-                Action<string> reportProgress = message => Dispatcher.Invoke(() => SetPrintProgress(message));
+                string? pendingProgress = null;
+                Action<string> reportProgress = message => Interlocked.Exchange(ref pendingProgress, message);
+                progressTimer = new DispatcherTimer(DispatcherPriority.Background)
+                { Interval = TimeSpan.FromMilliseconds(100) };
+                progressTimer.Tick += (_, _) =>
+                {
+                    var message = Interlocked.Exchange(ref pendingProgress, null);
+                    if (message != null) SetPrintProgress(message);
+                };
+                progressTimer.Start();
                 var result = await InvoicePrintService.RunPrintWorkerAsync(() =>
                     InvoicePrintService.PreparePrintJob(request.PrinterName, request.Items, request.Template,
                         request.Landscape, request.CutLine,
                         (pages, context) => InvoicePrintService.PrintPages(pages, request.Copies, context, reportProgress),
                         reportProgress: reportProgress));
+                progressTimer.Stop();
                 await Task.Run(() => _service.RecordPrintHistory(request.Items));
                 if (result.Completed)
                 {
@@ -853,6 +903,7 @@ namespace WpfApp1.Views
             }
             catch (Exception ex)
             {
+                progressTimer?.Stop();
                 SetPrintProgress($"打印出错: {ex.Message}");
                 PrintProgressBar.IsIndeterminate = false;
                 PrintProgressBar.Visibility = Visibility.Collapsed;
@@ -860,6 +911,7 @@ namespace WpfApp1.Views
             }
             finally
             {
+                progressTimer?.Stop();
                 PrintProgressBar.IsIndeterminate = false;
                 PrintProgressBar.Visibility = Visibility.Collapsed;
                 BtnStartPrint.Content = "🖨️ 开始打印";
@@ -982,8 +1034,12 @@ namespace WpfApp1.Views
             {
                 if (started) return;
                 started = true;
+                bool entered = false;
                 try
                 {
+                    await _printerPreviewGate.WaitAsync(cancellationToken);
+                    entered = true;
+                    cancellationToken.ThrowIfCancellationRequested();
                     var data = await InvoicePrintService.RunPrintWorkerAsync(() =>
                         InvoicePrintService.PreparePrintJob(request.PrinterName, request.Items, request.Template,
                             request.Landscape, request.CutLine,
@@ -1019,6 +1075,7 @@ namespace WpfApp1.Views
                 {
                     if (!closed) info.Text = $"预览失败：{ex.Message}";
                 }
+                finally { if (entered) _printerPreviewGate.Release(); }
             };
 
             win.ShowDialog();
