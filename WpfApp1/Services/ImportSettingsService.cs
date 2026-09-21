@@ -12,6 +12,8 @@ namespace WpfApp1.Services
 
         public string? TempTablePrefix { get; set; }
 
+        public string QuickTablePrefix { get; set; } = "TJK_";
+
         public int BatchSize { get; set; } = 1000;
 
         public bool DropIfExists { get; set; } = true;
@@ -73,6 +75,7 @@ namespace WpfApp1.Services
             settings.DefaultTableName = NormalizeTableName(settings.DefaultDbType, settings.DefaultTableName, settings.TempTablePrefix);
             settings.BatchSize = settings.BatchSize <= 0 ? 1000 : settings.BatchSize;
             settings.DefaultExportPath = settings.DefaultExportPath?.Trim() ?? string.Empty;
+            settings.QuickTablePrefix = settings.QuickTablePrefix?.Trim() ?? "TJK_";
             return settings;
         }
 
@@ -94,6 +97,7 @@ namespace WpfApp1.Services
             DefaultDbType = settings.DefaultDbType,
             DefaultTableName = settings.DefaultTableName,
             TempTablePrefix = settings.TempTablePrefix,
+            QuickTablePrefix = settings.QuickTablePrefix,
             BatchSize = settings.BatchSize,
             DropIfExists = settings.DropIfExists,
             BatchInsert = settings.BatchInsert,

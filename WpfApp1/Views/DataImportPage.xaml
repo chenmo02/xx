@@ -8,6 +8,57 @@
       Loaded="Page_Loaded" PreviewKeyDown="Page_PreviewKeyDown"
       DragEnter="Page_DragEnter" Drop="Page_Drop">
     <Page.Resources>
+        <Style x:Key="ImportProgress" TargetType="ProgressBar">
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="Background" Value="#EBF2FC"/>
+            <Setter Property="Foreground" Value="#2475F5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border x:Name="PART_Track" Background="{TemplateBinding Background}" CornerRadius="3"/>
+                            <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}" CornerRadius="3" HorizontalAlignment="Left"/>
+                            <Border x:Name="LoadingWave" CornerRadius="3" Visibility="Collapsed">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#002475F5" Offset="0"/>
+                                        <GradientStop Color="#802475F5" Offset="0.35"/>
+                                        <GradientStop Color="#2475F5" Offset="0.5"/>
+                                        <GradientStop Color="#802475F5" Offset="0.65"/>
+                                        <GradientStop Color="#002475F5" Offset="1"/>
+                                        <LinearGradientBrush.RelativeTransform><TranslateTransform/></LinearGradientBrush.RelativeTransform>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="True">
+                                <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="LoadingWave" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsIndeterminate" Value="True"/>
+                                    <Condition Property="IsVisible" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <MultiTrigger.EnterActions>
+                                    <BeginStoryboard Name="FileLoadingAnimation">
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="LoadingWave"
+                                                             Storyboard.TargetProperty="(Border.Background).(Brush.RelativeTransform).(TranslateTransform.X)"
+                                                             From="-0.55" To="0.55" Duration="0:0:0.9" AutoReverse="True" RepeatBehavior="Forever">
+                                                <DoubleAnimation.EasingFunction><SineEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiTrigger.EnterActions>
+                                <MultiTrigger.ExitActions><RemoveStoryboard BeginStoryboardName="FileLoadingAnimation"/></MultiTrigger.ExitActions>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="ImportCard" TargetType="Border">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#E1EBFA"/>
@@ -185,7 +236,29 @@
                                     <TextBlock Text="DBF 编码" Style="{StaticResource FieldLabel}"/>
                                     <ComboBox x:Name="CbDbfEncoding" Style="{StaticResource ImportCombo}" SelectionChanged="CbDbfEncoding_SelectionChanged"/>
                                 </StackPanel>
-                                <ProgressBar x:Name="ProgressLoad" Height="5" Foreground="#2475F5" Margin="0,8,0,0" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+                                <Grid x:Name="FileLoadingPanel" ClipToBounds="True" Visibility="{Binding Visibility, ElementName=ProgressLoad}">
+                                <Border Background="#F4F8FF" CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="#2475F5" Margin="12,0,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="{Binding Value, ElementName=ProgressLoad, StringFormat={}{0:0}%}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsIndeterminate, ElementName=ProgressLoad}" Value="True">
+                                                                <Setter Property="Text" Value="请稍候…"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Text, ElementName=TxtStatus}" FontSize="11" Foreground="#536887"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </DockPanel>
+                                        <ProgressBar x:Name="ProgressLoad" Style="{StaticResource ImportProgress}" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </Border>
+                                </Grid>
                             </StackPanel>
                             <Border x:Name="FileInfoCard" Grid.Column="1" Background="#F4F8FF" CornerRadius="8" Padding="14,10" Margin="18,0,0,0">
                                 <StackPanel>
@@ -322,7 +395,7 @@
                         </DockPanel>
                         <TextBlock x:Name="TxtSqlStats" Text="" FontSize="12" Foreground="#7B8EAD" TextWrapping="Wrap" Margin="0,0,0,8"/>
                         <Grid Height="600" Background="#1E293B" ClipToBounds="True">
-                            <TextBox x:Name="TxtSqlOutput" IsReadOnly="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                            <TextBox x:Name="TxtSqlOutput" IsReadOnly="True" IsUndoEnabled="False" TextWrapping="Wrap" VerticalContentAlignment="Top"
                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FontSize="13"
                                  FontFamily="Consolas, 'Courier New'" IsInactiveSelectionHighlightEnabled="True"
                                  SelectionBrush="#426A9D" SelectionOpacity="0.6" CaretBrush="#F59E0B"
@@ -333,5 +406,43 @@
                 </Border>
             </StackPanel>
         </ScrollViewer>
+        <Border x:Name="SqlGeneratingOverlay" Background="#BFFFFFFF" Visibility="Collapsed">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="White"
+                    BorderBrush="#DDE9F8" BorderThickness="1" CornerRadius="12" Padding="32,24">
+                <StackPanel HorizontalAlignment="Center">
+                    <Grid Width="36" Height="36" Margin="0,0,0,16">
+                        <Grid x:Name="SqlLoadingSpinner">
+                        <Ellipse Stroke="#E1EBFA" StrokeThickness="3"/>
+                        <Path Stroke="#2475F5" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Data="M 18,1.5 A 16.5,16.5 0 0 1 34.5,18" RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform><RotateTransform/></Path.RenderTransform>
+                            <Path.Style>
+                                <Style TargetType="Path">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsVisible" Value="True">
+                                            <Trigger.EnterActions>
+                                                <BeginStoryboard Name="SqlLoadingAnimation">
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                         From="0" To="360" Duration="0:0:0.9" RepeatBehavior="Forever"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.EnterActions>
+                                            <Trigger.ExitActions><RemoveStoryboard BeginStoryboardName="SqlLoadingAnimation"/></Trigger.ExitActions>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                        </Grid>
+                        <Path x:Name="SqlLoadingComplete" Visibility="Collapsed" Stroke="#10B981" StrokeThickness="3"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M 7,18 L 15,26 L 30,10"/>
+                    </Grid>
+                    <TextBlock x:Name="TxtSqlLoadingTitle" Text="正在生成 SQL…" Foreground="#172E54" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="TxtSqlLoadingHint" Text="数据较多时需要一些时间，请稍候" Foreground="#7B8EAD" FontSize="12" Margin="0,8,0,0" MinWidth="204" HorizontalAlignment="Center" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Border>
     </Grid>
 </Page>

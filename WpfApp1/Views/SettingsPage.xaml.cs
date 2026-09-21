@@ -51,6 +51,7 @@ namespace WpfApp1.Views
 
                 var settings = new ImportSettings
                 {
+                    QuickTablePrefix = ImportSettingsService.Load().QuickTablePrefix,
                     DefaultDbType = GetSelectedDbType(),
                     DefaultTableName = TxtDefaultTableName.Text.Trim(),
                     BatchSize = batchSize,

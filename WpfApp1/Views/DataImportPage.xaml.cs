@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using WpfApp1.Services;
 
@@ -22,6 +23,7 @@ namespace WpfApp1.Views
         private string? _currentSheetName;
         private string? _currentDbfEncoding;
         private DataTable? _currentData;
+        private string _generatedSql = "";
         private ImportSettings _importSettings = new();
         private string? _lastSuggestedTableName;
         private bool _isBusy;
@@ -275,28 +277,45 @@ namespace WpfApp1.Views
 
         private async Task LoadDataAsync(string filePath, string? sheetName)
         {
+            if (_isBusy) return;
+            bool reading = true;
+
             try
             {
                 SetBusyState(true, "正在读取文件...");
+                ClearGeneratedSql();
                 ShowProgress(0);
+                await Dispatcher.Yield(DispatcherPriority.Background);
 
                 var progress = new Progress<ImportProgressInfo>(info =>
                 {
+                    if (!reading) return;
                     UpdateStatus(info.Stage);
                     ShowProgress(info.Percentage);
                 });
 
-                _currentData = await Task.Run(() => FileParserService.ParseFile(filePath, sheetName, 0, _currentDbfEncoding, progress));
+                _currentData = await Task.Run(() =>
+                {
+                    var data = FileParserService.ParseFile(filePath, sheetName, 0, _currentDbfEncoding, progress);
+                    // Build the view index before binding it on the UI thread.
+                    _ = data.DefaultView.Count;
+                    return data;
+                });
+                reading = false;
+                UpdateStatus("正在准备数据预览…");
+                ShowProgress(0);
+                await Dispatcher.Yield(DispatcherPriority.Background);
                 DgPreview.ItemsSource = _currentData.DefaultView;
 
                 long fileSize = new FileInfo(filePath).Length;
                 UpdateFileInfo(filePath, sheetName, fileSize, _currentData.Rows.Count, _currentData.Columns.Count);
-                ShowLoadHints(_currentData.Rows.Count);
 
                 TxtPreviewInfo.Text = $"已加载 {_currentData.Rows.Count:N0} 行 × {_currentData.Columns.Count:N0} 列，可直接编辑并重新生成 SQL。";
                 TxtPreviewInfo.Foreground = SuccessBrush;
+                await Dispatcher.Yield(DispatcherPriority.ContextIdle);
                 UpdateStatus("文件加载完成");
-                ToastService.Show(this, "文件加载完成");
+                ShowProgress(100);
+                await CompleteFileLoadingAsync();
                 UpdateExportButtons();
             }
             catch (Exception ex)
@@ -305,6 +324,7 @@ namespace WpfApp1.Views
             }
             finally
             {
+                reading = false;
                 HideProgress();
                 SetBusyState(false, "就绪");
             }
@@ -318,8 +338,7 @@ namespace WpfApp1.Views
             }
 
             ApplyDatabaseHint(forceTableName: false);
-            TxtSqlOutput.Clear();
-            TxtSqlStats.Text = "";
+            ClearGeneratedSql();
         }
 
         private async void BtnGenerateSql_Click(object sender, RoutedEventArgs e)
@@ -342,12 +361,11 @@ namespace WpfApp1.Views
             }
 
             CommitPendingGridEdits();
-            DataTable dataSnapshot = _currentData.Copy();
 
-            if (dataSnapshot.Rows.Count > 100000)
+            if (_currentData.Rows.Count > 100000)
             {
                 var result = MessageBox.Show(
-                    $"当前数据量为 {dataSnapshot.Rows.Count:N0} 行，生成 SQL 可能较慢且文件较大。\n\n是否继续生成？",
+                    $"当前数据量为 {_currentData.Rows.Count:N0} 行，生成 SQL 可能较慢且文件较大。\n\n是否继续生成？",
                     "大数据量警告",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning);
@@ -359,6 +377,14 @@ namespace WpfApp1.Views
                 }
             }
 
+            await GenerateSqlAsync();
+        }
+
+        private async Task GenerateSqlAsync()
+        {
+            // SetBusyState disables editing/reloading until the background reader finishes.
+            // Reading the committed table directly avoids duplicating every imported row.
+            DataTable data = _currentData!;
             SqlGeneratorService.DbType dbType = GetSelectedDbType();
             bool temporaryTable = ChkTemporaryTable.IsChecked == true;
             string tableName = SqlGeneratorService.NormalizeTableName(dbType, TxtTableName.Text, temporary: temporaryTable);
@@ -370,53 +396,107 @@ namespace WpfApp1.Views
             try
             {
                 SetBusyState(true, "正在生成 SQL...");
+                ClearGeneratedSql();
                 TxtTableName.Text = tableName;
-                ShowProgress(15);
-                TxtSqlOutput.Text = "正在生成 SQL，请稍候...";
+                SqlLoadingSpinner.Visibility = Visibility.Visible;
+                SqlLoadingComplete.Visibility = Visibility.Collapsed;
+                TxtSqlLoadingTitle.Text = "正在生成 SQL…";
+                TxtSqlLoadingHint.Text = "数据较多时需要一些时间，请稍候";
+                SqlGeneratingOverlay.Visibility = Visibility.Visible;
+                await Dispatcher.Yield(DispatcherPriority.Background);
 
-                string sql = await Task.Run(() => SqlGeneratorService.GenerateFullSql(
-                    dbType,
-                    tableName,
-                    dataSnapshot,
-                    dropIfExists: dropIfExists,
-                    batchInsert: batchInsert,
-                    batchSize: batchSize,
-                    limitStringLength: limitFieldLength,
-                    temporaryTable: temporaryTable));
+                var result = await Task.Run(() =>
+                {
+                    string sql = SqlGeneratorService.GenerateFullSql(
+                        dbType,
+                        tableName,
+                        data,
+                        dropIfExists: dropIfExists,
+                        batchInsert: batchInsert,
+                        batchSize: batchSize,
+                        limitStringLength: limitFieldLength,
+                        temporaryTable: temporaryTable);
+                    return (Sql: sql, Preview: BuildSqlPreview(sql),
+                        LineCount: sql.AsSpan().Count('\n') + 1,
+                        SizeKb: System.Text.Encoding.UTF8.GetByteCount(sql) / 1024d);
+                });
 
-                TxtSqlOutput.Text = sql;
+                _generatedSql = result.Sql;
+                TxtSqlOutput.Text = result.Preview;
                 TxtSqlOutput.ScrollToHome();
 
-                int lineCount = sql.Split(Environment.NewLine).Length;
-                double sizeKb = System.Text.Encoding.UTF8.GetByteCount(sql) / 1024d;
-                TxtSqlStats.Text = $"数据库: {dbType}  |  表名: {tableName}  |  数据: {dataSnapshot.Rows.Count:N0} 行  |  SQL: {lineCount:N0} 行  |  {sizeKb:F1} KB";
+                TxtSqlStats.Text = $"数据库: {dbType}  |  表名: {tableName}  |  数据: {data.Rows.Count:N0} 行  |  SQL: {result.LineCount:N0} 行  |  {result.SizeKb:F1} KB";
+                if (result.Preview.Length < result.Sql.Length)
+                    TxtSqlStats.Text += "  |  仅显示开头预览，复制和保存包含完整 SQL";
 
                 UpdateStatus("SQL 生成完成");
-                ToastService.Show(this, "SQL 生成完成");
-                ShowProgress(100);
+                // Finish preview layout before showing success and fading out the overlay.
+                await Dispatcher.Yield(DispatcherPriority.ContextIdle);
+                SqlLoadingSpinner.Visibility = Visibility.Collapsed;
+                SqlLoadingComplete.Visibility = Visibility.Visible;
+                TxtSqlLoadingTitle.Text = "SQL 生成完成";
+                TxtSqlLoadingHint.Text = "可以预览、复制或保存 SQL";
+                var completion = new TaskCompletionSource();
+                var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(260))
+                {
+                    BeginTime = TimeSpan.FromMilliseconds(240),
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+                };
+                fade.Completed += (_, _) => completion.TrySetResult();
+                SqlGeneratingOverlay.BeginAnimation(OpacityProperty, fade);
+                await completion.Task;
             }
             catch (Exception ex)
             {
+                _generatedSql = "";
                 TxtSqlOutput.Text = $"生成失败: {ex.Message}";
+                SqlGeneratingOverlay.Visibility = Visibility.Collapsed;
                 MessageBox.Show($"SQL 生成失败：\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 UpdateStatus("SQL 生成失败");
             }
             finally
             {
-                HideProgress();
+                SqlGeneratingOverlay.Visibility = Visibility.Collapsed;
+                SqlGeneratingOverlay.BeginAnimation(OpacityProperty, null);
                 SetBusyState(false, "就绪");
             }
         }
 
+        private static string BuildSqlPreview(string sql)
+        {
+            if (sql.AsSpan().Count('\n') + 1 <= 5000) return sql;
+
+            // Only large documents need a bounded preview before WPF wraps/highlights them.
+            int lines = 0;
+            for (int i = 0; i < sql.Length; i++)
+            {
+                if (sql[i] == '\n' && ++lines == 1000)
+                {
+                    int end = i > 0 && sql[i - 1] == '\r' ? i - 1 : i;
+                    return sql[..end];
+                }
+            }
+            return sql;
+        }
+
+        private void ClearGeneratedSql()
+        {
+            _generatedSql = "";
+            TxtSqlOutput.Clear();
+            TxtSqlStats.Text = "";
+            UpdateExportButtons();
+        }
+
         private void BtnCopySql_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
+            if (_isBusy) return;
+            if (string.IsNullOrWhiteSpace(_generatedSql))
             {
                 MessageBox.Show("当前没有可复制的 SQL。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            bool copied = TryCopyToClipboard(TxtSqlOutput.Text);
+            bool copied = TryCopyToClipboard(_generatedSql);
             if (!copied)
             {
                 MessageBox.Show("剪贴板当前被占用，请稍后再试。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -439,9 +519,10 @@ namespace WpfApp1.Views
             timer.Start();
         }
 
-        private void BtnSaveSql_Click(object sender, RoutedEventArgs e)
+        private async void BtnSaveSql_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(TxtSqlOutput.Text))
+            if (_isBusy) return;
+            if (string.IsNullOrWhiteSpace(_generatedSql))
             {
                 MessageBox.Show("当前没有可保存的 SQL。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -458,9 +539,23 @@ namespace WpfApp1.Views
 
             if (dialog.ShowDialog() == true)
             {
-                ExportService.ExportSql(dialog.FileName, TxtSqlOutput.Text);
+                string sql = _generatedSql;
+                try
+                {
+                    SetBusyState(true, "正在保存 SQL...");
+                    await Task.Run(() => ExportService.ExportSql(dialog.FileName, sql));
+                    ToastService.Show(this, "SQL 已保存");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"SQL 保存失败：\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                finally
+                {
+                    SetBusyState(false, "就绪");
+                }
                 UpdateStatus($"SQL 已保存: {dialog.FileName}");
-                ToastService.Show(this, "SQL 已保存");
             }
         }
 
@@ -591,9 +686,7 @@ namespace WpfApp1.Views
             TxtSheetName.Text = "—";
             TxtPreviewInfo.Text = "请先选择数据文件";
             TxtPreviewInfo.Foreground = MutedBrush;
-            TxtSqlOutput.Clear();
-            TxtSqlStats.Text = "";
-            UpdateExportButtons();
+            ClearGeneratedSql();
         }
 
         private void UpdateFileInfo(string filePath, string? sheetName, long fileSize, int totalRows, int totalCols)
@@ -607,22 +700,6 @@ namespace WpfApp1.Views
             TxtRowCount.Text = $"{totalRows:N0}";
             TxtColumnCount.Text = $"{totalCols:N0}";
             TxtSheetName.Text = string.IsNullOrWhiteSpace(sheetName) ? "—" : sheetName;
-        }
-
-        private void ShowLoadHints(int totalRows)
-        {
-            if (totalRows > 100000)
-            {
-                UpdateStatus($"当前数据量 {totalRows:N0} 行，加载和生成 SQL 可能较慢。");
-            }
-            else if (totalRows > 50000)
-            {
-                UpdateStatus($"数据量 {totalRows:N0} 行，建议优先使用批量 INSERT。");
-            }
-            else
-            {
-                UpdateStatus("正在加载数据...");
-            }
         }
 
         private void CommitPendingGridEdits()
@@ -743,8 +820,8 @@ namespace WpfApp1.Views
             BtnGenerateSql.IsEnabled = !_isBusy && hasData;
             BtnExportCsv.IsEnabled = !_isBusy && hasData;
             BtnExportJson.IsEnabled = !_isBusy && hasData;
-            BtnSaveSql.IsEnabled = !_isBusy && !string.IsNullOrWhiteSpace(TxtSqlOutput.Text);
-            BtnCopySql.IsEnabled = !_isBusy && !string.IsNullOrWhiteSpace(TxtSqlOutput.Text);
+            BtnSaveSql.IsEnabled = !_isBusy && !string.IsNullOrWhiteSpace(_generatedSql);
+            BtnCopySql.IsEnabled = !_isBusy && !string.IsNullOrWhiteSpace(_generatedSql);
         }
 
         private void SetBusyState(bool isBusy, string status)
@@ -772,6 +849,7 @@ namespace WpfApp1.Views
         {
             if (ProgressLoad != null)
             {
+                ProgressLoad.IsIndeterminate = value <= 0;
                 ProgressLoad.Visibility = Visibility.Visible;
                 ProgressLoad.Value = Math.Max(0, Math.Min(100, value));
             }
@@ -782,8 +860,30 @@ namespace WpfApp1.Views
             if (ProgressLoad != null)
             {
                 ProgressLoad.Visibility = Visibility.Collapsed;
+                ProgressLoad.IsIndeterminate = false;
                 ProgressLoad.Value = 0;
+                FileLoadingPanel.BeginAnimation(OpacityProperty, null);
+                FileLoadingPanel.BeginAnimation(HeightProperty, null);
             }
+        }
+
+        private async Task CompleteFileLoadingAsync()
+        {
+            var completion = new TaskCompletionSource();
+            var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(280),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            var collapse = new DoubleAnimation(FileLoadingPanel.ActualHeight, 0, TimeSpan.FromMilliseconds(220))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(480),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            collapse.Completed += (_, _) => completion.TrySetResult();
+            FileLoadingPanel.BeginAnimation(OpacityProperty, fade);
+            FileLoadingPanel.BeginAnimation(HeightProperty, collapse);
+            await completion.Task;
         }
 
         private void HandleLoadError(Exception ex, string title)

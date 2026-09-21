@@ -8,6 +8,8 @@ namespace WpfApp1.Views;
 public partial class QuickTablePage : Page
 {
     private List<QuickTableColumn> _columns = [];
+    private string _baseTableName = string.Empty;
+    private bool _updatingTableName;
 
     public QuickTablePage()
     {
@@ -15,6 +17,7 @@ public partial class QuickTablePage : Page
         _ = new WpfApp1.Behaviors.SmoothWheelScroll(PageScroller);
         CmbAllType.SelectedIndex = 0;
         var settings = ImportSettingsService.Load();
+        TxtTablePrefix.Text = settings.QuickTablePrefix;
         CmbDbType.SelectedIndex = settings.DefaultDbType switch
         {
             "SQL Server" => 1,
@@ -31,7 +34,8 @@ public partial class QuickTablePage : Page
         {
             var parsed = InsertStatementParser.Parse(TxtInsert.Text);
             string tableName = InsertStatementParser.ExtractTableName(TxtInsert.Text);
-            TxtTableName.Text = StripIdentifier(tableName);
+            _baseTableName = StripIdentifier(tableName);
+            ApplyTablePrefix();
             _columns = QuickTableService.InferColumns(parsed.Headers, parsed.Rows);
             ApplyCaseToColumns();
             GridColumns.ItemsSource = _columns;
@@ -166,7 +170,50 @@ public partial class QuickTablePage : Page
 
     private void TxtTableName_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (_updatingTableName) return;
+        _baseTableName = TxtTableName.Text;
+        string prefix = TxtTablePrefix?.Text.Trim() ?? string.Empty;
+        int nameStart = _baseTableName.LastIndexOf('.') + 1;
+        if (prefix.Length > 0 && _baseTableName[nameStart..].StartsWith(prefix, StringComparison.Ordinal))
+            _baseTableName = _baseTableName.Remove(nameStart, prefix.Length);
+        TxtOutput?.Clear();
+    }
 
+    private void TxtTablePrefix_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        ApplyTablePrefix();
+    }
+
+    private void BtnSaveTablePrefix_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var settings = ImportSettingsService.Load();
+            settings.QuickTablePrefix = TxtTablePrefix.Text.Trim();
+            ImportSettingsService.Save(settings);
+            TxtTablePrefix.Text = settings.QuickTablePrefix;
+            ToastService.Show(this, "表名前缀已保存");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"保存失败：{ex.Message}", "保存表名前缀失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ApplyTablePrefix()
+    {
+        if (TxtTableName == null) return;
+        string prefix = TxtTablePrefix?.Text.Trim() ?? string.Empty;
+        int nameStart = _baseTableName.LastIndexOf('.') + 1;
+        _updatingTableName = true;
+        try
+        {
+            TxtTableName.Text = string.IsNullOrWhiteSpace(_baseTableName)
+                ? string.Empty
+                : _baseTableName.Insert(nameStart, prefix);
+        }
+        finally { _updatingTableName = false; }
+        TxtOutput?.Clear();
     }
 
     private void TxtAllLength_TextChanged(object sender, TextChangedEventArgs e)
