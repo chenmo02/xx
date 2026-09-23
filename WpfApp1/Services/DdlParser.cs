@@ -67,6 +67,7 @@ namespace WpfApp1.Services
                 throw new InvalidOperationException("未找到字段定义块（找不到括号内内容）。");
 
             var result = new List<DvTargetColumn>();
+            var tablePrimaryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             int ordinal = 1;
 
             foreach (var part in SplitTopLevel(block))
@@ -76,6 +77,21 @@ namespace WpfApp1.Services
 
                 // 跳过表级约束
                 var upper = trimmed.ToUpperInvariant();
+                if (upper.Contains("PRIMARY") && upper.Contains("KEY"))
+                {
+                    var primaryKeyMatch = Regex.Match(trimmed,
+                        @"PRIMARY\s+KEY\s*\((?<columns>[^)]*)\)",
+                        RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    if (primaryKeyMatch.Success)
+                    {
+                        foreach (var name in primaryKeyMatch.Groups["columns"].Value.Split(','))
+                        {
+                            var normalizedName = name.Trim().Trim('`', '"', '[', ']');
+                            if (!string.IsNullOrWhiteSpace(normalizedName))
+                                tablePrimaryKeys.Add(normalizedName);
+                        }
+                    }
+                }
                 if (upper.StartsWith("PRIMARY") || upper.StartsWith("UNIQUE") ||
                     upper.StartsWith("INDEX") || upper.StartsWith("CONSTRAINT") ||
                     upper.StartsWith("KEY") || upper.StartsWith("CHECK"))
@@ -91,6 +107,14 @@ namespace WpfApp1.Services
 
             if (result.Count == 0)
                 throw new InvalidOperationException("解析后字段数为 0，请检查 DDL 格式。");
+
+            // A table-level primary key also makes every participating column
+            // non-null, even when the column definition omits NOT NULL.
+            foreach (var column in result)
+            {
+                if (tablePrimaryKeys.Contains(column.ColumnName))
+                    column.IsNullable = false;
+            }
 
             return result;
         }
@@ -196,7 +220,10 @@ namespace WpfApp1.Services
 
             // 是否可空
             string afterType = rest.Substring(typeMatch.Length).ToUpper();
-            bool isNullable = !afterType.Contains("NOT NULL");
+            // A column-level PRIMARY KEY constraint implies NOT NULL even when
+            // the DDL omits an explicit NOT NULL clause.
+            bool isNullable = !afterType.Contains("NOT NULL") &&
+                              !afterType.Contains("PRIMARY KEY");
 
             var normalized = SchemaNormalizer.Normalize(rawType, dbType);
 

@@ -135,7 +135,7 @@
                                        FontSize="24"
                                        FontWeight="Bold"
                                        Foreground="#4E6EF2"
-                                       Margin="0,2,0,0"><Run Text="v2.3."/><Run Language="zh-cn" Text="3"/></TextBlock>
+                                       Margin="0,2,0,0"><Run Text="v2.3."/><Run Language="zh-cn" Text="4"/></TextBlock>
                         </StackPanel>
                     </Border>
                 </Grid>

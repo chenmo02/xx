@@ -55,7 +55,7 @@ namespace WpfApp1.Models
         public int? MaxLength { get; init; }       // -1 表示不限制长度
         public int? NumericPrecision { get; init; }
         public int? NumericScale { get; init; }
-        public bool IsNullable { get; init; }
+        public bool IsNullable { get; set; }
         public DvDbType DatabaseType { get; init; }
 
         public string DisplayType

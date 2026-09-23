@@ -47,6 +47,12 @@ namespace WpfApp1.Views
         private string _issueSearchKeyword = string.Empty;
         private string? _exportedReportPath;
 
+        // ── 分页相关 ─────────────────────────────────────────────
+        private List<DvIssue> _allFilteredIssues = [];
+        private int _currentPage = 1;
+        private int _pageSize = 50;
+        private int _totalPages = 1;
+
         // true = 目标表结构发生了变化（DDL 重新解析或重新导入），需要重建字段映射
         // false = 仅源数据变化，保留已有映射
         private bool _structureChanged = true;
@@ -1721,9 +1727,117 @@ namespace WpfApp1.Views
 
         private void RefreshIssueView()
         {
-            _issueView?.Refresh();
-            int visibleCount = _issueView?.Cast<object>().Count() ?? 0;
-            TxtIssueVisibleCount.Text = $"共 {visibleCount:N0} 条";
+            if (_issueView == null)
+            {
+                _allFilteredIssues = [];
+                _currentPage = 1;
+                _totalPages = 1;
+                UpdatePaginationUI();
+                return;
+            }
+
+            // 获取所有过滤后的数据
+            _allFilteredIssues = _issueView.Cast<DvIssue>().ToList();
+            int totalCount = _allFilteredIssues.Count;
+
+            // 计算总页数
+            _totalPages = totalCount > 0 ? (int)Math.Ceiling((double)totalCount / _pageSize) : 1;
+
+            // 确保当前页在有效范围内
+            if (_currentPage > _totalPages)
+                _currentPage = _totalPages;
+            if (_currentPage < 1)
+                _currentPage = 1;
+
+            // 获取当前页数据并添加页面内序号
+            var pagedIssues = _allFilteredIssues
+                .Skip((_currentPage - 1) * _pageSize)
+                .Take(_pageSize)
+                .Select((issue, index) =>
+                {
+                    // 使用动态对象添加页面内序号属性
+                    return new
+                    {
+                        PageRowNumber = index + 1,
+                        issue.RowNumber,
+                        issue.PrimaryKeyDisplay,
+                        issue.HasUsablePrimaryKey,
+                        issue.SourceColumnName,
+                        issue.TargetColumnName,
+                        issue.TargetDataType,
+                        issue.Level,
+                        issue.ErrorType,
+                        issue.ActualValue,
+                        issue.FullActualValue,
+                        issue.Message,
+                        issue.LevelText
+                    };
+                })
+                .ToList();
+
+            // 更新 DataGrid
+            DgIssues.ItemsSource = pagedIssues;
+
+            // 更新UI
+            TxtIssueVisibleCount.Text = $"共 {totalCount:N0} 条";
+            UpdatePaginationUI();
+        }
+
+        private void UpdatePaginationUI()
+        {
+            // 添加空引用检查，防止在控件未加载时调用
+            if (RunCurrentPage == null || RunTotalPages == null || RunTotalIssues == null ||
+                BtnFirstPage == null || BtnPrevPage == null || BtnNextPage == null || BtnLastPage == null)
+                return;
+
+            RunCurrentPage.Text = _currentPage.ToString();
+            RunTotalPages.Text = _totalPages.ToString();
+            RunTotalIssues.Text = _allFilteredIssues.Count.ToString("N0");
+
+            BtnFirstPage.IsEnabled = _currentPage > 1;
+            BtnPrevPage.IsEnabled = _currentPage > 1;
+            BtnNextPage.IsEnabled = _currentPage < _totalPages;
+            BtnLastPage.IsEnabled = _currentPage < _totalPages;
+        }
+
+        private void FirstPage_Click(object sender, RoutedEventArgs e)
+        {
+            _currentPage = 1;
+            RefreshIssueView();
+        }
+
+        private void PrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage > 1)
+            {
+                _currentPage--;
+                RefreshIssueView();
+            }
+        }
+
+        private void NextPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage < _totalPages)
+            {
+                _currentPage++;
+                RefreshIssueView();
+            }
+        }
+
+        private void LastPage_Click(object sender, RoutedEventArgs e)
+        {
+            _currentPage = _totalPages;
+            RefreshIssueView();
+        }
+
+        private void PageSize_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (CbPageSize.SelectedItem is not ComboBoxItem item) return;
+            if (!int.TryParse(item.Content.ToString(), out int newSize)) return;
+
+            _pageSize = newSize;
+            _currentPage = 1; // 改变页大小时回到第一页
+            RefreshIssueView();
         }
 
         private void CbIssueTypeFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
