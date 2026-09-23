@@ -97,7 +97,8 @@
                     <TextBlock Text="🗄️ SQL 生成偏好" Style="{StaticResource CardTitle}"/>
                     <TextBlock Text="保存后会自动应用到数据导入页和导出对话框" Style="{StaticResource CardDesc}"/>
 
-                    <Grid Margin="0,0,0,14">
+                    <TextBlock Text="基础参数" FontSize="12" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,8"/>
+                    <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="16"/>
@@ -129,34 +130,32 @@
                         </StackPanel>
                     </Grid>
 
-                    <Grid Width="470" HorizontalAlignment="Left" Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                    <Border Height="1" Background="#E5E7EB" Margin="0,0,0,14"/>
+                    <TextBlock Text="生成选项" FontSize="12" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,8"/>
+                    <UniformGrid Columns="3" Margin="0,0,0,14">
                         <ToggleButton x:Name="ChkDefaultDropIfExists"
                                       Content="默认生成 DROP TABLE"
                                       Style="{StaticResource SqlPreferenceButton}"
+                                      Margin="0,0,6,0"
                                       IsChecked="True"/>
-                        <ToggleButton x:Name="ChkDefaultBatchInsert" Grid.Column="2"
+                        <ToggleButton x:Name="ChkDefaultBatchInsert"
                                       Content="默认启用批量 INSERT"
                                       Style="{StaticResource SqlPreferenceButton}"
+                                      Margin="3,0,3,0"
                                       IsChecked="True"/>
-                        <ToggleButton x:Name="ChkDefaultLimitFieldLength" Grid.Column="4"
+                        <ToggleButton x:Name="ChkDefaultLimitFieldLength"
                                       Content="默认限制文本长度为 1000"
                                       Style="{StaticResource SqlPreferenceButton}"
+                                      Margin="6,0,0,0"
                                       IsChecked="True"/>
-                    </Grid>
+                    </UniformGrid>
 
                     <Border Background="#F8FAFC"
                             BorderBrush="#E5E7EB"
                             BorderThickness="1"
                             CornerRadius="8"
                             Padding="12,10">
-                        <TextBlock Text="说明：这里填写的是默认表名本身。若你在数据导入页手动改过表名，系统不会强行覆盖。"
+                        <TextBlock Text="说明：默认表名仅在数据导入页未修改表名时使用；关闭批量 INSERT 后，每批行数设置不生效。SQL Server 单批最多生成 1000 行。"
                                    FontSize="12"
                                    Foreground="#64748B"
                                    TextWrapping="Wrap"/>
